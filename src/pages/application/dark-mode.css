@@ -1,0 +1,574 @@
+/*
+ * ============================================================
+ *  DARK MODE SYSTEM — School Management Dashboard
+ *  Strategy: CSS custom properties on :root / [data-theme="dark"]
+ *  Toggle:   Add data-theme="dark" to <html> element
+ *  Tailwind: class="dark" strategy also supported (both work)
+ * ============================================================
+ *
+ *  QUICK START:
+ *  1. Import this file once: import './dark-mode.css';
+ *  2. Toggle dark mode:
+ *       document.documentElement.dataset.theme = 'dark';   // on
+ *       document.documentElement.dataset.theme = 'light';  // off
+ *       document.documentElement.classList.toggle('dark'); // Tailwind compat
+ *  3. See Section 4 for the full JS helper utility.
+ * ============================================================
+ */
+
+
+/* ──────────────────────────────────────────────────────────── */
+/*  1. DESIGN TOKENS — Light mode (default)                    */
+/* ──────────────────────────────────────────────────────────── */
+
+:root {
+    --radius: 0.625rem;
+    --radius-sm:  calc(var(--radius) - 4px);
+    --radius-md:  calc(var(--radius) - 2px);
+    --radius-lg:  var(--radius);
+    --radius-xl:  calc(var(--radius) + 4px);
+
+    /* Surfaces */
+    --bg-page:          oklch(0.970 0.000 0);
+    --bg-base:          oklch(1.000 0.000 0);
+    --bg-subtle:        oklch(0.970 0.000 0);
+    --bg-muted:         oklch(0.960 0.000 0);
+    --bg-overlay:       rgba(0, 0, 0, 0.30);
+
+    /* Typography */
+    --text-primary:     oklch(0.145 0.000 0);
+    --text-secondary:   oklch(0.268 0.000 0);
+    --text-tertiary:    oklch(0.372 0.000 0);
+    --text-muted:       oklch(0.556 0.000 0);
+    --text-faint:       oklch(0.640 0.000 0);
+    --text-inverse:     oklch(1.000 0.000 0);
+
+    /* Borders */
+    --border-default:   oklch(0.922 0.000 0);
+    --border-strong:    oklch(0.870 0.000 0);
+    --border-focus:     oklch(0.546 0.215 263);
+
+    /* Brand — Blue */
+    --brand-50:         oklch(0.940 0.046 257);
+    --brand-100:        oklch(0.882 0.077 257);
+    --brand-600:        oklch(0.546 0.215 263);
+    --brand-700:        oklch(0.488 0.200 263);
+
+    /* Status colours */
+    --status-success-bg:    oklch(0.940 0.064 163);
+    --status-success-text:  oklch(0.380 0.130 163);
+    --status-success-dot:   oklch(0.480 0.157 163);
+
+    --status-warning-bg:    oklch(0.960 0.060 80);
+    --status-warning-text:  oklch(0.500 0.130 75);
+    --status-warning-dot:   oklch(0.620 0.160 75);
+
+    --status-danger-bg:     oklch(0.950 0.060 27);
+    --status-danger-text:   oklch(0.420 0.155 27);
+    --status-danger-dot:    oklch(0.550 0.215 27);
+
+    --status-info-bg:       oklch(0.940 0.046 257);
+    --status-info-text:     oklch(0.420 0.180 263);
+    --status-info-dot:      oklch(0.546 0.215 263);
+
+    /* Role badge colours */
+    --role-teacher-bg:   oklch(0.940 0.035 265);
+    --role-teacher-text: oklch(0.420 0.180 263);
+    --role-parent-bg:    oklch(0.940 0.035 297);
+    --role-parent-text:  oklch(0.390 0.160 297);
+    --role-admin-bg:     oklch(0.950 0.060 27);
+    --role-admin-text:   oklch(0.420 0.155 27);
+    --role-student-bg:   oklch(0.940 0.064 163);
+    --role-student-text: oklch(0.380 0.130 163);
+
+    /* Charts */
+    --chart-1: oklch(0.646 0.222 41.116);
+    --chart-2: oklch(0.600 0.118 184.704);
+    --chart-3: oklch(0.398 0.070 227.392);
+    --chart-4: oklch(0.828 0.189 84.429);
+    --chart-5: oklch(0.769 0.188 70.080);
+
+    /* Shadcn / Radix pass-through */
+    --background:                 oklch(1 0 0);
+    --foreground:                 oklch(0.145 0 0);
+    --card:                       oklch(1 0 0);
+    --card-foreground:            oklch(0.145 0 0);
+    --popover:                    oklch(1 0 0);
+    --popover-foreground:         oklch(0.145 0 0);
+    --primary:                    oklch(0.205 0 0);
+    --primary-foreground:         oklch(0.985 0 0);
+    --secondary:                  oklch(0.97 0 0);
+    --secondary-foreground:       oklch(0.205 0 0);
+    --muted:                      oklch(0.97 0 0);
+    --muted-foreground:           oklch(0.556 0 0);
+    --accent:                     oklch(0.97 0 0);
+    --accent-foreground:          oklch(0.205 0 0);
+    --destructive:                oklch(0.577 0.245 27.325);
+    --border:                     oklch(0.922 0 0);
+    --input:                      oklch(0.922 0 0);
+    --ring:                       oklch(0.708 0 0);
+    --sidebar:                    oklch(0.985 0 0);
+    --sidebar-foreground:         oklch(0.145 0 0);
+    --sidebar-primary:            oklch(0.205 0 0);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent:             oklch(0.97 0 0);
+    --sidebar-accent-foreground:  oklch(0.205 0 0);
+    --sidebar-border:             oklch(0.922 0 0);
+    --sidebar-ring:               oklch(0.708 0 0);
+}
+
+
+/* ──────────────────────────────────────────────────────────── */
+/*  2. DARK MODE TOKENS                                         */
+/*                                                              */
+/*  Surface hierarchy (blue-tinted, not pure black):            */
+/*    --bg-page    #0d0f14  deepest layer — page background     */
+/*    --bg-base    #171c24  cards, panels, sidebars             */
+/*    --bg-subtle  #1e2530  hover rows, collapsed sections      */
+/*    --bg-muted   #252d3a  tags, input fill, disabled areas    */
+/* ──────────────────────────────────────────────────────────── */
+
+[data-theme="dark"],
+.dark {
+
+    /* Surfaces */
+    --bg-page:          oklch(0.113 0.006 265);
+    --bg-base:          oklch(0.160 0.008 265);
+    --bg-subtle:        oklch(0.200 0.008 265);
+    --bg-muted:         oklch(0.240 0.008 265);
+    --bg-overlay:       rgba(0, 0, 0, 0.55);
+
+    /* Typography — never use pure white for body text */
+    --text-primary:     oklch(0.960 0.000 0);
+    --text-secondary:   oklch(0.890 0.000 0);
+    --text-tertiary:    oklch(0.780 0.000 0);
+    --text-muted:       oklch(0.640 0.000 0);
+    --text-faint:       oklch(0.520 0.000 0);
+    --text-inverse:     oklch(0.113 0.006 265);
+
+    /* Borders — subtle, not prison bars */
+    --border-default:   oklch(1 0 0 / 0.08);
+    --border-strong:    oklch(1 0 0 / 0.14);
+    --border-focus:     oklch(0.620 0.215 263);
+
+    /* Brand — slightly brighter to stay readable on dark */
+    --brand-50:         oklch(0.210 0.060 263);
+    --brand-100:        oklch(0.260 0.080 263);
+    --brand-600:        oklch(0.600 0.215 263);
+    --brand-700:        oklch(0.660 0.200 263);
+
+    /* Status — dark backgrounds, lighter readable text */
+    --status-success-bg:    oklch(0.220 0.060 163);
+    --status-success-text:  oklch(0.720 0.150 163);
+    --status-success-dot:   oklch(0.650 0.170 163);
+
+    --status-warning-bg:    oklch(0.230 0.060 75);
+    --status-warning-text:  oklch(0.820 0.140 75);
+    --status-warning-dot:   oklch(0.750 0.160 75);
+
+    --status-danger-bg:     oklch(0.220 0.060 27);
+    --status-danger-text:   oklch(0.780 0.190 27);
+    --status-danger-dot:    oklch(0.680 0.215 27);
+
+    --status-info-bg:       oklch(0.210 0.060 263);
+    --status-info-text:     oklch(0.760 0.170 263);
+    --status-info-dot:      oklch(0.660 0.215 263);
+
+    /* Role badges */
+    --role-teacher-bg:   oklch(0.220 0.065 263);
+    --role-teacher-text: oklch(0.760 0.170 263);
+    --role-parent-bg:    oklch(0.220 0.065 297);
+    --role-parent-text:  oklch(0.780 0.150 297);
+    --role-admin-bg:     oklch(0.220 0.060 27);
+    --role-admin-text:   oklch(0.780 0.190 27);
+    --role-student-bg:   oklch(0.210 0.060 163);
+    --role-student-text: oklch(0.730 0.160 163);
+
+    /* Charts — darker variants that pop on dark bg */
+    --chart-1: oklch(0.488 0.243 264.376);
+    --chart-2: oklch(0.696 0.170 162.480);
+    --chart-3: oklch(0.769 0.188 70.080);
+    --chart-4: oklch(0.627 0.265 303.900);
+    --chart-5: oklch(0.645 0.246 16.439);
+
+    /* Shadcn / Radix pass-through */
+    --background:                 oklch(0.145 0 0);
+    --foreground:                 oklch(0.985 0 0);
+    --card:                       oklch(0.205 0 0);
+    --card-foreground:            oklch(0.985 0 0);
+    --popover:                    oklch(0.205 0 0);
+    --popover-foreground:         oklch(0.985 0 0);
+    --primary:                    oklch(0.922 0 0);
+    --primary-foreground:         oklch(0.205 0 0);
+    --secondary:                  oklch(0.269 0 0);
+    --secondary-foreground:       oklch(0.985 0 0);
+    --muted:                      oklch(0.269 0 0);
+    --muted-foreground:           oklch(0.708 0 0);
+    --accent:                     oklch(0.269 0 0);
+    --accent-foreground:          oklch(0.985 0 0);
+    --destructive:                oklch(0.704 0.191 22.216);
+    --border:                     oklch(1 0 0 / 10%);
+    --input:                      oklch(1 0 0 / 15%);
+    --ring:                       oklch(0.556 0 0);
+    --sidebar:                    oklch(0.205 0 0);
+    --sidebar-foreground:         oklch(0.985 0 0);
+    --sidebar-primary:            oklch(0.488 0.243 264.376);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent:             oklch(0.269 0 0);
+    --sidebar-accent-foreground:  oklch(0.985 0 0);
+    --sidebar-border:             oklch(1 0 0 / 10%);
+    --sidebar-ring:               oklch(0.556 0 0);
+}
+
+
+/* ──────────────────────────────────────────────────────────── */
+/*  3. COMPONENT OVERRIDES                                       */
+/* ──────────────────────────────────────────────────────────── */
+
+[data-theme="dark"],
+.dark {
+
+    /* ── Page shell ── */
+    body,
+    #root,
+    .min-h-screen {
+        background-color: var(--bg-page);
+        color: var(--text-secondary);
+    }
+
+    /* ── Surfaces ── */
+    .bg-white                     { background-color: var(--bg-base)   !important; }
+    .bg-gray-50                   { background-color: var(--bg-subtle) !important; }
+    .bg-gray-50\/50               { background-color: var(--bg-subtle) !important; }
+    .bg-gray-50\/30               { background-color: var(--bg-subtle) !important; }
+    .bg-gray-100                  { background-color: var(--bg-muted)  !important; }
+    .bg-gray-100\/50              { background-color: var(--bg-muted)  !important; }
+    .bg-slate-50                  { background-color: var(--bg-subtle) !important; }
+    .bg-slate-50\/50              { background-color: var(--bg-subtle) !important; }
+    .bg-slate-50\/30              { background-color: var(--bg-subtle) !important; }
+    .bg-slate-100                 { background-color: var(--bg-muted)  !important; }
+    .bg-slate-200                 { background-color: var(--border-strong) !important; }
+
+    /* Shadow → subtle glow border instead */
+    .shadow-sm,
+    .shadow-md,
+    .shadow-xl,
+    .shadow-2xl {
+        box-shadow: 0 0 0 1px var(--border-default), 0 2px 8px rgba(0,0,0,0.40) !important;
+    }
+
+    /* ── Borders ── */
+    .border                       { border-color: var(--border-default) !important; }
+    .border-b                     { border-color: var(--border-default) !important; }
+    .border-t                     { border-color: var(--border-default) !important; }
+    .border-r                     { border-color: var(--border-default) !important; }
+    .border-l                     { border-color: var(--border-default) !important; }
+    .border-gray-100              { border-color: var(--border-default) !important; }
+    .border-gray-200              { border-color: var(--border-strong)  !important; }
+    .border-slate-200             { border-color: var(--border-strong)  !important; }
+    .border-slate-100             { border-color: var(--border-default) !important; }
+    .divide-gray-100 > *          { border-color: var(--border-default) !important; }
+    .divide-gray-50 > *           { border-color: var(--border-default) !important; }
+    .border-dashed                { border-color: var(--border-strong)  !important; }
+
+    /* ── Typography ── */
+    .text-gray-900                { color: var(--text-primary)   !important; }
+    .text-gray-800                { color: var(--text-secondary) !important; }
+    .text-gray-700                { color: var(--text-tertiary)  !important; }
+    .text-gray-600                { color: var(--text-tertiary)  !important; }
+    .text-gray-500                { color: var(--text-muted)     !important; }
+    .text-gray-400                { color: var(--text-faint)     !important; }
+    .text-slate-900               { color: var(--text-primary)   !important; }
+    .text-slate-800               { color: var(--text-secondary) !important; }
+    .text-slate-700               { color: var(--text-tertiary)  !important; }
+    .text-slate-600               { color: var(--text-tertiary)  !important; }
+    .text-slate-500               { color: var(--text-muted)     !important; }
+    .text-slate-400               { color: var(--text-faint)     !important; }
+    h1, h2, h3, h4, h5, h6       { color: var(--text-primary);  }
+
+    /* ── Brand blue ── */
+    .text-blue-600                { color: var(--brand-600)  !important; }
+    .text-blue-700                { color: var(--brand-700)  !important; }
+    .bg-blue-600                  { background-color: var(--brand-600) !important; color: #ffffff !important; }
+    .hover\:bg-blue-700:hover     { background-color: var(--brand-700) !important; }
+    .bg-blue-50                   { background-color: var(--brand-50)  !important; }
+    .bg-blue-100                  { background-color: var(--brand-100) !important; }
+    .border-blue-200              { border-color: oklch(0.320 0.090 263) !important; }
+    .border-blue-600              { border-color: var(--brand-600)       !important; }
+    .focus\:ring-blue-500:focus   { --tw-ring-color: var(--border-focus) !important; }
+    .ring-blue-50                 { --tw-ring-color: oklch(0.210 0.060 263 / 0.40) !important; }
+
+    /* Metric card bg tints */
+    .bg-blue-100\/50              { background-color: oklch(0.210 0.060 263 / 0.50) !important; }
+    .bg-yellow-100\/50            { background-color: oklch(0.220 0.060 75  / 0.50) !important; }
+    .bg-green-100\/50             { background-color: oklch(0.210 0.060 163 / 0.50) !important; }
+    .bg-purple-100\/50            { background-color: oklch(0.210 0.060 297 / 0.50) !important; }
+
+    /* ── Status — Green ── */
+    .bg-green-50                  { background-color: var(--status-success-bg)   !important; }
+    .bg-green-100                 { background-color: var(--status-success-bg)   !important; }
+    .bg-green-500                 { background-color: var(--status-success-dot)  !important; }
+    .text-green-600               { color: var(--status-success-text)            !important; }
+    .text-green-700               { color: var(--status-success-text)            !important; }
+    .text-green-800               { color: var(--status-success-text)            !important; }
+    .border-green-100             { border-color: oklch(0.300 0.090 163)         !important; }
+
+    /* ── Status — Yellow/Amber ── */
+    .bg-yellow-100                { background-color: var(--status-warning-bg)   !important; }
+    .bg-amber-50                  { background-color: var(--status-warning-bg)   !important; }
+    .text-yellow-700              { color: var(--status-warning-text)            !important; }
+    .text-amber-600               { color: var(--status-warning-text)            !important; }
+    .text-amber-700               { color: var(--status-warning-text)            !important; }
+
+    /* ── Status — Red ── */
+    .bg-red-50                    { background-color: var(--status-danger-bg)    !important; }
+    .bg-red-100                   { background-color: var(--status-danger-bg)    !important; }
+    .text-red-500                 { color: var(--status-danger-text)             !important; }
+    .text-red-600                 { color: var(--status-danger-text)             !important; }
+    .text-red-700                 { color: var(--status-danger-text)             !important; }
+    .border-red-100               { border-color: oklch(0.300 0.090 27)          !important; }
+
+    /* Danger buttons */
+    .bg-red-600                   { background-color: oklch(0.530 0.215 27)      !important; }
+    .hover\:bg-red-700:hover      { background-color: oklch(0.480 0.215 27)      !important; }
+    .hover\:bg-red-50:hover       { background-color: var(--status-danger-bg)    !important; }
+
+    /* ── Status — Purple (parent role) ── */
+    .bg-purple-50                 { background-color: var(--role-parent-bg)      !important; }
+    .bg-purple-100                { background-color: var(--role-parent-bg)      !important; }
+    .text-purple-600              { color: var(--role-parent-text)               !important; }
+    .text-purple-700              { color: var(--role-parent-text)               !important; }
+
+    /* ── Role badge combos ── */
+    .bg-blue-100.text-blue-700     { background: var(--role-teacher-bg)  !important; color: var(--role-teacher-text)  !important; }
+    .bg-purple-100.text-purple-700 { background: var(--role-parent-bg)   !important; color: var(--role-parent-text)   !important; }
+    .bg-red-100.text-red-700       { background: var(--role-admin-bg)    !important; color: var(--role-admin-text)    !important; }
+    .bg-green-100.text-green-700   { background: var(--role-student-bg)  !important; color: var(--role-student-text)  !important; }
+
+    /* ── Inputs & Textareas ── */
+    input,
+    textarea,
+    select {
+        background-color: var(--bg-muted)     !important;
+        border-color:     var(--border-strong) !important;
+        color:            var(--text-secondary) !important;
+    }
+    input::placeholder,
+    textarea::placeholder        { color: var(--text-faint) !important; }
+    input:focus,
+    textarea:focus,
+    select:focus {
+        background-color: var(--bg-subtle)    !important;
+        border-color:     var(--border-focus) !important;
+    }
+
+    /* ── Buttons — ghost/outline ── */
+    .bg-gray-50.text-gray-700,
+    .bg-gray-50.border.border-gray-200 {
+        background-color: var(--bg-muted)     !important;
+        border-color:     var(--border-strong) !important;
+        color:            var(--text-tertiary) !important;
+    }
+    .hover\:bg-gray-50:hover      { background-color: var(--bg-muted)    !important; }
+    .hover\:bg-gray-100:hover     { background-color: var(--bg-muted)    !important; }
+
+    /* Slate buttons (used in grade modals) */
+    .bg-slate-900                 { background-color: var(--bg-subtle)   !important; border: 1px solid var(--border-strong) !important; color: var(--text-primary) !important; }
+    .hover\:bg-slate-800:hover    { background-color: var(--bg-muted)    !important; }
+
+    /* Success button */
+    .bg-green-600                 { background-color: oklch(0.500 0.165 163) !important; }
+    .hover\:bg-green-700:hover    { background-color: oklch(0.450 0.155 163) !important; }
+
+    /* Emerald (ParentProfilePage save button) */
+    .bg-emerald-600               { background-color: oklch(0.500 0.170 163) !important; }
+    .hover\:bg-emerald-700:hover  { background-color: oklch(0.450 0.160 163) !important; }
+    .bg-emerald-50                { background-color: oklch(0.210 0.060 163) !important; }
+    .text-emerald-400             { color: oklch(0.720 0.160 163)            !important; }
+    .text-emerald-700             { color: oklch(0.720 0.160 163)            !important; }
+
+    /* ── Tables ── */
+    thead tr,
+    .bg-gray-50\/50               { background-color: var(--bg-subtle)   !important; }
+    .hover\:bg-gray-50\/50:hover  { background-color: oklch(0.200 0.008 265 / 0.70) !important; }
+
+    /* ── Sidebar & Nav ── */
+    .border-r.border-gray-200,
+    .border-b.border-gray-200     { border-color: var(--border-default)  !important; }
+
+    .bg-blue-50.text-blue-600.font-semibold {
+        background-color: var(--brand-50)   !important;
+        color:            var(--brand-600)  !important;
+    }
+
+    /* ── Header ── */
+    header.bg-white,
+    header.bg-white.border-b      {
+        background-color: var(--bg-base)     !important;
+        border-color:     var(--border-default) !important;
+    }
+
+    /* ── Modals & Dialogs ── */
+    .bg-black\/30,
+    .bg-black\/40,
+    .bg-slate-900\/40             { background-color: var(--bg-overlay)  !important; }
+
+    /* Modal panels — any white rounded+shadowed element */
+    .rounded-2xl.bg-white,
+    .rounded-3xl.bg-white,
+    .rounded-xl.bg-white {
+        background-color: var(--bg-base)       !important;
+        border: 1px solid var(--border-strong) !important;
+    }
+
+    /* Shadcn AlertDialog content */
+    [role="alertdialog"] {
+        background-color: var(--bg-base)       !important;
+        border: 1px solid var(--border-strong) !important;
+        color:            var(--text-secondary) !important;
+    }
+
+    /* ── Dropdown Menus ── */
+    .rounded-xl.shadow-xl.border,
+    .rounded-2xl.shadow-xl.border {
+        background-color: var(--bg-base)        !important;
+        border-color:     var(--border-strong)  !important;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.55) !important;
+    }
+
+    /* ── Toast Notifications ── */
+    .bg-red-50.border-red-100     {
+        background-color: var(--status-danger-bg)  !important;
+        border-color:     oklch(0.300 0.090 27)    !important;
+    }
+    .bg-green-50.border-green-100 {
+        background-color: var(--status-success-bg) !important;
+        border-color:     oklch(0.300 0.090 163)   !important;
+    }
+    .bg-blue-50.border-blue-100   {
+        background-color: var(--status-info-bg)    !important;
+        border-color:     oklch(0.300 0.090 263)   !important;
+    }
+
+    /* ── Tabs (AnalyticsComponent) ── */
+    .text-gray-800.border-gray-800 {
+        color:        var(--text-primary)  !important;
+        border-color: var(--text-primary)  !important;
+    }
+
+    /* ── Recharts ── */
+    .recharts-cartesian-grid line  { stroke: var(--border-default) !important; }
+    .recharts-text                 { fill:   var(--text-muted)     !important; }
+    .recharts-legend-item-text     { color:  var(--text-tertiary)  !important; }
+    .recharts-default-tooltip {
+        background-color: var(--bg-base)       !important;
+        border-color:     var(--border-strong) !important;
+        color:            var(--text-secondary) !important;
+    }
+
+    /* ── Circular progress rings ── */
+    .text-gray-200.stroke-current  { color: var(--border-strong) !important; }
+
+    /* ── Loading spinners ── */
+    .border-blue-100               { border-color: oklch(0.260 0.080 263) !important; }
+
+    /* ── Post-MVP overlays ── */
+    .bg-white\/60                  { background-color: oklch(0.160 0.008 265 / 0.75) !important; }
+
+    /* ── Orange accents (notifications / upcoming events) ── */
+    .bg-orange-50                  { background-color: oklch(0.220 0.060 45)  !important; }
+    .border-orange-100             { border-color:     oklch(0.300 0.080 45)  !important; }
+    .text-orange-700               { color:            oklch(0.780 0.170 45)  !important; }
+    .text-orange-500               { color:            oklch(0.730 0.175 45)  !important; }
+
+    /* ── Indigo (grading modals) ── */
+    .focus\:border-indigo-500:focus { border-color: oklch(0.580 0.195 280)   !important; }
+    .focus\:ring-indigo-500:focus   { --tw-ring-color: oklch(0.580 0.195 280) !important; }
+
+    /* ── Scroll bars (optional, improves feel on dark bg) ── */
+    * {
+        scrollbar-color: oklch(0.350 0.008 265) transparent;
+        scrollbar-width: thin;
+    }
+    *::-webkit-scrollbar             { width: 6px; height: 6px; }
+    *::-webkit-scrollbar-track       { background: transparent; }
+    *::-webkit-scrollbar-thumb       { background: oklch(0.350 0.008 265); border-radius: 3px; }
+    *::-webkit-scrollbar-thumb:hover { background: oklch(0.420 0.008 265); }
+}
+
+
+/* ──────────────────────────────────────────────────────────── */
+/*  4. JS HELPER UTILITY                                        */
+/*     Copy to:  src/utils/theme.js                             */
+/* ──────────────────────────────────────────────────────────── */
+/*
+const STORAGE_KEY = 'color-scheme';
+
+export function getTheme() {
+  return localStorage.getItem(STORAGE_KEY) ?? 'system';
+}
+
+export function applyTheme(theme) {
+  const root  = document.documentElement;
+  const isDark =
+    theme === 'dark' ||
+    (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+
+  root.dataset.theme = isDark ? 'dark' : 'light';
+  root.classList.toggle('dark', isDark);          // Tailwind compat
+  localStorage.setItem(STORAGE_KEY, theme);
+}
+
+export function toggleTheme() {
+  applyTheme(getTheme() === 'dark' ? 'light' : 'dark');
+}
+
+// Call once on app entry to restore saved preference:
+applyTheme(getTheme());
+
+// Sync with OS preference changes when 'system' is selected:
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  if (getTheme() === 'system') applyTheme('system');
+});
+*/
+
+
+/* ──────────────────────────────────────────────────────────── */
+/*  5. SYSTEM PREFERENCE FALLBACK                               */
+/*     Activates dark tokens automatically if the user's OS     */
+/*     is in dark mode and no explicit data-theme is set yet.   */
+/* ──────────────────────────────────────────────────────────── */
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]):not(.light) {
+        --bg-page:          oklch(0.113 0.006 265);
+        --bg-base:          oklch(0.160 0.008 265);
+        --bg-subtle:        oklch(0.200 0.008 265);
+        --bg-muted:         oklch(0.240 0.008 265);
+        --bg-overlay:       rgba(0, 0, 0, 0.55);
+
+        --text-primary:     oklch(0.960 0.000 0);
+        --text-secondary:   oklch(0.890 0.000 0);
+        --text-tertiary:    oklch(0.780 0.000 0);
+        --text-muted:       oklch(0.640 0.000 0);
+        --text-faint:       oklch(0.520 0.000 0);
+        --text-inverse:     oklch(0.113 0.006 265);
+
+        --border-default:   oklch(1 0 0 / 0.08);
+        --border-strong:    oklch(1 0 0 / 0.14);
+        --border-focus:     oklch(0.620 0.215 263);
+
+        --brand-50:         oklch(0.210 0.060 263);
+        --brand-100:        oklch(0.260 0.080 263);
+        --brand-600:        oklch(0.600 0.215 263);
+        --brand-700:        oklch(0.660 0.200 263);
+
+        --background:       oklch(0.145 0 0);
+        --foreground:       oklch(0.985 0 0);
+        --card:             oklch(0.205 0 0);
+        --card-foreground:  oklch(0.985 0 0);
+        --border:           oklch(1 0 0 / 10%);
+        --input:            oklch(1 0 0 / 15%);
+        --ring:             oklch(0.556 0 0);
+    }
+}
