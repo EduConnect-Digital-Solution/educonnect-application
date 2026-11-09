@@ -16,44 +16,98 @@ import { getFeeStructures } from './feeAPIs.js';
 import { getAcademicYears, getTerms, getAllPublishedTimetables } from '../timetable/timetableAPIs.js';
 import { listGradingScales } from './gradingAPIs.js';
 import { ROUTES } from '../navigation/navConfig.js';
+import apiClient from '../../../../utils/axiosConfig.js';
+import { uploadToCloudinary } from '../../../../utils/cloudinary.js';
 
-const LOGO_KEY       = 'educonnect-school-logo'; // data URL
-const GOLIVE_KEY     = 'educonnect-go-live';      // { liveAt: ISO }
+const PENDING_LOGO_KEY = 'educonnect-pending-logo'; // data URL chosen at registration, uploaded after first login
 
-function readJSON(key, fallback) {
-    try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
-}
-function writeJSON(key, value) {
-    localStorage.setItem(key, JSON.stringify(value));
+/* ─── Logo + go-live (backend: GET /onboarding, PUT /logo, POST /go-live) ─────── */
+const unwrapError = (err, fallback) => {
+    const data = err?.response?.data;
+    return new Error(data?.errors?.[0]?.msg || data?.message || fallback);
+};
+
+/** { logoUrl, goLive: { liveAt } | null } for the logged-in admin's school. */
+export async function getSchoolSettings() {
+    const { data } = await apiClient.get('/api/school/profile/onboarding');
+    const settings = data?.data ?? {};
+    return {
+        logoUrl: settings.logoUrl ?? null,
+        goLive: settings.goLive?.at ? { liveAt: settings.goLive.at } : null,
+    };
 }
 
-/* ─── School logo (MOCK: localStorage; awaiting backend upload endpoint) ─────── */
-export function getSchoolLogo() {
-    return localStorage.getItem(LOGO_KEY) || null;
-}
-export function saveSchoolLogo(dataUrl) {
-    if (dataUrl) localStorage.setItem(LOGO_KEY, dataUrl);
-    else localStorage.removeItem(LOGO_KEY);
+/** Save (or clear with null) the logo. Must be a Cloudinary URL. */
+export async function saveSchoolLogo(logoUrl) {
+    try {
+        await apiClient.put('/api/school/profile/logo', { logoUrl: logoUrl || null });
+    } catch (err) {
+        throw unwrapError(err, 'Could not save the school logo.');
+    }
     window.dispatchEvent(new Event('school-brand-changed'));
-    return { success: true, mock: true };
+    return { success: true };
 }
 
+/** Mark the school live. Safe to call twice: the first go-live time is kept. */
+export async function markGoLive() {
+    try {
+        const { data } = await apiClient.post('/api/school/profile/go-live');
+        return { liveAt: data?.data?.goLive?.at ?? new Date().toISOString() };
+    } catch (err) {
+        throw unwrapError(err, 'Could not mark the school live. Please try again.');
+    }
+}
 
-/* ─── Go-live status (MOCK: localStorage) ─ */
-export function getGoLive() {
-    return readJSON(GOLIVE_KEY, null); // { liveAt }
-}
-export function markGoLive() {
-    const payload = { liveAt: new Date().toISOString() };
-    writeJSON(GOLIVE_KEY, payload);
-    return payload;
-}
 /** True while the checklist should remain reachable after go-live (7-day window). */
-export function isWithinGoLiveWindow() {
-    const gl = getGoLive();
-    if (!gl?.liveAt) return false;
-    const days = (Date.now() - new Date(gl.liveAt).getTime()) / 86_400_000;
+export function isWithinGoLiveWindow(goLive) {
+    if (!goLive?.liveAt) return false;
+    const days = (Date.now() - new Date(goLive.liveAt).getTime()) / 86_400_000;
     return days <= 7;
+}
+
+/* ─── Logo chosen during registration ─────────────────────────────────────────
+ * The admin is not signed in at registration, so the image is held locally and
+ * uploaded (Cloudinary -> backend) on the first authenticated page load.
+ */
+export function setPendingLogo(dataUrl, email) {
+    try {
+        if (dataUrl && email) {
+            localStorage.setItem(PENDING_LOGO_KEY, JSON.stringify({ email: String(email).trim().toLowerCase(), dataUrl }));
+        } else {
+            localStorage.removeItem(PENDING_LOGO_KEY);
+        }
+    } catch { /* storage unavailable: the logo can be added later */ }
+}
+
+let pendingUploadInFlight = null; // one upload at a time, however many components ask
+
+/**
+ * Upload the registration logo, but only for the admin who chose it (matched by
+ * email) so a shared browser can't hand one school's logo to another.
+ */
+export function uploadPendingLogo(currentEmail) {
+    if (pendingUploadInFlight) return pendingUploadInFlight;
+
+    let pending = null;
+    try { pending = JSON.parse(localStorage.getItem(PENDING_LOGO_KEY)); } catch { /* ignore */ }
+    if (!pending?.dataUrl || !currentEmail) return Promise.resolve(null);
+    if (pending.email !== String(currentEmail).trim().toLowerCase()) return Promise.resolve(null);
+
+    pendingUploadInFlight = (async () => {
+        try {
+            const blob = await (await fetch(pending.dataUrl)).blob();
+            const file = new File([blob], 'school-logo', { type: blob.type || 'image/png' });
+            const url = await uploadToCloudinary(file);
+            await saveSchoolLogo(url);
+            localStorage.removeItem(PENDING_LOGO_KEY);
+            return url;
+        } catch {
+            return null; // keep it for the next load; branding is decorative
+        } finally {
+            pendingUploadInFlight = null;
+        }
+    })();
+    return pendingUploadInFlight;
 }
 
 
@@ -145,14 +199,17 @@ export async function getOnboardingState() {
     const percent = Math.round((doneCount / steps.length) * 100);
     const complete = doneCount === steps.length;
 
+    let settings = { logoUrl: null, goLive: null };
+    try { settings = await getSchoolSettings(); } catch { /* keep defaults */ }
+
     return {
         steps,
         doneCount,
         total: steps.length,
         percent,
         complete,
-        goLive: getGoLive(),
-        logoUrl: getSchoolLogo(),
+        goLive: settings.goLive,
+        logoUrl: settings.logoUrl,
     };
 }
 

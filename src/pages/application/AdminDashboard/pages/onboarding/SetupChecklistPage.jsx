@@ -50,8 +50,13 @@ export default function SetupChecklistPage() {
         return () => window.removeEventListener('focus', onFocus);
     }, [load]);
 
-    const handleGoLive = () => {
-        markGoLive();
+    const handleGoLive = async () => {
+        try {
+            await markGoLive();
+        } catch (err) {
+            pushToast({ message: err.message || 'Could not mark the school live. Please try again.' });
+            return;
+        }
         setShowCelebration(true);
         pushToast({ message: `${schoolName} is now live!` });
         load();
