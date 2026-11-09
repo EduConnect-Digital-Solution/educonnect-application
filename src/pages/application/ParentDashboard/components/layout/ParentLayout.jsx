@@ -10,6 +10,7 @@ import {
 import { Header } from '../../../dashboardUtilities.jsx';
 import { useAuth } from '../../../../../contexts/AuthContext.jsx';
 import {Images} from "../../../../../components/images.jsx";
+import { ToastHost } from '../../../../../components/patterns';
 import {
     AlertDialog, AlertDialogAction, AlertDialogCancel,
     AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -150,6 +151,7 @@ const ParentLayout = ({ children }) => {
                     {children}
                 </main>
             </div>
+            <ToastHost />
         </div>
     );
 };
