@@ -88,7 +88,8 @@ export default function ClassStudents() {
                     scores: studentScores,
                     mostRecentAssessment: mostRecent,
                     total: currentTotal,
-                    displayGrade: student.grade || 'Pending'
+                    // The API returns the grade as an object ({ letterGrade, percentage, ... }); show its label
+                    displayGrade: student.grade?.letterGrade || 'Pending'
                 };
             });
 

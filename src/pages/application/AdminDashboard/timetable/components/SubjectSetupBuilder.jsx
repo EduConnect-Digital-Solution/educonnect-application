@@ -1,5 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { availableSubjects as defaultSubjects } from '../../../../../utils/imports';
+import { pushToast, ConfirmDestructiveDialog } from '../../../../../components/patterns';
+
+// Readable message from a failed API call (all validation details, then the server message)
+const errMsg = (e) => {
+  const data = e?.response?.data;
+  const details = Array.isArray(data?.errors) ? data.errors.map(x => x?.msg || x?.message).filter(Boolean) : [];
+  if (details.length) return [...new Set(details)].join(' · ');
+  if (!e?.response && e?.message === 'Network Error') return 'Could not reach the server. Check your connection and try again.';
+  return data?.message || e?.message || 'Something went wrong. Please try again.';
+};
 import {
   Import,
   Search,
@@ -150,6 +160,7 @@ export default function SubjectSetupBuilder() {
 
   // Form state
   const [showForm,    setShowForm]    = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null); // subject awaiting delete confirmation
   const [editingSubj, setEditingSubj] = useState(null); // subject object being edited
 
   // Filter
@@ -177,14 +188,13 @@ export default function SubjectSetupBuilder() {
 
     try {
       const res = await bulkCreateSubjects(payload);
-      if (res.success) {
-        setSubjects(res.data.subjects);
-        setSuccess(true);
-        setTimeout(() => setSuccess(false), 3000);
-      }
+      if (!res.success) throw new Error(res.message || 'The standard subjects could not be loaded.');
+      setSubjects(res.data.subjects);
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 3000);
+      pushToast({ message: `${res.data.subjects.length} standard subjects loaded` });
     } catch (err) {
-      console.error(err);
-      alert('Failed to load default subjects.');
+      pushToast({ message: `Could not load the standard subjects. ${errMsg(err)}`, type: 'error', duration: 8000 });
     } finally {
       setLoading(false);
     }
@@ -195,13 +205,13 @@ export default function SubjectSetupBuilder() {
     setLoading(true);
     try {
       const res = await createSubject({ name, code, category });
-      if (res.success) {
-        setSubjects(prev => [...prev, res.data.subject]);
-        setShowForm(false);
-      }
+      if (!res.success) throw new Error(res.message || 'The subject could not be added.');
+      setSubjects(prev => [...prev, res.data.subject]);
+      setShowForm(false);
+      pushToast({ message: `${name} added` });
     } catch (err) {
-      console.error(err);
-      alert('Failed to add subject.');
+      // the form stays open so what was typed is not lost
+      pushToast({ message: `Could not add the subject. ${errMsg(err)}`, type: 'error', duration: 8000 });
     } finally {
       setLoading(false);
     }
@@ -213,32 +223,34 @@ export default function SubjectSetupBuilder() {
     setLoading(true);
     try {
       const res = await updateSubject(editingSubj.id, { name, code, category });
-      if (res.success) {
-        // Rebuild the subjects list with the updated entry in-place
-        setSubjects(prev => prev.map(s =>
-          s.id === editingSubj.id ? { ...s, name, code, category } : s
-        ));
-        setEditingSubj(null);
-      }
+      if (!res.success) throw new Error(res.message || 'The subject could not be updated.');
+      // Rebuild the subjects list with the updated entry in-place
+      setSubjects(prev => prev.map(s =>
+        s.id === editingSubj.id ? { ...s, name, code, category } : s
+      ));
+      setEditingSubj(null);
+      pushToast({ message: `${name} updated` });
     } catch (err) {
-      console.error(err);
-      alert('Failed to update subject.');
+      pushToast({ message: `Could not update the subject. ${errMsg(err)}`, type: 'error', duration: 8000 });
     } finally {
       setLoading(false);
     }
   };
 
   // ─── Delete (unified) ──────────
-  const handleDelete = async (subj) => {
-    if (!confirm(`Delete "${subj.name}"? This removes it from the school database.`)) return;
+  // The trash button only asks; the confirm dialog (rendered at the bottom) does the deleting.
+  const handleDelete = (subj) => setDeleteTarget(subj);
+
+  const confirmDelete = async () => {
+    const subj = deleteTarget;
     try {
       const res = await deleteSubjects(subj.id);
-      if (res.success) {
-        setSubjects(prev => prev.filter(s => s.id !== subj.id));
-      }
+      if (!res?.success) throw new Error(res?.message || 'The subject could not be deleted.');
     } catch (err) {
-      console.error(err);
+      throw new Error(errMsg(err)); // shown inside the dialog, which stays open
     }
+    setSubjects(prev => prev.filter(s => s.id !== subj.id));
+    pushToast({ message: `${subj.name} deleted` });
   };
 
   // ─── Loading ───────────────────
@@ -454,6 +466,17 @@ export default function SubjectSetupBuilder() {
           )}
         </div>
       </div>
+
+      <ConfirmDestructiveDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        verb="Delete"
+        noun="subject"
+        recordName={deleteTarget?.name}
+        requireReason={false}
+        consequence="The subject is removed from the school. This only works when no class, timetable or score uses it."
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }
