@@ -39,12 +39,12 @@ export async function createAcademicYear(payload) {
 }
 
 export async function updateAcademicYear(id, payload) {
-  const { data } = await apiClient.put(`/api/admin/academic-years/${id}`, payload);
+  const { data } = await apiClient.put(`/api/academic/years/${id}`, payload);
   return data;
 }
 
 export async function deleteAcademicYear(id) {
-  const { data } = await apiClient.delete(`/api/admin/academic-years/${id}`);
+  const { data } = await apiClient.delete(`/api/academic/years/${id}`);
   return data;
 }
 
@@ -59,7 +59,7 @@ export async function createTerm(payload) {
 }
 
 export async function updateTerm(id, payload) {
-  const { data } = await apiClient.put(`/api/admin/terms/${id}`, payload);
+  const { data } = await apiClient.put(`/api/academic/terms/${id}`, payload);
   return data;
 }
 
@@ -69,7 +69,7 @@ export async function setCurrentTerm(id) {
 }
 
 export async function deleteTerm(id) {
-  const { data } = await apiClient.delete(`/api/admin/terms/${id}`);
+  const { data } = await apiClient.delete(`/api/academic/terms/${id}`);
   return data;
 }
 
