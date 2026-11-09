@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import ParentLayout from "./components/layout/ParentLayout.jsx";
 import { getMyInvoices } from "./services/parentFeeAPIs.js";
 import ReceiptModal from "./ReceiptModal.jsx";
+import PayPanel from "./PayPanel.jsx";
+import { verifyPayment } from "./services/parentFeeAPIs.js";
 import {
     Wallet, Receipt, Calendar, Check, CircleCheck, Download,
     FileText, FileSpreadsheet, Printer, Lock, ChevronDown,
@@ -66,7 +68,7 @@ function btnVariant(variant) {
 
 function Button({ children, variant = "primary", size = "md", iconLeft = null, iconRight = null, fullWidth = false, onClick, className = "" }) {
   const sizeClass = BTN_SIZES[size] || BTN_SIZES.md;
-  const variantClass = btnVariant('outline');
+  const variantClass = btnVariant(variant);
   const widthClass = fullWidth ? "w-full" : "w-auto";
   
   return (
@@ -99,24 +101,12 @@ function Card({ children, title, subtitle, action, padding = true, elevated = fa
 const NGN = "₦";
 const money = (n) => NGN + Number(n || 0).toLocaleString("en-NG");
 
-const GATEWAYS = [
-  { id: "flutterwave", name: "Flutterwave", desc: "Card, bank transfer & USSD", mono: "F", color: "text-[#f5a623]", tint: "bg-[#fff5e6]", border: "border-[#f5a623]/20" },
-  { id: "paystack", name: "Paystack", desc: "Cards, Apple Pay & bank", mono: "P", color: "text-[#0ba4db]", tint: "bg-[#e6f7fd]", border: "border-[#0ba4db]/20" },
-  { id: "remita", name: "Remita", desc: "Bank transfer & RRR", mono: "R", color: "text-[#1f9d57]", tint: "bg-[#e8f7ee]", border: "border-[#1f9d57]/20" },
-];
-
 const NOTICES = [
   { icon: Flag, text: "Fees must be paid before examination registration opens." },
   { icon: Clock, text: "Late payment penalties may apply after the due date." },
   { icon: Receipt, text: "Receipts are generated automatically after successful payment." },
 ];
 
-const DOWNLOADS = [
-  { icon: FileText, label: "Download invoice", sub: "PDF · per child", tone: "brand" },
-  { icon: FileSpreadsheet, label: "Fee schedule", sub: "Full term breakdown", tone: "neutral" },
-  { icon: Receipt, label: "Payment receipt", sub: "After payment", tone: "neutral" },
-  { icon: Printer, label: "Print statement", sub: "Family summary", tone: "neutral" },
-];
 
 const titleCase = (s) => (s ? String(s).charAt(0).toUpperCase() + String(s).slice(1) : "");
 
@@ -280,37 +270,9 @@ function FeeDetailCard({ fee }) {
 }
 
 /* ---------- Gateway card -------------------------------------------------- */
-function GatewayCard({ g, selected, onSelect }) {
-  const active = selected === g.id;
-  return (
-    <button 
-      onClick={() => onSelect && onSelect(g.id)} 
-      className={`flex items-center gap-3 w-full text-left cursor-pointer px-3.5 py-3 rounded-lg transition-all duration-150 ease-out group ${
-        active 
-          ? "bg-blue-50 border-[1.5px] border-blue-600 ring-2 ring-blue-500/35" 
-          : "bg-white border-[1.5px] border-gray-200 hover:border-gray-300"
-      }`}
-    >
-      <span className={`inline-flex items-center justify-center w-9 h-9 rounded-md font-bold text-lg flex-none border ${g.tint} ${g.color} ${g.border}`}>
-        {g.mono}
-      </span>
-      <span className="flex flex-col gap-0.5 flex-1 min-w-0">
-        <span className="font-semibold text-[15px] leading-snug text-gray-900">{g.name}</span>
-        <span className="text-xs text-gray-500">{g.desc}</span>
-      </span>
-      <span className={`w-4.5 h-4.5 rounded-full flex-none border-2 inline-flex items-center justify-center ${
-        active ? "border-blue-600 bg-blue-600" : "border-gray-300 bg-transparent"
-      }`}>
-        {active && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
-      </span>
-    </button>
-  );
-}
-
 /* ---------- Checkout card (rail) ------------------------------------------ */
-function CheckoutCard({ fee, onViewReceipt }) {
+function CheckoutCard({ fee, onViewReceipt, onPaid }) {
   const fs = feeFin(fee);
-  const [sel, setSel] = useState("paystack");
   
   if (fs.outstanding <= 0) {
     return (
@@ -331,28 +293,7 @@ function CheckoutCard({ fee, onViewReceipt }) {
     );
   }
   
-  return (
-    <div className="flex flex-col gap-4 p-5 bg-white border border-gray-200 rounded-xl shadow-md mb-6">
-      <div className="flex flex-col gap-1 pb-4 border-b border-gray-200">
-        <span className="font-medium text-[11px] tracking-wider uppercase text-gray-500">Total amount due</span>
-        <div className="flex items-baseline gap-2.5">
-          <span className="font-semibold text-[38px] ">{money(fs.outstanding)}</span>
-          <Badge tone={fs.status.tone} dot>{fs.status.label}</Badge>
-        </div>
-        <span className="text-sm text-gray-500 mt-1">for {fee.feeStructureName}</span>
-      </div>
-      <div className="flex flex-col gap-2.5">
-        <span className="font-medium text-[11px] tracking-wider uppercase text-gray-500 mb-0.5">Choose a payment method</span>
-        {GATEWAYS.map(g => <GatewayCard key={g.id} g={g} selected={sel} onSelect={setSel} />)}
-      </div>
-      <Button variant="primary" size="lg" fullWidth iconRight={<ArrowRight size={18} className="ml-1" />} className="mt-1">
-        Pay {money(fs.outstanding)} now
-      </Button>
-      <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
-        <Lock size={13} className="text-green-500" />256-bit encrypted · PCI-DSS compliant
-      </div>
-    </div>
-  );
+  return <PayPanel fee={fee} onPaid={onPaid} />;
 }
 
 /* ---------- Payment breakdown (expandable) -------------------------------- */
@@ -522,37 +463,6 @@ function NoticesCard() {
   );
 }
 
-/* ---------- Downloads ----------------------------------------------------- */
-function DownloadTile({ d }) {
-  const IconCmp = d.icon;
-  return (
-    <button className={`flex items-center gap-3 p-3 text-left cursor-pointer rounded-lg transition-all duration-150 ease-out border bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300 group`}>
-      <span className={`inline-flex items-center justify-center w-9 h-9 flex-none rounded-md ${
-        d.tone === "brand" ? "bg-blue-50 text-blue-600" : "bg-gray-100 text-gray-600"
-      }`}>
-        <IconCmp size={17} />
-      </span>
-      <span className="flex flex-col gap-0.5 flex-1 min-w-0">
-        <span className="font-semibold text-sm leading-snug text-gray-900">{d.label}</span>
-        <span className="text-xs text-gray-500">{d.sub}</span>
-      </span>
-      <span className="text-gray-400 group-hover:text-blue-600 transition-colors duration-150">
-        <Download size={16} />
-      </span>
-    </button>
-  );
-}
-
-function DownloadsCard() {
-  return (
-    <Card title="Documents" subtitle="Download or print your records" className="mb-6">
-      <div className="grid grid-cols-1 gap-2.5">
-        {DOWNLOADS.map((d) => <DownloadTile key={d.label} d={d} />)}
-      </div>
-    </Card>
-  );
-}
-
 /* ---------- Student switcher (multiple children) -------------------------- */
 const statusDotClass = (tone) => {
   if (tone === "success") return "bg-green-500";
@@ -619,7 +529,7 @@ function StudentSwitcher({ fees, selectedFee, onSelect }) {
 }
 
 /* ---------- Statement layout (two-column, sticky checkout rail) ----------- */
-function LayoutStatement({ fee }) {
+function LayoutStatement({ fee, onPaid }) {
   const fs = feeFin(fee);
   const [receiptPaymentId, setReceiptPaymentId] = useState(null);
   return (
@@ -642,8 +552,7 @@ function LayoutStatement({ fee }) {
         </div>
         
         <div className="flex flex-col lg:sticky lg:top-4">
-          <CheckoutCard fee={fee} onViewReceipt={setReceiptPaymentId} />
-          <DownloadsCard />
+          <CheckoutCard fee={fee} onViewReceipt={setReceiptPaymentId} onPaid={onPaid} />
         </div>
       </div>
     </div>
@@ -666,6 +575,8 @@ export default function FeesAndPayments() {
     const [fees, setFees] = useState([]);
     const [selectedFee, setSelectedFee] = useState(null);
 
+    const [notice, setNotice] = useState(null); // { tone, text } after returning from a gateway
+
     const fetchFees = async () => {
         try {
             setLoading(true);
@@ -680,8 +591,38 @@ export default function FeesAndPayments() {
         }
     };
 
+    // Re-read invoices after a payment without blanking the page, keeping the same invoice selected.
+    const refreshFees = async () => {
+        try {
+            const feesList = await getMyInvoices();
+            setFees(feesList);
+            setSelectedFee((current) => feesList.find((f) => f.id === current?.id) ?? feesList[0] ?? null);
+        } catch { /* keep what is on screen */ }
+    };
+
     useEffect(() => {
         fetchFees();
+    }, []);
+
+    // Back from Paystack: the reference arrives in the query string. Check it, then tidy the URL.
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const reference = params.get('reference') || params.get('trxref');
+        if (!reference) return;
+        window.history.replaceState({}, '', window.location.pathname);
+
+        verifyPayment('paystack', reference)
+            .then((res) => {
+                if (res?.status === 'confirmed') {
+                    setNotice({ tone: 'success', text: 'Payment received. Thank you! Your receipt is in the payment history below.' });
+                    refreshFees();
+                } else if (res?.status === 'failed') {
+                    setNotice({ tone: 'warning', text: 'The payment was not completed, so you have not been charged. You can try again.' });
+                } else {
+                    setNotice({ tone: 'info', text: 'We are still confirming your payment. Please refresh in a few minutes.' });
+                }
+            })
+            .catch((e) => setNotice({ tone: 'warning', text: e.message }));
     }, []);
 
     if (loading) {
@@ -705,6 +646,15 @@ export default function FeesAndPayments() {
             <div className="mx-auto w-full pb-10">
                 <PageHeader />
 
+                {notice && (
+                    <div role="status" className={`flex items-start justify-between gap-3 mb-5 p-4 rounded-xl border text-sm leading-relaxed ${
+                        { success: 'bg-green-50 text-green-800 border-green-200', info: 'bg-blue-50 text-blue-800 border-blue-200', warning: 'bg-amber-50 text-amber-800 border-amber-200' }[notice.tone]
+                    }`}>
+                        <span>{notice.text}</span>
+                        <button type="button" onClick={() => setNotice(null)} aria-label="Dismiss" className="font-semibold opacity-70 hover:opacity-100">✕</button>
+                    </div>
+                )}
+
                 {error ? (
                     <div className="flex flex-col items-center gap-3 p-12 text-center bg-red-50 border border-red-200 rounded-2xl max-w-2xl mx-auto">
                         <span className="font-semibold text-lg text-red-800">{error}</span>
@@ -725,7 +675,7 @@ export default function FeesAndPayments() {
                         {fees.length > 1 && (
                             <StudentSwitcher fees={fees} selectedFee={activeFee} onSelect={setSelectedFee} />
                         )}
-                        {activeFee && <LayoutStatement key={activeFee.invoiceNumber} fee={activeFee} />}
+                        {activeFee && <LayoutStatement key={activeFee.invoiceNumber} fee={activeFee} onPaid={refreshFees} />}
                     </>
                 )}
             </div>

@@ -42,3 +42,50 @@ export async function getMyReceipt(paymentId) {
         throw unwrapError(err, 'Could not load the receipt. Please try again.');
     }
 }
+
+/* ─── Paying (backend: /api/fees/my/*) ───────────────────────────────────────
+ * Amounts sent to the backend are in kobo; the UI works in naira.
+ */
+const toKobo = (naira) => Math.round(Number(naira) * KOBO);
+
+/** Gateways the school can accept right now: [{ id, name, description, flow }] */
+export async function getMyGateways() {
+    try {
+        const { data } = await apiClient.get('/api/fees/my/gateways');
+        return data?.data?.gateways ?? [];
+    } catch (err) {
+        throw unwrapError(err, 'Could not load payment options.');
+    }
+}
+
+/** Paystack: returns { authorizationUrl, reference } to redirect the parent to. */
+export async function startPaystackPayment(invoiceId, amountNaira) {
+    try {
+        const { data } = await apiClient.post(`/api/fees/my/invoices/${invoiceId}/paystack`, { amount: toKobo(amountNaira) });
+        return data?.data;
+    } catch (err) {
+        throw unwrapError(err, 'Could not start the payment. Please try again.');
+    }
+}
+
+/** Bank transfer: returns { reference, accountNumber, bankName, amount (naira), expiresAt }. */
+export async function startBankTransfer(invoiceId, amountNaira) {
+    try {
+        const { data } = await apiClient.post(`/api/fees/my/invoices/${invoiceId}/nexapay`, { amount: toKobo(amountNaira) });
+        const d = data?.data;
+        return { ...d, amount: toNaira(d?.amount) };
+    } catch (err) {
+        throw unwrapError(err, 'Could not set up the bank transfer. Please try again.');
+    }
+}
+
+/** Returns { status: 'confirmed' | 'pending' | 'failed' | 'review', ... }. */
+export async function verifyPayment(gateway, reference) {
+    const url = gateway === 'paystack' ? '/api/fees/my/payments/paystack/verify' : '/api/fees/my/payments/nexapay/verify';
+    try {
+        const { data } = await apiClient.post(url, { reference });
+        return data?.data;
+    } catch (err) {
+        throw unwrapError(err, 'Could not check the payment. Please try again.');
+    }
+}
