@@ -4,7 +4,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {Eye, EyeOff, ArrowLeft, ArrowRight, Check, Home, ImagePlus, X} from 'lucide-react';
 import { RegSchool } from './authAPIs.js';
 import { Toast } from '../application/AdminDashboard/components/ui/Toast.jsx';
-import { saveSchoolLogo } from '../application/AdminDashboard/services/onboardingAPIs.js';
+import { setPendingLogo } from '../application/AdminDashboard/services/onboardingAPIs.js';
 
 // ─── Shared styles ──────────────
 const inputCls =
@@ -144,10 +144,9 @@ export function RegisterSchool() {
         setLoading(true);
         try {
             await RegSchool(payload);
-            // Persist the optional logo locally so it appears on first login.
-            // MOCK: stored client-side until a backend logo-upload endpoint exists.
-            if (logoData) saveSchoolLogo(logoData);
-            if (logoData) saveSchoolLogo(logoData);
+            // The admin isn't signed in yet, so hold the optional logo locally; it is
+            // uploaded and saved to the school on their first login.
+            if (logoData) setPendingLogo(logoData, payload.email);
             navigate(`/verify/school?email=${encodeURIComponent(payload.email)}`);
         } catch (err) {
             showToast(err?.message || err?.error || 'Registration failed. Please try again.');

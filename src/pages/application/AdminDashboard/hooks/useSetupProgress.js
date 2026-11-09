@@ -47,7 +47,7 @@ export default function useSetupProgress() {
         complete: state?.complete ?? false,
         goLive: state?.goLive ?? null,
         logoUrl: state?.logoUrl ?? null,
-        withinGoLiveWindow: isWithinGoLiveWindow(),
+        withinGoLiveWindow: isWithinGoLiveWindow(state?.goLive),
         refresh: load,
     };
 }
