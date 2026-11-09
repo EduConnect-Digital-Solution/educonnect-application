@@ -36,7 +36,7 @@ export function AuthLayout() {
     return (
         <div className="min-h-screen flex bg-white">
 
-            {/* ── LEFT PANEL ──────────────────────────────────────────────── */}
+            {/* ── LEFT PANEL ── */}
             <div className="hidden xl:flex flex-col w-[52%] relative overflow-hidden  ">
 
                 {/* Carousel Images */}
@@ -81,7 +81,7 @@ export function AuthLayout() {
                 </div>
             </div>
 
-            {/* ── RIGHT PANEL ─────────────────────────────────────────────── */}
+            {/* ── RIGHT PANEL ─ */}
             <div className="flex-1 flex flex-col bg-[#F4F6FB] overflow-y-auto">
 
                 {/* Mobile logo (only visible below xl) */}

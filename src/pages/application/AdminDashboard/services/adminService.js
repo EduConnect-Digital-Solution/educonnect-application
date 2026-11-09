@@ -12,4 +12,5 @@ export {
     getAllStudents,
     resendInvitation,
     terminateInvitation,
+    deletePermanentInvitation,
 } from '../../../auth/authAPIs.js';

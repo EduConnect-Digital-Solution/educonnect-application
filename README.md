@@ -216,7 +216,7 @@ For issues, questions, or support requests:
 
 This project is licensed under a Proprietary License. See [LICENSE](LICENSE.md) for details.
 
-© 2024 EduConnect. All rights reserved.
+© 2026 EduConnect. All rights reserved.
 
 ## Changelog
 

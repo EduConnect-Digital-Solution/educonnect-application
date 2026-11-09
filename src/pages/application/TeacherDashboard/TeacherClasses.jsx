@@ -3,8 +3,9 @@ import TeacherLayout from './components/layout/TeacherLayout.jsx';
 import { Link } from 'react-router-dom';
 import {getSubjectsByClass, getTeacherClasses} from "../../auth/authAPIs.js";
 import { Dialog, Transition } from '@headlessui/react';
-import { X } from 'lucide-react';
-// import {getTeacherClasses} from '../services/teacherService.jsx';
+import { X, GraduationCap } from 'lucide-react';
+import {CardGridSkeleton} from "../../../components/patterns/index.js";
+// import { CardGridSkeleton, EmptyState } from '../../../components/patterns';
 
 const TeacherClasses = () => {
     const [loading, setLoading] = useState(true);
@@ -57,12 +58,9 @@ const TeacherClasses = () => {
     if (loading) {
         return (
             <TeacherLayout>
-                <div className="flex flex-col items-center justify-center h-screen bg-gray-50">
-                    <div className="relative w-20 h-20">
-                        <div className="absolute inset-0 border-4 border-blue-100 rounded-full"></div>
-                        <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
-                    </div>
-                    <p className="mt-4 text-gray-500 font-medium animate-pulse">Fetching classes...</p>
+                <div className="flex flex-col h-full gap-5">
+                    <h2 className="text-2xl font-bold text-gray-900">My Classes</h2>
+                    <CardGridSkeleton cards={6} />
                 </div>
             </TeacherLayout>
         );
@@ -84,17 +82,16 @@ const TeacherClasses = () => {
                 <h2 className="text-2xl font-bold text-gray-800 mb-6">My Classes</h2>
 
                 {classes.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {classes.map((cls) => (
-                            <div className="bg-gray-50 rounded-xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-                                <h3 className="text-xl font-semibold text-gray-800 mb-2">{cls.name}</h3>
-                                <p className="text-gray-600">Students: <span className="font-medium text-gray-800">{cls.studentCount}</span></p>
-                                {/*<p className="text-gray-600">Subjects: <span className="font-medium text-gray-800">{cls.subjects.join(', ')}</span></p>*/}
-                                {/* Add more class details as needed */}
-                                <div className="mt-4 flex justify-end">
+                            <div key={cls.name} className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm hover:shadow-md hover:border-gray-300 transition-all">
+                                <h3 className="text-base font-bold text-gray-900 mb-1">{cls.name}</h3>
+                                <p className="text-xs text-gray-500">Students: <span className="font-semibold text-gray-700">{cls.studentCount}</span></p>
+                                
+                                <div className="mt-4 pt-4 border-t border-gray-50 flex justify-end">
                                     <button
                                         onClick={() => handleViewStudentsClick(cls)}
-                                        className="px-4 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                                        className="px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
                                     >
                                         View Students
                                     </button>
@@ -103,9 +100,13 @@ const TeacherClasses = () => {
                         ))}
                     </div>
                 ) : (
-                    <div className="text-center py-10">
-                        <p className="text-gray-600 text-lg">No classes assigned yet.</p>
-                        <p className="text-gray-500 mt-2">Please contact administration if you believe this is an error.</p>
+                    <div className="bg-white border border-gray-200 rounded-xl mt-4">
+                        <EmptyState 
+                            variant="first-use" 
+                            icon={GraduationCap}
+                            title="No classes assigned yet"
+                            description="Please contact administration if you believe this is an error."
+                        />
                     </div>
                 )}
             </div>

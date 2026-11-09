@@ -18,10 +18,18 @@ export default defineConfig({
         jsconfigPaths(),
     ],
 
+    resolve: {
+        // Prevent Vite from creating multiple React instances across lazy-loaded chunks.
+        // Without this, lazy() boundaries can each get their own React module instance,
+        // causing "resolveDispatcher() is null" hook errors in development.
+        dedupe: ['react', 'react-dom'],
+    },
+
     server: {
         proxy: {
             '/api': {
-                target: 'https://educonnect-backend-t7j1.onrender.com',
+                target: 'https://educonnect-backend-staging.onrender.com',
+                // target: 'https://educonnect-backend-t7j1.onrender.com',
                 changeOrigin: true,
                 secure: true,
             },

@@ -129,7 +129,7 @@ export default function CompleteRegistration() {
         try {
             await completeRegistration(payload);
             showToast("Registration complete", "success", 2000, () => {
-                navigate(`/login`);
+                navigate(`/`);
             });
         } catch (err) {
             showToast(err?.message || "Registration failed");
@@ -185,7 +185,7 @@ export default function CompleteRegistration() {
                         </h3>
 
                         <div className="space-y-1.5">
-                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">Institutional ID
+                            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider">School ID
                                 <span className={`text-red-600`}>*</span></label>
                             <input
                                 name="schoolId"

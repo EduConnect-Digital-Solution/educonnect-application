@@ -5,7 +5,7 @@ import {
     LogOut,
     Menu,
     X,
-    GraduationCap, User
+    GraduationCap, User, CreditCard
 } from 'lucide-react';
 import { Header } from '../../../dashboardUtilities.jsx';
 import { useAuth } from '../../../../../contexts/AuthContext.jsx';
@@ -33,6 +33,7 @@ export const Sidebar = () => {
     const navItems = [
         { name: 'Dashboard', icon: LayoutDashboard, link: '/dashboard/parent' },
         { name: 'My Children', icon: GraduationCap, link: '/dashboard/parent/children', label: '' },
+        { name: 'Fees & Payments', icon: CreditCard, link: '/dashboard/parent/fees' },
         { name: 'Profile', icon: User, link: '/dashboard/parent/profile' },
     ];
 

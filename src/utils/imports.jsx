@@ -257,7 +257,7 @@ export const availableSubjects = [
     "Physical Education",
     "Physical and Health Education",
     "Computer Studies",
-    "Information and Communication Technology (ICT)",
+    "Information and Communication Technology",
     "Data Processing",
     "Software Craft Practice",
     "Networking",
@@ -276,12 +276,12 @@ export const availableSubjects = [
     "Office Practice",
     "Tourism",
     "Literature-in-English",
-    "Christian Religious Studies (CRS)",
-    "Islamic Religious Studies (IRS)",
+    "Christian Religious Studies",
+    "Islamic Religious Studies",
     "Arabic",
     "Visual Arts",
     "Music",
-    "Theatre Arts / Drama",
+    "Theatre Arts and Drama",
     "Cultural and Creative Arts",
     "French",
     "Nigerian Languages",
@@ -317,3 +317,50 @@ export const availableSubjects = [
     "Cosmetology",
     "Environmental Management"
 ];
+
+export const registryStyles = [
+    {
+        id: "nigerian-standard",
+        name: "Nigerian 6-3-3-4 (Primary/SS)",
+        description: "Standard system: Primary 1-6, JSS 1-3, SS 1-3.",
+        levels: [
+            "Crèche", "Pre-Nursery", "Nursery 1", "Nursery 2",
+            "Primary 1", "Primary 2", "Primary 3", "Primary 4", "Primary 5", "Primary 6",
+            "JSS 1", "JSS 2", "JSS 3",
+            "SS 1", "SS 2", "SS 3"
+        ]
+    },
+    {
+        id: "british-international",
+        name: "British Curriculum (Year 1-13)",
+        description: "Common in private schools. Uses 'Key Stages'.",
+        levels: [
+            "Early Years (EYFS)", "Reception",
+            "Year 1", "Year 2", "Year 3", "Year 4", "Year 5", "Year 6",
+            "Year 7", "Year 8", "Year 9", "Year 10", "Year 11",
+            "Year 12 (A-Level)", "Year 13 (A-Level)"
+        ]
+    },
+    {
+        id: "american-grade",
+        name: "American/International (Grade 1-12)",
+        description: "Uses Elementary, Middle, and High School terms.",
+        levels: [
+            "Pre-K", "Kindergarten",
+            "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5",
+            "Grade 6", "Grade 7", "Grade 8",
+            "Grade 9", "Grade 10", "Grade 11", "Grade 12"
+        ]
+    },
+    {
+        id: "vocational-technical",
+        name: "Technical/Vocational (NABTEB)",
+        description: "Focuses on craft and technical skills (NTC/NBC).",
+        levels: [
+            "Junior Technical 1", "Junior Technical 2", "Junior Technical 3",
+            "NTC 1 (National Technical)", "NTC 2", "NTC 3",
+            "Advanced Technical"
+        ]
+    }
+];
+

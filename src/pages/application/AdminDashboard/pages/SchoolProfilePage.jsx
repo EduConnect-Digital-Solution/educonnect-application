@@ -3,7 +3,8 @@ import { School, Phone, Mail, Globe, MapPin, PencilLine, Power, Info } from 'luc
 import AdminLayout from '../components/layout/AdminLayout';
 import Input from '../components/ui/Input';
 import {getSchoolProfile, updateSchool, deactivateSchool, reactivateSchool} from "../../../auth/authAPIs.js";
-import {Toast} from "../components/ui/Toast.jsx";
+import SettingsBreadcrumb from '../components/ui/SettingsBreadcrumb.jsx';
+import { pushToast, DetailSkeleton } from '../../../../components/patterns';
 
 const Field = ({ label, value, icon: Icon, editable, name, onChange }) => (
     <div>
@@ -29,15 +30,11 @@ const Field = ({ label, value, icon: Icon, editable, name, onChange }) => (
 const SchoolProfilePage = () => {
     const [isEditing, setIsEditing] = useState(false);
     const [showStatusModal, setShowStatusModal] = useState(false);
-    const [statusAction, setStatusAction] = useState(''); // 'activate' or 'deactivate'
     const [statusReason, setStatusReason] = useState('');
     const [loading, setLoading] = useState(false);
     const [school, setSchool] = useState({});
-    const [toast, setToast] = useState({ show: false, message: '', type: 'error' });
 
-    const showToast = (message, type = 'error') => {
-        setToast({ show: true, message, type });
-    };
+    const showToast = (message, type) => pushToast({ message, type });
 
     const [formData, setFormData] = useState({
         schoolName: '',
@@ -139,22 +136,17 @@ const SchoolProfilePage = () => {
 
 
     if (loading) {
-        return (<AdminLayout>
-            <div className="flex items-center justify-center h-full">
-                <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-            </div>
-        </AdminLayout>);
+        return (
+            <AdminLayout>
+                <SettingsBreadcrumb section="Identity & Branding" />
+                <DetailSkeleton />
+            </AdminLayout>
+        );
     }
 
     return (
         <AdminLayout>
-            {toast.show && (
-                <Toast
-                    message={toast.message}
-                    type={toast.type}
-                    onClose={() => setToast({ ...toast, show: false })}
-                />
-            )}
+            <SettingsBreadcrumb section="Identity & Branding" />
             <div className="space-y-6">
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
                     <div className="flex justify-between items-center mb-6">

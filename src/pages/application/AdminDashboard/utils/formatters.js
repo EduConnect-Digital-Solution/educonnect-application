@@ -13,6 +13,22 @@ export const formatDate = (dateString) => {
     });
 };
 
+export const formatYear = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+    });
+};
+
+/**
+ * Money helpers — re-exported from the fee domain layer so the whole dashboard
+ * shares ONE implementation (single source of truth, no duplicate logic).
+ * Amounts are always handled in kobo (integer); ₦ display only via formatNaira.
+ */
+export { formatNaira, toKobo } from '../services/feeAPIs.js';
+
 export const formatStatus = (status) => {
     // Handle Booleans
     if (typeof status === 'boolean') {

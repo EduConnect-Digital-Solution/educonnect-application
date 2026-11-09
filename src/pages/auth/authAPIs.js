@@ -36,6 +36,59 @@ export async function getStudentInfo(studentId) {
     }
 }
 
+export async function getStudentInfoAdmin(studentId) {
+    // example response:
+    // {
+    //     "success": true,
+    //     "message": "Student details retrieved successfully",
+    //     "data": {
+    //     "student": {
+    //         "id": "453bb662-8842-445c-81ba-8980874a149b",
+    //             "studentId": null,
+    //             "firstName": "Prisilla",
+    //             "lastName": "Daniels",
+    //             "fullName": "Prisilla Daniels",
+    //             "email": "priscdaniels@gmail.com",
+    //             "classId": "e4d61b2d-e50c-41cc-b442-bf7e3f099703",
+    //             "armId": "ab3dc3c3-a654-40cf-8244-91b51962c04f",
+    //             "rollNumber": null,
+    //             "grade": null,
+    //             "dateOfBirth": "2026-06-17T00:00:00.000Z",
+    //             "gender": "male",
+    //             "address": "389, Avenue Des Rossignols, Morc Safeland",
+    //             "phone": "58534721",
+    //             "profileImage": null,
+    //             "isActive": true,
+    //             "createdAt": "2026-06-04T14:55:32.232Z",
+    //             "updatedAt": "2026-06-04T14:55:32.233Z",
+    //             "parents": [
+    //             {
+    //                 "id": "01870af8-23fc-4a0f-8ab2-0911a38d068e",
+    //                 "name": "Blessing Daniels",
+    //                 "email": "regos85058@aspensif.com",
+    //                 "phone": null
+    //             },
+    //             {
+    //                 "id": "8598ca83-bbed-47a8-88d4-d968eddbacdd",
+    //                 "name": "Test Parent",
+    //                 "email": "homaw79499@5nek.com",
+    //                 "phone": "+2348103203934"
+    //             }
+    //         ],
+    //             "teachers": []
+    //     },
+    //     "cached": false,
+    //         "generatedAt": "2026-06-11T17:27:37.122Z"
+    // }
+    // }
+    try {
+        const { data } = await apiClient.get(`/api/students/${studentId}`);
+        return data.data.student;
+    } catch (error) {
+        throw error?.response?.data || error;
+    }
+}
+
 export async function getParentProfile() {
     try {
         const { data } = await apiClient.get(`/api/parent/profile`);
@@ -63,7 +116,6 @@ export async function resendOTP(payload) {
     }
 }
 
-// New API function for dashboard data
 export async function getDashboardAnalytics() {
     try {
         const { data } = await apiClient.get('/api/admin/dashboard/analytics');
@@ -73,7 +125,6 @@ export async function getDashboardAnalytics() {
     }
 }
 
-// New API function for dashboard data
 export async function getParentDashboard() {
     try {
         const { data } = await apiClient.get('/api/parent/dashboard');
@@ -83,8 +134,6 @@ export async function getParentDashboard() {
     }
 }
 
-
-// New API function for dashboard data
 export async function getTeacherDashboard() {
     try {
         const { data } = await apiClient.get('/api/teacher/dashboard');
@@ -94,8 +143,6 @@ export async function getTeacherDashboard() {
     }
 }
 
-
-// New API function for dashboard data
 export async function getTeacherClasses() {
     try {
         const { data } = await apiClient.get('/api/teacher/classes');
@@ -113,7 +160,6 @@ export async function getTeacherStudents() {
         throw error?.response?.data || error;
     }
 }
-
 
 export async function getSubjectsByClass(className) {
 
@@ -133,7 +179,6 @@ export async function getStudentsByClassandSubject(className, subjectName) {
         throw error?.response?.data || error;
     }
 }
-
 
 export async function assignGrade(payload) {
     try {
@@ -162,7 +207,6 @@ export async function updateGrade(payload, gradeId) {
     }
 }
 
-
 export async function viewGrade(studentId) {
     try {
         const { data } = await apiClient.get(`/api/teacher/students/${studentId}/grades`);
@@ -172,10 +216,6 @@ export async function viewGrade(studentId) {
     }
 }
 
-
-
-
-// New API function for dashboard data
 export async function getDashboardUsers(role = '', status = '') {
     try {
         const { data } = await apiClient.get('/api/admin/dashboard/users', {
@@ -191,7 +231,6 @@ export async function getDashboardUsers(role = '', status = '') {
     }
 }
 
-// function to invite a teacher
 export async function inviteTeacher(payload) {
     try {
         const { data } = await apiClient.post('/api/school/auth/invite-teacher', payload);
@@ -201,7 +240,6 @@ export async function inviteTeacher(payload) {
     }
 }
 
-// function to invite a teacher
 export async function inviteParent(payload) {
     try {
         const { data } = await apiClient.post('/api/school/auth/invite-parent', payload);
@@ -211,8 +249,6 @@ export async function inviteParent(payload) {
     }
 }
 
-
-// Function Returns a maximum of 10 pending invitations
 export async function getInvitations() {
     try {
         const { data } = await apiClient.get('/api/school/auth/invitations?status=pending');
@@ -222,7 +258,6 @@ export async function getInvitations() {
     }
 }
 
-// function to invite a teacher
 export async function resendInvitation(payload) {
     try {
         const { data } = await apiClient.post('/api/school/auth/resend-invitation', payload);
@@ -232,7 +267,6 @@ export async function resendInvitation(payload) {
     }
 }
 
-// function to invite a teacher
 export async function terminateInvitation(payload) {
     try {
         const { data } = await apiClient.post('/api/school/auth/cancel-invitation', payload);
@@ -241,6 +275,16 @@ export async function terminateInvitation(payload) {
         throw error?.response?.data || error;
     }
 }
+
+export async function deletePermanentInvitation(invitationId) {
+    try {
+        const { data } = await apiClient.delete(`/api/admin/dashboard/invitations/${invitationId}/permanent`);
+        return data;
+    } catch (error) {
+        throw error?.response?.data || error;
+    }
+}
+
 
 export async function getAllStudents() {
     try {
@@ -279,13 +323,6 @@ export async function createStudent(payload) {
 }
 
 export async function deactivateSchool(payload) {
-    /*
-        {
-          "schoolId": "SPR5866",
-          "isActive": false,
-          "reason": "School requested temporary suspension"
-        }
-    */
     try {
         const { data } = await apiClient.post('/api/school/profile/status', payload);
         return data;
@@ -295,13 +332,6 @@ export async function deactivateSchool(payload) {
 }
 
 export async function reactivateSchool(payload) {
-    /*
-        {
-          "schoolId": "SPR5866",
-          "isActive": true,
-          "reason": "School requested activation"
-        }
-    */
     try {
         const { data } = await apiClient.post('/api/school/profile/status', payload);
         return data;
@@ -309,9 +339,6 @@ export async function reactivateSchool(payload) {
         throw error?.response?.data || error;
     }
 }
-
-
-
 
 export async function verifySession() {
     try {
@@ -323,14 +350,6 @@ export async function verifySession() {
 }
 
 export async function updateStudent(studentId, payload) {
-    // expected payload:
-    // {
-    //     "firstName": "Alice",
-    //     "lastName": "Johnson-Updated",
-    //     "class": "JSS2",
-    //     "section": "B",
-    //     "phone": "09033820144"
-    // }
     try {
         const { data } = await apiClient.put(`/api/students/${studentId}`, payload);
         return data;
@@ -338,7 +357,6 @@ export async function updateStudent(studentId, payload) {
         throw error?.response?.data || error;
     }
 }
-
 
 export async function updateSchool(payload) {
     try {
@@ -349,8 +367,6 @@ export async function updateSchool(payload) {
     }
 }
 
-
-// Toggle User Status for Teachers and Parents
 export async function toggleStatus(payload) {
     try {
         const { data } = await apiClient.post(`/api/admin/dashboard/users/toggle-status`, payload);
@@ -360,7 +376,6 @@ export async function toggleStatus(payload) {
     }
 }
 
-// Toggle User Status for Students
 export async function toggleStudentStatus(payload) {
     try {
         const { data } = await apiClient.post(`/api/students/toggle-status`, payload);
@@ -370,7 +385,6 @@ export async function toggleStudentStatus(payload) {
     }
 }
 
-// Toggle User Status for Students
 export async function deleteUser(payload) {
     try {
         const { data } = await apiClient.delete(`/api/admin/dashboard/users/remove`, {data: payload});
@@ -399,12 +413,6 @@ export async function deleteGrade(payload, studentId) {
 }
 
 export async function deleteClasses(payload) {
-    // expected payload:
-    // {
-    //     "teacherId": "694fe6e4f6a5eff53cd7f8eb",
-    //     "classes": ["JSS2"],
-    //     "schoolId": "SPR5866"
-    // }
     try {
         const { data } = await apiClient.delete(`/api/admin/teachers/remove-classes`, {data: payload});
         return data;
@@ -412,9 +420,6 @@ export async function deleteClasses(payload) {
         throw error?.response?.data || error;
     }
 }
-
-
-
 
 export async function linkStudentToParent(payload, parentId) {
     try {
@@ -426,7 +431,6 @@ export async function linkStudentToParent(payload, parentId) {
     }
 }
 
-
 export async function unlinkStudentToParent(payload, parentId) {
     try {
         const { data } = await apiClient.post(`/api/parent-management/parents/${parentId}/unlink-students`,
@@ -437,8 +441,8 @@ export async function unlinkStudentToParent(payload, parentId) {
     }
 }
 
-
 export async function assignSubjects(payload) {
+
     try {
         const { data } = await apiClient.post(`/api/admin/teachers/assign-subjects`,
             payload);
@@ -447,8 +451,6 @@ export async function assignSubjects(payload) {
         throw error?.response?.data || error;
     }
 }
-
-
 
 export async function completeRegistration(payload) {
     try {
@@ -460,16 +462,7 @@ export async function completeRegistration(payload) {
     }
 }
 
-
-
 export async function assignStudenttoTeacher(payload) {
-    // expected payload:
-    // {
-    //     "teacherId": "6962b912fa5cba86752091ff",
-    //     "studentIds": ["6961b35ac534684284150259"],
-    //     "schoolId": "FED9474"
-    // }
-    //
     try {
         const { data } = await apiClient.post(`/api/admin/assign-teacher`,
             payload);
@@ -490,12 +483,6 @@ export async function bulkAssignStudentToTeacher(payload) {
 }
 
 export async function unassignStudentToTeacher(payload) {
-    // expected payload:
-    // {
-    //     "teacherId": "507f1f77bcf86cd799439011",
-    //     "studentIds": ["507f1f77bcf86cd799439012"],
-    //     "schoolId": "SCH0001"
-    // }
     try {
         const { data } = await apiClient.post(`/api/admin/unassign-teacher`,
             payload);
@@ -505,29 +492,7 @@ export async function unassignStudentToTeacher(payload) {
     }
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 export async function assignClasses(payload) {
-    // expected Payload:
-    // {
-    //     "teacherId": "6962b912fa5cba86752091ff",
-    //     "classes": ["JSS1"],
-    //     "schoolId": "FED9474"
-    // }
     try {
         const { data } = await apiClient.post(`/api/admin/teachers/assign-classes`,
             payload);
@@ -536,8 +501,6 @@ export async function assignClasses(payload) {
         throw error?.response?.data || error;
     }
 }
-
-
 
 export async function updateParentProfile(payload) {
     try {
@@ -549,14 +512,7 @@ export async function updateParentProfile(payload) {
     }
 }
 
-
 export async function updateAdminProfile(payload) {
-    // expected Payload:
-    // {
-    //     "firstName": "John",
-    //     "lastName": "Doe-Updated",
-    //     "phone": "01234567890"
-    // }
     try {
         const { data } = await apiClient.put(`/api/school/profile/admin`,
             payload);
@@ -566,9 +522,42 @@ export async function updateAdminProfile(payload) {
     }
 }
 
+export async function getParentDetails(parentId) {
+    try {
+        const { data } = await apiClient.get(`/api/parent-management/parents/${parentId}`);
+        return data;
+    } catch (error) {
+        throw error?.response?.data || error;
+    }
+}
 
 
+export async function getTeacherDetails() {
+    try {
+        const { data } = await apiClient.get(`/api/teacher/profile`);
+        return data;
+    } catch (error) {
+        throw error?.response?.data || error;
+    }
+}
 
 
-
+export async function getPendingFees(parentId) {
+   return [{
+       "studentId": "453bb662-8842-445c-81ba-8980874a149b",
+       "studentName": "Prisilla Daniels",
+       "className": null,
+       "feeStructureId": "43ca595d-5577-4bad-bcad-cc55599d794e",
+       "feeStructureName": "SSS2 First Term School Fees",
+       "invoiceNumber": "INV-5B0B3-MPZYBJT1-0000",
+       "amount": 20000000,
+       "amountPaid": 0,
+       "amountDue": 20000000,
+       "dueDate": "2026-06-17T00:00:00.000Z",
+       "status": "pending",
+       "academicYearId": "74718fda-6ada-48cf-a52f-c4dc9cf05743",
+       "termId": "e4df07a0-ebb3-401b-8f09-4d78f0717d2b",
+       "isActive": true,
+   }]
+}
 

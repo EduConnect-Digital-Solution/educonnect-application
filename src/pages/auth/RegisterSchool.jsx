@@ -1,16 +1,16 @@
 // src/pages/auth/RegisterSchool.jsx
 import React, { useState } from 'react';
-import { NavLink } from 'react-router-dom';
-import {Eye, EyeOff, ArrowLeft, ArrowRight, Check, Home} from 'lucide-react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import {Eye, EyeOff, ArrowLeft, ArrowRight, Check, Home, ImagePlus, X} from 'lucide-react';
 import { RegSchool } from './authAPIs.js';
 import { Toast } from '../application/AdminDashboard/components/ui/Toast.jsx';
-import { VerifySchoolModal } from '../../components/modals.jsx';
+import { saveSchoolLogo } from '../application/AdminDashboard/services/onboardingAPIs.js';
 
-// ─── Shared styles ────────────────────────────────────────────────────────────
+// ─── Shared styles ──────────────
 const inputCls =
     'w-full px-4 py-3 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-[#0A61A4] focus:border-transparent transition-all';
 
-// ─── Field wrapper ────────────────────────────────────────────────────────────
+// ─── Field wrapper ──────────────
 const Field = ({ label, required, hint, children }) => (
     <div className="space-y-1.5">
         <label className="text-sm font-medium text-gray-700 flex items-center gap-1">
@@ -22,7 +22,7 @@ const Field = ({ label, required, hint, children }) => (
     </div>
 );
 
-// ─── Password strength ────────────────────────────────────────────────────────
+// ─── Password strength ──────────
 const getStrength = (pw) => {
     let s = 0;
     if (pw.length >= 8) s++;
@@ -35,14 +35,14 @@ const strengthLabel = ['', 'Weak', 'Fair', 'Good', 'Strong'];
 const strengthColor = ['', 'bg-red-400', 'bg-orange-400', 'bg-yellow-400', 'bg-green-500'];
 const strengthText  = ['', 'text-red-500', 'text-orange-500', 'text-yellow-600', 'text-green-600'];
 
-// ─── Steps ───────────────────────────────────────────────────────────────────
+// ─── Steps ─────────────────────
 const STEPS = [
     { id: 1, label: 'School Info' },
     { id: 2, label: 'Location' },
     { id: 3, label: 'Your Account' },
 ];
 
-// ─── Nigerian states ──────────────────────────────────────────────────────────
+// ─── Nigerian states ────────────
 const NG_STATES = [
     'Abia','Adamawa','Akwa Ibom','Anambra','Bauchi','Bayelsa','Benue','Borno',
     'Cross River','Delta','Ebonyi','Edo','Ekiti','Enugu','FCT','Gombe','Imo',
@@ -51,18 +51,27 @@ const NG_STATES = [
     'Yobe','Zamfara',
 ];
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Component ──────────────────
 export function RegisterSchool() {
+    const navigate = useNavigate();
     const [step, setStep]           = useState(1);
     const [direction, setDirection] = useState('forward');
     const [animating, setAnimating] = useState(false);
     const [loading, setLoading]     = useState(false);
     const [showPw, setShowPw]       = useState(false);
-    const [showModal, setShowModal] = useState(false);
-    const [verEmail, setVerEmail]   = useState('');
     const [toast, setToast]         = useState({ show: false, message: '', type: 'error' });
 
     const [schoolData, setSchoolData]     = useState({ schoolName: '', website: '', phone: '', description: '' });
+    const [logoData, setLogoData]         = useState(null); // optional school crest (data URL)
+
+    const handleLogoFile = (file) => {
+        if (!file) return;
+        if (!file.type.startsWith('image/')) return showToast('Please choose an image file.');
+        if (file.size > 1024 * 1024) return showToast('Logo must be under 1 MB.');
+        const reader = new FileReader();
+        reader.onload = () => setLogoData(reader.result);
+        reader.readAsDataURL(file);
+    };
     const [locationData, setLocationData] = useState({ address: '', city: '', state: '' });
     const [adminData, setAdminData]       = useState({ adminFirstName: '', adminLastName: '', adminEmail: '', password: '' });
 
@@ -71,7 +80,7 @@ export function RegisterSchool() {
         setTimeout(() => { setToast(p => ({ ...p, show: false })); cb?.(); }, ms);
     };
 
-    // ── Validation ────────────────────────────────────────────────────────────
+    // ── Validation ──────────────
     const validate = (s) => {
         const urlPat   = /^(?:https?:\/\/)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b[-a-zA-Z0-9()@:%_+.~#?&/=]*$/;
         const phonePat = /^(\+234|0)[789][01]\d{8}$/;
@@ -100,7 +109,7 @@ export function RegisterSchool() {
         return null;
     };
 
-    // ── Navigation ────────────────────────────────────────────────────────────
+    // ── Navigation ──────────────
     const goTo = (next, dir) => {
         if (animating) return;
         setDirection(dir);
@@ -110,7 +119,7 @@ export function RegisterSchool() {
     const handleNext = () => { const e = validate(step); if (e) return showToast(e); if (step < 3) goTo(step + 1, 'forward'); };
     const handleBack = () => { if (step > 1) goTo(step - 1, 'back'); };
 
-    // ── Submit ────────────────────────────────────────────────────────────────
+    // ── Submit ──────────────────
     const formatWebsite = (url) => {
         if (!url) return null;
         const c = url.trim().toLowerCase();
@@ -135,8 +144,11 @@ export function RegisterSchool() {
         setLoading(true);
         try {
             await RegSchool(payload);
-            setVerEmail(payload.email);
-            setShowModal(true);
+            // Persist the optional logo locally so it appears on first login.
+            // MOCK: stored client-side until a backend logo-upload endpoint exists.
+            if (logoData) saveSchoolLogo(logoData);
+            if (logoData) saveSchoolLogo(logoData);
+            navigate(`/verify/school?email=${encodeURIComponent(payload.email)}`);
         } catch (err) {
             showToast(err?.message || err?.error || 'Registration failed. Please try again.');
         } finally {
@@ -201,7 +213,7 @@ export function RegisterSchool() {
                     className={`px-7 py-7 transition-all ease-in-out ${slideClass}`}
                     style={{ transition: 'opacity 0.22s ease, transform 0.22s ease' }}
                 >
-                    {/* ── Step 1 ───────────────────────────────────────────── */}
+                    {/* ── Step 1 ──────── */}
                     {step === 1 && (
                         <div className="space-y-4">
                             <div>
@@ -212,6 +224,30 @@ export function RegisterSchool() {
                                 <input type="text" value={schoolData.schoolName}
                                        onChange={e => setSchoolData(p => ({ ...p, schoolName: e.target.value }))}
                                        placeholder="e.g. Greenfield Academy" className={inputCls} />
+                            </Field>
+
+                            {/* Optional school logo / crest */}
+                            <Field label="School Logo" hint="optional">
+                                <div className="flex items-center gap-3">
+                                    {logoData ? (
+                                        <div className="relative">
+                                            <img src={logoData} alt="School logo" className="w-16 h-16 rounded-xl object-cover ring-1 ring-gray-200" />
+                                            <button type="button" onClick={() => setLogoData(null)}
+                                                    className="absolute -top-2 -right-2 p-1 rounded-full bg-white border border-gray-200 text-gray-500 hover:text-red-500 shadow-sm">
+                                                <X size={12} />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <label className="flex flex-col items-center justify-center w-16 h-16 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 hover:border-[#0A61A4] hover:text-[#0A61A4] cursor-pointer transition-colors">
+                                            <ImagePlus size={18} />
+                                            <input type="file" accept="image/*" className="hidden"
+                                                   onChange={e => handleLogoFile(e.target.files?.[0])} />
+                                        </label>
+                                    )}
+                                    <p className="text-xs text-gray-400 leading-relaxed">
+                                        Appears on your dashboard, receipts and report cards.<br />PNG or JPG, under 1 MB.
+                                    </p>
+                                </div>
                             </Field>
                             <div className="grid grid-cols-2 gap-3">
                                 <Field label="Website" hint="optional">
@@ -236,7 +272,7 @@ export function RegisterSchool() {
                         </div>
                     )}
 
-                    {/* ── Step 2 ───────────────────────────────────────────── */}
+                    {/* ── Step 2 ──────── */}
                     {step === 2 && (
                         <div className="space-y-4">
                             <div>
@@ -266,7 +302,7 @@ export function RegisterSchool() {
                         </div>
                     )}
 
-                    {/* ── Step 3 ───────────────────────────────────────────── */}
+                    {/* ── Step 3 ──────── */}
                     {step === 3 && (
                         <div className="space-y-4">
                             <div>
@@ -316,7 +352,7 @@ export function RegisterSchool() {
                         </div>
                     )}
 
-                    {/* ── Navigation ───────────────────────────────────────── */}
+                    {/* ── Navigation ──── */}
                     <div className={`mt-7 flex gap-3 ${step === 1 ? 'justify-end' : 'justify-between'}`}>
                         {step > 1 && (
                             <button onClick={handleBack}
@@ -349,11 +385,11 @@ export function RegisterSchool() {
                 </div>
             </div>
 
-            {/* ── Footer ───────────────────────────────────────────────────── */}
+            {/* ── Footer ─────── */}
             <div className="mt-5 text-center space-y-2">
                 <p className="text-sm text-gray-500">
                     Already registered?{' '}
-                    <NavLink to="/login" className="text-[#0A61A4] font-semibold hover:underline">Sign in</NavLink>
+                    <NavLink to="/" className="text-[#0A61A4] font-semibold hover:underline">Sign in</NavLink>
                 </p>
                 {step === 3 && (
                     <p className="text-xs text-gray-400 max-w-sm mx-auto leading-relaxed">
@@ -364,10 +400,6 @@ export function RegisterSchool() {
                     </p>
                 )}
             </div>
-
-            {showModal && (
-                <VerifySchoolModal onClose={() => setShowModal(false)} email={verEmail} showToast={showToast} />
-            )}
         </>
     );
 }
