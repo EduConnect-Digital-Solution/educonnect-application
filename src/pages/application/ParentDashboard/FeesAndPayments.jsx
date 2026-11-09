@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import ParentLayout from "./components/layout/ParentLayout.jsx";
-import { getMyInvoices } from "./services/parentFeeAPIs.js";
+import { getMyInvoices, verifyPayment } from "./services/parentFeeAPIs.js";
 import ReceiptModal from "./ReceiptModal.jsx";
 import PayPanel from "./PayPanel.jsx";
-import { verifyPayment } from "./services/parentFeeAPIs.js";
 import {
     Wallet, Receipt, Calendar, Check, CircleCheck, Download,
     FileText, FileSpreadsheet, Printer, Lock, ChevronDown,
@@ -618,6 +617,8 @@ export default function FeesAndPayments() {
                     refreshFees();
                 } else if (res?.status === 'failed') {
                     setNotice({ tone: 'warning', text: 'The payment was not completed, so you have not been charged. You can try again.' });
+                } else if (res?.status === 'review') {
+                    setNotice({ tone: 'warning', text: 'We received your payment but need to check it against the invoice. Please contact the school office and quote your payment reference.' });
                 } else {
                     setNotice({ tone: 'info', text: 'We are still confirming your payment. Please refresh in a few minutes.' });
                 }
