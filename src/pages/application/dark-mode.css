@@ -17,9 +17,9 @@
  */
 
 
-/* ──────────────────────────────────────────────────────────── */
+/* ────────────── */
 /*  1. DESIGN TOKENS — Light mode (default)                    */
-/* ──────────────────────────────────────────────────────────── */
+/* ────────────── */
 
 :root {
     --radius: 0.625rem;
@@ -118,7 +118,7 @@
 }
 
 
-/* ──────────────────────────────────────────────────────────── */
+/* ────────────── */
 /*  2. DARK MODE TOKENS                                         */
 /*                                                              */
 /*  Surface hierarchy (blue-tinted, not pure black):            */
@@ -126,7 +126,7 @@
 /*    --bg-base    #171c24  cards, panels, sidebars             */
 /*    --bg-subtle  #1e2530  hover rows, collapsed sections      */
 /*    --bg-muted   #252d3a  tags, input fill, disabled areas    */
-/* ──────────────────────────────────────────────────────────── */
+/* ────────────── */
 
 [data-theme="dark"],
 .dark {
@@ -221,9 +221,9 @@
 }
 
 
-/* ──────────────────────────────────────────────────────────── */
+/* ────────────── */
 /*  3. COMPONENT OVERRIDES                                       */
-/* ──────────────────────────────────────────────────────────── */
+/* ────────────── */
 
 [data-theme="dark"],
 .dark {
@@ -497,10 +497,10 @@
 }
 
 
-/* ──────────────────────────────────────────────────────────── */
+/* ────────────── */
 /*  4. JS HELPER UTILITY                                        */
 /*     Copy to:  src/utils/theme.js                             */
-/* ──────────────────────────────────────────────────────────── */
+/* ────────────── */
 /*
 const STORAGE_KEY = 'color-scheme';
 
@@ -533,11 +533,11 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
 */
 
 
-/* ──────────────────────────────────────────────────────────── */
+/* ────────────── */
 /*  5. SYSTEM PREFERENCE FALLBACK                               */
 /*     Activates dark tokens automatically if the user's OS     */
 /*     is in dark mode and no explicit data-theme is set yet.   */
-/* ──────────────────────────────────────────────────────────── */
+/* ────────────── */
 
 @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]):not(.light) {

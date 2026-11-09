@@ -6,7 +6,7 @@ import { LoginSchool, LoginUser } from './authAPIs';
 import { Toast } from '../application/AdminDashboard/components/ui/Toast';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 
-// ─── Role Selection Card ─────────────────────────────────────────────────────
+// ─── Role Selection Card ───────
 const RoleCard = ({ title, description, icon, onClick }) => (
     <button
         onClick={onClick}
@@ -23,7 +23,7 @@ const RoleCard = ({ title, description, icon, onClick }) => (
     </button>
 );
 
-// ─── Input Field ─────────────────────────────────────────────────────────────
+// ─── Input Field ───────────────
 const Field = ({ label, required, children }) => (
     <div className="space-y-1.5">
         <label className="text-sm font-medium text-gray-700">
@@ -35,7 +35,7 @@ const Field = ({ label, required, children }) => (
 
 const inputCls = "w-full px-4 py-3 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-gray-50 focus:bg-white";
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+// ─── Main Component ─────────────
 export default function AuthPage() {
     const [selectedRole, setSelectedRole] = useState(null);
     const [view, setView] = useState('login'); // 'login' | 'forgot' | 'reset' | 'confirmed'
@@ -81,6 +81,13 @@ export default function AuthPage() {
         setIsLoading(true);
         try {
             const payload = { schoolId: formData.schoolId.trim(), email: formData.email.trim().toLowerCase(), password: formData.password };
+
+            // const payload = {
+            //     schoolId: "NEW3473",
+            //     email: "kogakip523@inraud.com",
+            //     password: "$Kene3504$"
+            // };
+
             const res = selectedRole === 'admin' ? await LoginSchool(payload) : await LoginUser(payload);
             if (res.success) {
                 await login(res);

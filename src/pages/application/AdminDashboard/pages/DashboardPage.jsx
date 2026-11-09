@@ -1,16 +1,15 @@
 import React, {useState, useEffect} from 'react';
 import {
     Mail, BookOpen, Users, UserCheck, GraduationCap, Clock, UserPlus, ChevronRight, RefreshCw, XCircle, X,
-    MailPlus
+    MailPlus, Trash2, Loader2
 } from 'lucide-react';
 import AdminLayout from '../components/layout/AdminLayout';
 import AnalyticsComponent from '../AnalyticsComponent';
-import {formatDate} from "../utils/formatters";
 import {useAuth} from "../../../../contexts/AuthContext.jsx";
 import QuickActions from '../components/dashboard/QuickActions';
-import {resendInvitation, terminateInvitation} from "../../../auth/authAPIs.js";
-import {Toast} from "../components/ui/Toast.jsx";
+import {resendInvitation, terminateInvitation, deletePermanentInvitation} from "../../../auth/authAPIs.js";
 import { getDashboardAnalytics, getInvitations } from '../services/adminService';
+import { DashboardSkeleton, pushToast } from '../../../../components/patterns';
 
 // TODO: Remove the total invitations page
 const EducationMetricCard = ({ title, value, icon: Icon, colorClass }) => {
@@ -69,7 +68,7 @@ const RecentActivity = ({ activities = { users: [], students: [], invitations: [
     };
 
     return (
-        <div className="bg-white rounded-4xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-white w-full  rounded-4xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="p-4 border-b border-gray-50 flex justify-between items-center">
                 <h3 className="font-bold text-gray-800">Recent Activity</h3>
             </div>
@@ -102,18 +101,19 @@ const RecentActivity = ({ activities = { users: [], students: [], invitations: [
     );
 };
 
-export const PendingInvitations = (invitations) => {
+export const PendingInvitations = ({ invitations, onRemoveInvitation }) => {
     const [showAllInvites, setShowAllInvites] = useState(false);
-    if (!invitations.invitations || invitations.invitations.length === 0) return null;
+    const inviteList = Array.isArray(invitations) ? invitations : (invitations?.invitations || []);
+    if (!inviteList || inviteList.length === 0) return null;
 
-    const displayInvites = invitations.invitations.slice(0, 3);
-    const hasMore = invitations.invitations.length > 3;
+    const displayInvites = inviteList.slice(0, 3);
+    const hasMore = inviteList.length > 3;
 
     return (
         <>
 
             {/* Invitation Management Section */}
-            <div className="bg-white p-6 rounded-4xl shadow-sm border border-gray-100 flex flex-col h-full">
+            <div className="bg-white w-full p-6 rounded-4xl shadow-sm border border-gray-100 flex flex-col h-full">
                 <div className="flex items-center justify-between mb-6">
                     <div>
                         <h2 className="text-xl font-bold text-gray-800">Pending Invitations</h2>
@@ -125,7 +125,7 @@ export const PendingInvitations = (invitations) => {
 
                 <div className="space-y-3 flex-1">
                     {displayInvites.map((inv) => (
-                        <InvitationItem key={inv.id} inv={inv} />
+                        <InvitationItem key={inv.id} inv={inv} onRemove={onRemoveInvitation} />
                     ))}
                 </div>
 
@@ -135,7 +135,7 @@ export const PendingInvitations = (invitations) => {
                         onClick={() => setShowAllInvites(true)}
                         className="mt-6 w-full py-3 rounded-2xl border border-dashed border-gray-200 text-gray-500 text-xs font-bold uppercase tracking-widest hover:bg-gray-50 hover:border-blue-200 hover:text-blue-600 transition-all group flex items-center justify-center gap-2"
                     >
-                        View all {invitations.invitations.length} invitations
+                        View all {inviteList.length} invitations
                         <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
                     </button>
                 )}
@@ -156,7 +156,7 @@ export const PendingInvitations = (invitations) => {
                         <div className="p-8 border-b border-gray-50 flex items-center justify-between">
                             <div>
                                 <h2 className="text-2xl font-bold text-gray-900">All Invitations</h2>
-                                <p className="text-sm font-medium text-gray-400">Showing {invitations.invitations.length} total sent invites</p>
+                                <p className="text-sm font-medium text-gray-400">Showing {inviteList.length} total sent invites</p>
                             </div>
                             <button
                                 onClick={() => setShowAllInvites(false)}
@@ -168,8 +168,8 @@ export const PendingInvitations = (invitations) => {
 
                         {/* Scrollable List */}
                         <div className="p-8 overflow-y-auto space-y-4">
-                            {invitations.invitations.map((inv) => (
-                                <InvitationItem key={inv.id} inv={inv} isFullWidth={true} />
+                            {inviteList.map((inv) => (
+                                <InvitationItem key={inv.id} inv={inv} isFullWidth={true} onRemove={onRemoveInvitation} />
                             ))}
                         </div>
 
@@ -186,7 +186,7 @@ export const PendingInvitations = (invitations) => {
     );
 };
 
-const InvitationItem = ({inv}) => {
+const InvitationItem = ({inv, onRemove}) => {
     // Basic date formatter for "invitedAt"
     const formatDate = (dateString) => {
         const date = new Date(dateString);
@@ -198,6 +198,7 @@ const InvitationItem = ({inv}) => {
         });
     };
     const resendCount = inv.resendCount || 0;
+    const isExpired = inv.status?.toLowerCase() === 'expired';
 
     const statusStyles = {
         pending: 'bg-amber-50 text-amber-600',
@@ -206,12 +207,11 @@ const InvitationItem = ({inv}) => {
         cancelled: 'bg-gray-50 text-gray-600'
     };
 
-    const [toast, setToast] = useState({ show: false, message: '', type: 'error' });
     const [cancelInvitation, setCancelInvitation] = useState(false);
+    const [deleteModal, setDeleteModal] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
-    const showToast = (message, type = 'error') => {
-        setToast({ show: true, message, type });
-    };
+    const showToast = (message, type = 'success') => pushToast({ message, type });
 
     const auth = useAuth();
     const schoolID = auth.user?.schoolId;
@@ -232,29 +232,41 @@ const InvitationItem = ({inv}) => {
     function handleResend() {
         resendInvitation(resendPayload).then(() => {
             showToast('Invitation resent successfully', 'success');
-        })
+        }).catch((err) => {
+            showToast(err?.message || 'Failed to resend invitation', 'error');
+        });
     }
 
     function handleCancel() {
         terminateInvitation(cancelPayload).then(() => {
             showToast('Invite has been cancelled', 'success');
-        })
+            if (onRemove) {
+                onRemove(inv.id);
+            }
+        }).catch((err) => {
+            showToast(err?.message || 'Failed to cancel invitation', 'error');
+        });
     }
 
-
-
+    async function handleDeletePermanent() {
+        try {
+            setIsDeleting(true);
+            const res = await deletePermanentInvitation(inv.id);
+            showToast(res?.message || res?.data?.message || 'Invitation deleted successfully', 'success');
+            setDeleteModal(false);
+            if (onRemove) {
+                onRemove(inv.id);
+            }
+        } catch (err) {
+            showToast(err?.message || 'Failed to delete invitation', 'error');
+        } finally {
+            setIsDeleting(false);
+        }
+    }
 
     return (
         <div
             className="group p-4 rounded-2xl border border-gray-50 bg-white hover:border-blue-100 hover:shadow-sm transition-all flex items-center gap-4">
-            {toast.show && (
-                <Toast
-                    message={toast.message}
-                    type={toast.type}
-                    onClose={() => setToast({ ...toast, show: false })}
-                />
-            )}
-
             {/* Info */}
             <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
@@ -266,7 +278,7 @@ const InvitationItem = ({inv}) => {
                         {inv.status}
                     </span>
                     {/* Subtle resend count indicator next to status */}
-                    {resendCount > 0 && (
+                    {!isExpired && resendCount > 0 && (
                         <span className="text-[9px] font-bold text-gray-400 italic">
                             ({resendCount} {resendCount === 1 ? 'retry' : 'retries'})
                         </span>
@@ -285,7 +297,7 @@ const InvitationItem = ({inv}) => {
                     <div className="flex items-center gap-1">
                         <span className="text-[10px] text-gray-400 font-medium">By</span>
                         <span className="text-[10px] font-bold text-blue-600 px-1.5 rounded">
-                            {inv.invitedBy.name}
+                            {inv.invitedBy?.name || 'Admin'}
                         </span>
                     </div>
                 </div>
@@ -293,29 +305,42 @@ const InvitationItem = ({inv}) => {
 
             {/* Actions */}
             <div className="flex items-center gap-1">
-                <div className="relative">
+                {isExpired ? (
                     <button
-                        onClick={handleResend}
-                        title="Resend Invitation"
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        onClick={() => setDeleteModal(true)}
+                        disabled={isDeleting}
+                        title="Delete Invitation"
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                     >
-                        <RefreshCw size={14}/>
+                        {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                     </button>
+                ) : (
+                    <>
+                        <div className="relative">
+                            <button
+                                onClick={handleResend}
+                                title="Resend Invitation"
+                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            >
+                                <RefreshCw size={14}/>
+                            </button>
 
-                    {/* Floating Badge on the Button */}
-                    {resendCount > 0 && (
-                        <div
-                            className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[8px] font-black text-white ring-2 ring-white">
-                            {resendCount}
+                            {/* Floating Badge on the Button */}
+                            {resendCount > 0 && (
+                                <div
+                                    className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[8px] font-black text-white ring-2 ring-white">
+                                    {resendCount}
+                                </div>
+                            )}
                         </div>
-                    )}
-                </div>
 
-                <button
-                    onClick={() => setCancelInvitation(true)}
-                    title="Cancel" className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                    <XCircle size={14}/>
-                </button>
+                        <button
+                            onClick={() => setCancelInvitation(true)}
+                            title="Cancel" className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                            <XCircle size={14}/>
+                        </button>
+                    </>
+                )}
             </div>
 
 
@@ -335,8 +360,8 @@ const InvitationItem = ({inv}) => {
                                 <h3 className="text-xl text-center font-bold mb-3 text-gray-900">Cancel Invitation</h3>
                                 <div className="flex items-center gap-3 mb-4">
 
-                                    <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center">
-                                        {inv.email[0].toUpperCase()}
+                                    <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center font-bold text-gray-700">
+                                        {inv.email[0]?.toUpperCase()}
                                     </div>
                                     <div>
                                         <p className="text-sm text-gray-500">{inv.email}</p>
@@ -345,7 +370,7 @@ const InvitationItem = ({inv}) => {
 
                                 <div className="mb-4 flex flex-row items-center gap-1 text-gray-600 ">
                                     <p className="text-sm ">Current Status:</p>
-                                    <span className={`text-[15px] font-medium`}>
+                                    <span className={`text-[15px] font-medium capitalize`}>
                                         {inv.status}
                                     </span>
                                 </div>
@@ -388,6 +413,55 @@ const InvitationItem = ({inv}) => {
                     </div>
                 </div>
             )}
+
+            {deleteModal && (
+                <div className="fixed inset-0 z-50 overflow-y-auto">
+                    <div className="flex min-h-full items-center justify-center p-4">
+                        <div className="fixed inset-0 bg-black/30" onClick={() => setDeleteModal(false)} />
+                        <div className="relative w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 shadow-xl transition-all">
+                            <button
+                                onClick={() => setDeleteModal(false)}
+                                className="absolute top-4 right-4 p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors"
+                            >
+                                <X size={20} />
+                            </button>
+
+                            <div>
+                                <h3 className="text-xl text-center font-bold mb-3 text-gray-900">Delete Invitation</h3>
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-bold">
+                                        {inv.email[0]?.toUpperCase()}
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-bold text-gray-800">{inv.email}</p>
+                                        <p className="text-xs text-gray-500 capitalize">{inv.role} invitation</p>
+                                    </div>
+                                </div>
+
+                                <p className="text-sm text-gray-600 mb-6">
+                                    Are you sure you want to permanently delete this expired invitation? This action cannot be undone.
+                                </p>
+
+                                <div className="flex gap-3 w-full">
+                                    <button
+                                        onClick={() => setDeleteModal(false)}
+                                        className="flex-1 py-3 px-4 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 transition-all"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        disabled={isDeleting}
+                                        onClick={handleDeletePermanent}
+                                        className="flex-1 py-3 px-4 bg-red-600 text-white rounded-xl text-sm font-medium hover:bg-red-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2 font-medium"
+                                    >
+                                        {isDeleting ? <Loader2 size={16} className="animate-spin" /> : 'Delete Permanently'}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
@@ -407,6 +481,10 @@ const DashboardPage = () => {
     const [userActivities, setUserActivities] = useState([]);
     const [error, setError] = useState(null);
     const [isOffline, setIsOffline] = useState(false);
+
+    const handleRemoveInvitation = (invId) => {
+        setInvitations(prev => prev.filter(inv => inv.id !== invId));
+    };
 
     useEffect(() => {
         const fetchAnalytics = async () => {
@@ -441,7 +519,7 @@ const DashboardPage = () => {
                     email: invite.email,
                     role: invite.role,
                     status: invite.status,
-                    invitedBy: { name: invite.invitedBy.name },
+                    invitedBy: { name: invite.invitedBy?.name || 'Admin' },
                     invitedAt: invite.invitedAt,
                     resendCount: invite.resendCount,
                 }));
@@ -458,20 +536,8 @@ const DashboardPage = () => {
         fetchAnalytics();
     }, []);
 
-    const { logout } = useAuth();
-
     if (loading) {
-        return (
-            <AdminLayout>
-                <div className="flex flex-col items-center justify-center">
-                    <div className="relative w-20 h-20">
-                        <div className="absolute inset-0 border-4 border-blue-100 rounded-full"></div>
-                        <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
-                    </div>
-                    <p className="mt-4 text-gray-500 font-medium animate-pulse">Loading Admin Dashboard...</p>
-                </div>
-            </AdminLayout>
-        );
+        return <AdminLayout><DashboardSkeleton /></AdminLayout>;
     }
 
     if (error) {
@@ -501,9 +567,9 @@ const DashboardPage = () => {
                 <AnalyticsComponent userStatsAnalytics={userStats} />
                 <QuickActions />
             </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8 p-2">
+            <div className="flex gap-6 mt-8 p-2">
                 <RecentActivity activities={userActivities} />
-                <PendingInvitations invitations={invitationList} />
+                <PendingInvitations invitations={invitationList} onRemoveInvitation={handleRemoveInvitation} />
             </div>
         </AdminLayout>
     );

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import {AccountInfo} from "./teacherUtils/teacherComponents.jsx";
 import {Images} from "../../../components/images.jsx";
+import {DetailPage} from "../../../components/patterns/index.js";
 import TeacherLayout from "./components/layout/TeacherLayout.jsx";
 import { Dialog, Transition } from '@headlessui/react';
 import {getSubjectsByClass, getTeacherClasses, getTeacherDashboard} from "../../auth/authAPIs.js";
@@ -89,116 +90,58 @@ const TeacherProfile = () => {
         );
     }
 
+    const workloadContent = (
+        <div className="divide-y divide-slate-100">
+            {classes.map((item, idx) => (
+                <div
+                    key={idx}
+                    className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors"
+                >
+                    <div className="flex-1">
+                        <h3 className="text-sm font-semibold text-slate-800 tracking-tight mb-1">
+                            {item.name}
+                        </h3>
+                        <p className="text-xs text-gray-500">{item.studentCount} Students</p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={() => openModal(item)}
+                            className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-[11px] font-bold uppercase tracking-widest active:bg-slate-50 hover:bg-slate-50 transition-all"
+                        >
+                            Review Roster
+                        </button>
+                    </div>
+                </div>
+            ))}
+            {classes.length === 0 && (
+                <div className="py-8 text-center text-gray-500 text-sm">No classes assigned.</div>
+            )}
+        </div>
+    );
+
     return (
         <>
             <TeacherLayout>
-                <div className="space-y-6 mt-8">
-                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                        <h2 className="text-lg font-bold text-gray-800 mb-4">Personal Details</h2>
-                        <div className="flex flex-col md:flex-row items-center md:items-start gap-8 mt-2">
-                            <div className="relative group">
-                                <div className="w-18 h-18 rounded-full bg-blue-600 flex items-center justify-center text-white font-bold text-xs ring-2 ring-blue-50 ring-offset-1">
-                                    {getInitials(teacher.fullName)}
-                                </div>
+                <div className="mt-8">
+                    <DetailPage 
+                        avatar={{ name: teacher.fullName }}
+                        title={teacher.fullName}
+                        subtitle={teacher.email}
+                        status={{ tone: 'blue', label: 'Teacher' }}
+                        stats={[
+                            { label: 'Role', value: 'Teacher' },
+                            { label: 'Contact', value: teacher.phone || 'N/A' },
+                            { label: 'Classes', value: classes.length.toString() }
+                        ]}
+                        tabs={[
+                            { id: 'workload', label: 'Classes & Workload', content: workloadContent }
+                        ]}
+                        rail={
+                            <div className="mt-2">
+                                <AccountInfo role={user.role} />
                             </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-6 gap-x-12 flex-1 w-full">
-                                <div>
-                                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Full Name</p>
-                                    <p className="text-sm font-bold text-gray-800 flex items-center gap-2">
-                                        <User size={14} className="text-blue-500" /> {teacher.fullName}
-                                    </p>
-                                </div>
-                                <div>
-                                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Email</p>
-                                    <p className="text-sm font-bold text-gray-800 flex items-center gap-2">
-                                        <Mail size={14} className="text-blue-500" /> {teacher.email}
-                                    </p>
-                                </div>
-                                <div>
-                                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Role</p>
-                                    <p className="text-sm font-bold text-gray-800 flex items-center gap-2">
-                                        <Briefcase size={14} className="text-blue-500" /> Teacher
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Contact Number</p>
-                                    <p className="text-sm font-bold text-gray-800 flex items-center gap-2">
-                                        <Phone size={14} className="text-blue-500" /> {teacher.phone}
-                                    </p>
-                                </div>
-
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div className="bg-white border border-slate-200 rounded-3xl shadow-sm flex flex-col overflow-hidden">
-                            {/* Header Section */}
-                            <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
-                                <div>
-                                    <h2 className="text-sm font-bold text-slate-900 uppercase tracking-widest">Classes Assigned</h2>
-                                    <p className="text-[10px] text-slate-600 font-medium mt-0.5 uppercase ">Academic Workload Distribution</p>
-                                </div>
-                                <div className="px-3 py-1 bg-slate-900 text-white rounded text-[11px] font-bold">
-                                    {classes.length} Total
-                                </div>
-                            </div>
-
-                            {/* List Body */}
-                            <div className="divide-y divide-slate-100">
-                                {classes.map((item, idx) => (
-                                    <div
-                                        key={idx}
-                                        className="px-8 py-6 flex flex-col sm:flex-row sm:items-center justify-between gap-6 transition-colors"
-                                    >
-                                        {/* Class Primary Info */}
-                                        <div className="flex-1">
-                                            <h3 className="text-base font-semibold text-slate-800 tracking-tight mb-1">
-                                                {item.name}
-                                            </h3>
-                                            <div className="flex items-center gap-4">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Registry:</span>
-                                                    <span className="text-xs font-semibold text-slate-600">{item.studentCount} Students</span>
-                                                </div>
-                                                <span className="text-slate-200">|</span>
-                                            </div>
-                                        </div>
-
-                                        {/* Quantitative Data & Action */}
-                                        <div className="flex items-center gap-8">
-                                            {/* Visual Bar - Very subtle metadata */}
-                                            <div className="hidden md:block w-32 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                                <div
-                                                    className="h-full bg-slate-900"
-                                                    style={{ width: `${(item.studentCount / 50) * 100}%` }}
-                                                />
-                                            </div>
-
-                                            <button
-                                                onClick={() => openModal(item)}
-                                                className="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 rounded-lg text-[11px] font-bold uppercase tracking-widest active:bg-slate-50 transition-all"
-                                            >
-                                                Review Roster
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* Footer Metadata */}
-                            <div className="px-8 py-4 bg-slate-50/50 border-t border-slate-100 w-full relative bottom-0">
-                                <p className="text-[9px] font-medium text-slate-400 uppercase tracking-[0.2em] text-center">
-                                    Last Registry Audit: {new Date().toLocaleDateString('en-GB')}
-                                </p>
-                            </div>
-                        </div>
-
-                        <AccountInfo role={user.role} />
-
-                    </div>
+                        }
+                    />
                 </div>
                 
                 <Transition appear show={isModalOpen} as={Fragment}>

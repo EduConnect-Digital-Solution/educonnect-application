@@ -1,8 +1,12 @@
 import axios from 'axios';
 
-const baseURL = import.meta.env.DEV
-    ? ''
-    : 'https://educonnect-backend-t7j1.onrender.com';
+// const baseURL = import.meta.env.DEV
+//     ? ''
+//     // : 'https://educonnect-backend-t7j1.onrender.com';
+//     : 'https://educonnect-backend-staging.onrender.com';
+
+const baseURL = 'https://educonnect-backend-staging.onrender.com';
+// const baseURL = 'https://educonnect-backend-t7j1.onrender.com';
 
 // Create axios instance
 const apiClient = axios.create({
@@ -89,7 +93,7 @@ apiClient.interceptors.response.use(
                 if (authContext && authContext.logout) {
                     await authContext.logout();
                 }
-                window.location.href = '/login/welcome';
+                window.location.href = '/';
                 return Promise.reject(error);
             }
 
@@ -133,7 +137,7 @@ apiClient.interceptors.response.use(
                     if (authContext && authContext.logout) {
                         await authContext.logout();
                     }
-                    window.location.href = '/login';
+                    window.location.href = '/';
                 }
                 return Promise.reject(refreshError);
             } finally {

@@ -231,7 +231,7 @@ export const AnalyticsAndActions = ({quickActions}) => {
                     <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/60 backdrop-blur-[1px]">
                         <div className="text-center space-y-3 px-6">
                             <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 border border-slate-200 rounded text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em]">
-                                Post-MVP Pipeline
+                                Coming Soon
                             </div>
                             <div>
                                 <h3 className="text-sm font-semibold text-slate-800 tracking-tight">Advanced Analytics Pending</h3>

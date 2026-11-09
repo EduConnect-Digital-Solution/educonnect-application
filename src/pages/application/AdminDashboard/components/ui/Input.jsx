@@ -1,10 +1,10 @@
 import React from 'react';
 
-const Input = React.forwardRef(({ label, ...props }, ref) => (
+const Input = React.forwardRef(({ label, needed, ...props }, ref) => (
     <div>
         {label && (
             <label className="block text-xs font-medium text-gray-500 mb-1">
-                {label}
+                {label} {needed && <span className="text-red-500">*</span>}
             </label>
         )}
         <input

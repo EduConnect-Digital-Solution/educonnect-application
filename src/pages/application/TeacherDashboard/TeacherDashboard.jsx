@@ -6,7 +6,8 @@ import {
 } from "./teacherUtils/teacherComponents.jsx";
 import TeacherLayout from "./components/layout/TeacherLayout.jsx";
 import {getTeacherClasses, getTeacherDashboard, getTeacherStudents} from "../../auth/authAPIs.js";
-// import {getTeacherDashboard, getTeacherClasses, getTeacherStudents} from 'services/teacherService.jsx';
+import {DashboardSkeleton} from "../../../components/patterns/index.js";
+// import { DashboardSkeleton } from "../../../../../components/patterns";
 
 // TODO: make gradde selection in dashbaord have the default term as the value but still open to selection.
 
@@ -72,13 +73,7 @@ export default function TeacherDashboard() {
     if (loading) {
         return (
             <TeacherLayout>
-                <div className="flex flex-col items-center justify-center h-screen bg-gray-50">
-                    <div className="relative w-20 h-20">
-                        <div className="absolute inset-0 border-4 border-blue-100 rounded-full"></div>
-                        <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
-                    </div>
-                    <p className="mt-4 text-gray-500 font-medium animate-pulse">Loading Teacher Dashboard...</p>
-                </div>
+                <DashboardSkeleton />
             </TeacherLayout>
         );
     }

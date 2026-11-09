@@ -1,15 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {Plus, X, Search, UserCircle2} from 'lucide-react';
-import { inviteTeacher, inviteParent, createStudent, getAllStudents } from '../../services/adminService';
-import Input from '../ui/Input';
-import { Toast } from '../ui/Toast.jsx';
-import {getStatusBadgeStyle} from "../../utils/styleHelpers.js";
-import {CreateStudentModal, InviteParentModal, InviteTeacherModal} from "../ui/modals.jsx"; // Assuming a global Toast component
-
-const availableSubjects = [
-    "English Language", "Mathematics", "Basic Science", "Social Studies", "Civic Education",
-    "Computer Studies", "Physics", "Chemistry", "Biology", "Agricultural Science"
-];
+import React, { useState } from 'react';
+import { Plus } from 'lucide-react';
+import {CreateStudentModal, InviteParentModal, InviteTeacherModal} from "../ui/modals.jsx";
+import { pushToast } from '../../../../../components/patterns';
 
 const QuickActionCard = ({ title, description, buttonText, icon: Icon, colorClass, buttonFunction }) => (
     <div className="group p-4 rounded-xl border border-gray-100 bg-white hover:border-blue-200 hover:shadow-md transition-all duration-200">
@@ -34,21 +26,11 @@ const QuickActions = () => {
     const [viewTeacher, setViewTeacher] = useState(false);
     const [viewParent, setViewParent] = useState(false);
     const [viewStudent, setViewStudent] = useState(false);
-    const [toast, setToast] = useState({ show: false, message: '', type: 'error' });
 
-    const showToast = (message, type = 'error') => {
-        setToast({ show: true, message, type });
-    };
+    const showToast = (message) => pushToast({ message });
 
     return (
         <>
-            {toast.show && (
-                <Toast
-                    message={toast.message}
-                    type={toast.type}
-                    onClose={() => setToast({ ...toast, show: false })}
-                />
-            )}
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-bold text-gray-800">Quick Actions</h2>
