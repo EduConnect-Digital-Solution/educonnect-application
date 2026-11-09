@@ -542,26 +542,6 @@ export async function getTeacherDetails() {
 }
 
 
-export async function getPendingFees(parentId) {
-   return [{
-       "studentId": "453bb662-8842-445c-81ba-8980874a149b",
-       "studentName": "Prisilla Daniels",
-       "className": null,
-       "feeStructureId": "43ca595d-5577-4bad-bcad-cc55599d794e",
-       "feeStructureName": "SSS2 First Term School Fees",
-       "invoiceNumber": "INV-5B0B3-MPZYBJT1-0000",
-       "amount": 20000000,
-       "amountPaid": 0,
-       "amountDue": 20000000,
-       "dueDate": "2026-06-17T00:00:00.000Z",
-       "status": "pending",
-       "academicYearId": "74718fda-6ada-48cf-a52f-c4dc9cf05743",
-       "termId": "e4df07a0-ebb3-401b-8f09-4d78f0717d2b",
-       "isActive": true,
-   }]
-}
-
-
 // Password reset (admin/school accounts). Always resolves to { success, message }.
 const postAuth = async (url, payload) => {
     try {
