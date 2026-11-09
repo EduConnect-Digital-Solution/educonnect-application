@@ -83,6 +83,7 @@ export async function updateArm(armId, payload) {
 // Response:    { success, message, data: { deleted, errors } }
 // =============================================================================
 export async function deleteArms(armIds) {
+  const ids = Array.isArray(armIds) ? armIds : [armIds];
   const { data } = await apiClient.delete('/api/academic/arms', {
     data: { armIds: ids },
   });
