@@ -343,21 +343,21 @@ export async function getInvoiceById(invoiceId) {
 }
 
 /**
- * POST /api/fees/invoices/:id/void
+ * PUT /api/fees/invoices/:id/void
  * Soft-cancels an invoice. Posts a reversing ledger entry (never hard-delete).
  * Payload: { reason }
  */
 export async function voidInvoice(invoiceId, reason) {
-  const { data } = await apiClient.post(`/api/fees/invoices/${invoiceId}/void`, { reason });
+  const { data } = await apiClient.put(`/api/fees/invoices/${invoiceId}/void`, { reason });
   return data;
 }
 
 /**
- * GET /api/fees/student/:studentId   (newFeatures.md base)
+ * GET /api/fees/students/:studentId/fees
  * Full fee position for one student (all invoices + computed balance).
  */
 export async function getStudentFees(studentId) {
-  const { data } = await apiClient.get(`/api/fees/student/${studentId}`);
+  const { data } = await apiClient.get(`/api/fees/students/${studentId}/fees`);
   return data;
 }
 
@@ -466,7 +466,7 @@ export async function getAdjustments(filters = {}) {
 // ═════════════════════════════════════════════════════════════════════════════
 
 /**
- * GET /api/fees/ledger/student/:studentId
+ * GET /api/fees/ledger/students/:studentId
  * Chronological transaction trail with running balance.
  * Query: ?academicYearId=&termId=
  *
