@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, ArrowLeft, CheckCircle } from 'lucide-react';
 import { Images } from '../../components/images';
-import { LoginSchool, LoginUser, ForgotPassword, ResetPassword } from './authAPIs';
+import { LoginSchool, LoginUser, ForgotPassword, ResetPassword, ForgotUserPassword, ResetUserPassword } from './authAPIs';
 import { Toast } from '../application/AdminDashboard/components/ui/Toast';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 
@@ -42,7 +42,8 @@ export default function AuthPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [formData, setFormData] = useState({ schoolId: '', email: '', password: '' });
     const [forgotData, setForgotData] = useState({ schoolId: '', email: '' });
-    const [resetData, setResetData] = useState({ otp: '', email: '', newPassword: '', confirmPassword: '' });
+    const [resetIsAdmin, setResetIsAdmin] = useState(false); // locks the reset endpoint to the role used in the forgot step
+    const [resetData, setResetData] = useState({ otp: '', email: '', schoolId: '', newPassword: '', confirmPassword: '' });
     const [toast, setToast] = useState({ show: false, message: '', type: 'error' });
     const [isLoading, setIsLoading] = useState(false);
     const [checkedSession, setCheckedSession] = useState(false);
@@ -103,14 +104,16 @@ export default function AuthPage() {
         if (!forgotData.email) return showToast('Please enter your email address.');
         setIsLoading(true);
         try {
-            const data = await ForgotPassword({ email: forgotData.email.trim().toLowerCase(), schoolId: forgotData.schoolId.trim() });
+            const forgotPayload = { email: forgotData.email.trim().toLowerCase(), schoolId: forgotData.schoolId.trim().toUpperCase() };
+            const data = await (selectedRole === 'admin' ? ForgotPassword : ForgotUserPassword)(forgotPayload);
             
             if (data.success) {
-                setResetData(p => ({ ...p, email: forgotData.email.trim().toLowerCase() }));
+                setResetIsAdmin(selectedRole === 'admin');
+                setResetData(p => ({ ...p, email: forgotData.email.trim().toLowerCase(), schoolId: forgotData.schoolId.trim().toUpperCase() }));
                 showToast('OTP sent! Check your email.', 'success');
                 setView('reset');
             } else {
-                showToast(data.message || 'Failed to send reset link.');
+                showToast(data.errors?.[0]?.msg || data.message || 'Failed to send reset link.');
             }
         } catch {
             showToast('Something went wrong. Please try again.');
@@ -125,12 +128,14 @@ export default function AuthPage() {
         if (resetData.newPassword !== resetData.confirmPassword) return showToast('Passwords do not match.');
         setIsLoading(true);
         try {
-            const data = await ResetPassword(resetData);
+            const data = resetIsAdmin
+                ? await ResetPassword(resetData)
+                : await ResetUserPassword({ email: resetData.email, schoolId: resetData.schoolId, otp: resetData.otp, newPassword: resetData.newPassword });
             
             if (data.success) {
                 showToast('Password reset successfully!', 'success', 2000, () => setView('login'));
             } else {
-                showToast('Password reset failed.');
+                showToast(data.errors?.[0]?.msg || data.message || 'Password reset failed.');
             }
         } catch {
             showToast('Something went wrong. Please try again.');
