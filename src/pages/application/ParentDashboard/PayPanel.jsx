@@ -38,7 +38,7 @@ export default function PayPanel({ fee, onPaid }) {
     }, []);
 
     const parsed = Number(amount);
-    const amountOk = Number.isFinite(parsed) && parsed > 0 && parsed <= outstanding;
+    const amountOk = Number.isFinite(parsed) && parsed >= 1 && parsed <= outstanding; // at least ₦1, never more than is owed
 
     const pay = async () => {
         if (!amountOk || !selected) return;
