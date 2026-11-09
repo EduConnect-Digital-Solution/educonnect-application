@@ -33,7 +33,7 @@ export default function PayPanel({ fee, onPaid }) {
         let alive = true;
         getMyGateways()
             .then((g) => { if (alive) { setGateways(g); setSelected(g[0]?.id ?? null); } })
-            .catch((e) => { if (alive) { setGateways([]); setLoadError(e.message); } });
+            .catch(() => { if (alive) { setGateways([]); setLoadError("We couldn't load payment options right now. Please try again later or contact the school office."); } });
         return () => { alive = false; };
     }, []);
 
