@@ -73,7 +73,7 @@ function PolicyBanner({ policy, loading, hasPermission }) {
                     <div>
                         <p className="font-semibold">No policy created yet for this class</p>
                         <p className="mt-0.5 text-violet-700">
-                            You have permission to define your own assessment policy.{' '}
+                            Set up how scores are calculated for this class.{' '}
                             <Link
                                 to="/dashboard/teacher/assessment-policies"
                                 className="font-bold underline underline-offset-2 hover:text-violet-900"

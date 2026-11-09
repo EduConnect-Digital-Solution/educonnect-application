@@ -21,7 +21,7 @@
 }
 
 @theme {
-    --color-brand: #0A61A4;
+    --color-brand: #002684;
 }
 
 @utility prose-brand {
@@ -35,8 +35,8 @@
 }
 
 .cta_bg{
-    background: #0A61A4;
-    background: linear-gradient(262deg, rgba(10, 97, 164, 1) 0%, rgba(235, 190, 94, 1) 97%);
+    background: #002684;
+    background: linear-gradient(262deg, rgba(0, 38, 132, 1) 0%, rgba(254, 192, 29, 1) 97%);
 }
 
 
@@ -84,6 +84,45 @@
     --color-sidebar-ring: var(--sidebar-ring);
 }
 
+
+/* Design tokens read by the shared UI primitives (alert-dialog, button, input, sheet...).
+   They were referenced by the @theme block above but never defined, which left dialogs
+   with a transparent background and unstyled buttons. Dark mode is handled separately
+   in pages/application/dark-mode.css. */
+:root {
+    --radius: 0.75rem;
+    --background: #ffffff;
+    --foreground: #111827;
+    --card: #ffffff;
+    --card-foreground: #111827;
+    --popover: #ffffff;
+    --popover-foreground: #111827;
+    --primary: #002684;
+    --primary-foreground: #ffffff;
+    --secondary: #f3f4f6;
+    --secondary-foreground: #1f2937;
+    --muted: #f3f4f6;
+    --muted-foreground: #6b7280;
+    --accent: #f3f4f6;
+    --accent-foreground: #111827;
+    --destructive: #dc2626;
+    --border: #e5e7eb;
+    --input: #e5e7eb;
+    --ring: #3b82f6;
+    --chart-1: #002684;
+    --chart-2: #3b82f6;
+    --chart-3: #10b981;
+    --chart-4: #f59e0b;
+    --chart-5: #ef4444;
+    --sidebar: #ffffff;
+    --sidebar-foreground: #111827;
+    --sidebar-primary: #002684;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #f3f4f6;
+    --sidebar-accent-foreground: #111827;
+    --sidebar-border: #e5e7eb;
+    --sidebar-ring: #3b82f6;
+}
 
 @layer base {
   * {

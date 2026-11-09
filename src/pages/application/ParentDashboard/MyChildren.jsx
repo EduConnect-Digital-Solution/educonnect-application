@@ -128,7 +128,7 @@ const ChildSelectionPage = () => {
                             </div>
 
                             {/* Unified Action - Non-Hover Styling */}
-                            <div className={`mx-auto px-3 py-1 mb-6 items-center gap-2 bg-[#0A61A4] hover:cursor-pointer text-white rounded-4xl`}>
+                            <div className={`mx-auto px-3 py-1 mb-6 items-center gap-2 bg-[#002684] hover:cursor-pointer text-white rounded-4xl`}>
                                 <button
                                     onClick={async () => {
                                         const childInfo = await getStudentInfo(child.id);

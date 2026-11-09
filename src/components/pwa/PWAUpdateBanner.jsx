@@ -38,7 +38,7 @@ export function PWAUpdateBanner() {
             role="alert"
             aria-live="polite"
         >
-            <div className="bg-[#104889] text-white shadow-lg shadow-blue-900/30">
+            <div className="bg-[#002684] text-white shadow-lg shadow-blue-900/30">
                 <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3 min-w-0">
                         <div className="w-7 h-7 rounded-lg bg-white/15 flex items-center justify-center shrink-0">
@@ -53,7 +53,7 @@ export function PWAUpdateBanner() {
                     <div className="flex items-center gap-2 shrink-0">
                         <button
                             onClick={applyUpdate}
-                            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white text-[#104889] font-bold text-xs rounded-lg hover:bg-blue-50 active:scale-95 transition-all"
+                            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white text-[#002684] font-bold text-xs rounded-lg hover:bg-blue-50 active:scale-95 transition-all"
                         >
                             <RefreshCw size={12} />
                             Refresh

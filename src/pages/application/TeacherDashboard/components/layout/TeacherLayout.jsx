@@ -68,9 +68,13 @@ const NavList = ({ collapsed, onNavigate, hasPolicyPermission }) => {
 /* ─── Pinned bottom: school branding ────────────────────────────── */
 const SidebarFooter = ({ collapsed, onNavigate }) => {
     const { user } = useAuth();
-    // Assuming we don't have schoolBrand loaded globally for teachers, fallback to standard icon
-    const schoolName = 'Your school';
-    const initials = 'YS';
+    // The signed-in user carries their school's name; fall back to a generic label if it's missing
+    const schoolName = user?.schoolName || user?.school?.schoolName || 'Your school';
+    // Show the human-readable school code (e.g. EDU5009), never the internal UUID
+    const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const rawCode = user?.school?.schoolId || user?.schoolId;
+    const schoolCode = rawCode && !UUID.test(rawCode) ? rawCode : 'Teacher';
+    const initials = schoolName.split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'YS';
 
     return (
         <div className="shrink-0 border-t border-gray-100 px-3 py-3 space-y-1.5">
@@ -82,7 +86,7 @@ const SidebarFooter = ({ collapsed, onNavigate }) => {
                     <div className="min-w-0">
                         <p className="text-[13px] font-bold text-gray-800 truncate leading-tight">{schoolName}</p>
                         <p className="text-[10px] font-semibold text-gray-400 truncate uppercase tracking-wide">
-                            {user?.schoolId || 'Teacher'}
+                            {schoolCode}
                         </p>
                     </div>
                 )}
@@ -109,9 +113,9 @@ const SidebarShell = ({ collapsed, setCollapsed, onNavigate, hasPolicyPermission
             {/* Product logo */}
             <div className={`flex items-center h-14 border-b border-gray-100 shrink-0 ${collapsed && !onNavigate ? 'justify-center px-2' : 'justify-between px-5'}`}>
                 {(!collapsed || onNavigate) ? (
-                    <img src={logoSrc} alt="EduConnect" className="w-30 max-w-[120px] transition-opacity duration-300" />
+                    <img src={logoSrc} alt="EduConnect" className="h-9 w-auto transition-opacity duration-300" />
                 ) : (
-                    <img src={Images.logo} alt="EduConnect" className="w-7 transition-opacity duration-300" />
+                    <img src={isDark ? Images.logo_light : Images.logo} alt="EduConnect" className="w-7 transition-opacity duration-300" />
                 )}
                 {!onNavigate && (
                     <button

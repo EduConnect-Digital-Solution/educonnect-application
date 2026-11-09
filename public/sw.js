@@ -8,7 +8,7 @@
  * - Navigation: Network-First with offline fallback page
  */
 
-const SW_VERSION = '1.0.0';
+const SW_VERSION = '1.0.1'; // bumped for the new brand assets
 const CACHE_STATIC = `educonnect-static-v${SW_VERSION}`;
 const CACHE_PAGES  = `educonnect-pages-v${SW_VERSION}`;
 

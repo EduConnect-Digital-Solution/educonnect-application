@@ -22,6 +22,14 @@
 
 import apiClient from '../../../../utils/axiosConfig.js';
 
+/**
+ * The backend wraps every payload as { success, data: {...} }. The screens read the
+ * payload straight off `res.data` (e.g. `res.data.policies`), so unwrap it once here.
+ */
+function unwrap(res) {
+    return { ...res, data: res?.data?.data ?? res?.data };
+}
+
 // ─── In-memory store ────────────────────────────────────────────────────────────
 //
 // Mock: this teacher (Kenechukwu Ajufo) has been granted permission for SS 2.
@@ -121,7 +129,7 @@ function _delay(ms = 320) {
  */
 export async function getMyPolicyPermission() {
     try {
-        return await apiClient.get('/api/teacher/my-policy-permission');
+        return unwrap(await apiClient.get('/api/teacher/my-policy-permission'));
     } catch (error) {
         throw error?.response?.data || error;
     }
@@ -137,9 +145,10 @@ export async function getMyPolicyPermission() {
  */
 export async function getMyClassArms() {
     try {
-        const permRes = await apiClient.get('/api/teacher/my-policy-permission');
+        const permRes = unwrap(await apiClient.get('/api/teacher/my-policy-permission'));
         const classId = permRes.data.classId;
-        return await apiClient.get(`/api/admin/classes/${classId}/arms`);
+        if (!classId) return { data: { arms: [] } };
+        return unwrap(await apiClient.get(`/api/teacher/classes/${classId}/arms`));
     } catch (error) {
         throw error?.response?.data || error;
     }
@@ -153,7 +162,7 @@ export async function getMyClassArms() {
  */
 export async function getMySubjects() {
     try {
-        return await apiClient.get('/api/teacher/subjects');
+        return unwrap(await apiClient.get('/api/teacher/subjects'));
     } catch (error) {
         throw error?.response?.data || error;
     }
@@ -165,7 +174,7 @@ export async function getMySubjects() {
 
 export async function listMyPolicies() {
     try {
-        return await apiClient.get('/api/teacher/my-policies');
+        return unwrap(await apiClient.get('/api/teacher/my-policies'));
     } catch (error) {
         throw error?.response?.data || error;
     }
@@ -180,7 +189,7 @@ export async function listMyPolicies() {
  */
 export async function createMyPolicy(payload) {
     try {
-        return await apiClient.post('/api/teacher/my-policies', payload);
+        return unwrap(await apiClient.post('/api/teacher/my-policies', payload));
     } catch (error) {
         throw error?.response?.data || error;
     }
@@ -219,7 +228,7 @@ export async function createMyPolicy(payload) {
  */
 export async function updateMyPolicy(policyId, payload) {
     try {
-        return await apiClient.put(`/api/teacher/my-policies/${policyId}`, payload);
+        return unwrap(await apiClient.put(`/api/teacher/my-policies/${policyId}`, payload));
     } catch (error) {
         throw error?.response?.data || error;
     }
@@ -251,7 +260,7 @@ export async function updateMyPolicy(policyId, payload) {
 
 export async function deleteMyPolicy(policyId) {
     try {
-        return await apiClient.delete(`/api/teacher/my-policies/${policyId}`);
+        return unwrap(await apiClient.delete(`/api/teacher/my-policies/${policyId}`));
     } catch (error) {
         throw error?.response?.data || error;
     }
@@ -277,7 +286,7 @@ export async function deleteMyPolicy(policyId) {
  */
 export async function addMyPolicyAssignment(policyId, payload) {
     try {
-        return await apiClient.post(`/api/teacher/my-policies/${policyId}/assignments`, payload);
+        return unwrap(await apiClient.post(`/api/teacher/my-policies/${policyId}/assignments`, payload));
     } catch (error) {
         throw error?.response?.data || error;
     }
@@ -309,7 +318,7 @@ export async function addMyPolicyAssignment(policyId, payload) {
  */
 export async function removeMyPolicyAssignment(policyId, assignmentId) {
     try {
-        return await apiClient.delete(`/api/teacher/my-policies/${policyId}/assignments/${assignmentId}`);
+        return unwrap(await apiClient.delete(`/api/teacher/my-policies/${policyId}/assignments/${assignmentId}`));
     } catch (error) {
         throw error?.response?.data || error;
     }

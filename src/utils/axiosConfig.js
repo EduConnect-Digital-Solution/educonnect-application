@@ -1,12 +1,6 @@
 import axios from 'axios';
 
-// const baseURL = import.meta.env.DEV
-//     ? ''
-//     // : 'https://educonnect-backend-t7j1.onrender.com';
-//     : 'https://educonnect-backend-staging.onrender.com';
-
-const baseURL = 'https://educonnect-backend-staging.onrender.com';
-// const baseURL = 'https://educonnect-backend-t7j1.onrender.com';
+import { API_BASE_URL as baseURL } from './apiConfig';
 
 // Create axios instance
 const apiClient = axios.create({

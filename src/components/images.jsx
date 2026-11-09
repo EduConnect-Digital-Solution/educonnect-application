@@ -19,6 +19,7 @@ import reg_image_2 from '../assets/images/reg_image_2.jpeg';
 import reg_image_3 from '../assets/images/reg_image_3.jpeg';
 import main_logo_light from '../assets/images/main_logo_light.png';
 import logo from '../assets/images/logo.png';
+import logo_light from '../assets/images/logo_light.png';
 
 
 
@@ -30,6 +31,7 @@ export const Images = {
     page_bg,
     reg_image_1,
     logo,
+    logo_light,
     reg_image_2,
     reg_image_3,
     main_logo_light,

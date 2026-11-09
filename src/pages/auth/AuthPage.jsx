@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, ArrowLeft, CheckCircle } from 'lucide-react';
 import { Images } from '../../components/images';
-import { LoginSchool, LoginUser } from './authAPIs';
+import { LoginSchool, LoginUser, ForgotPassword, ResetPassword, ForgotUserPassword, ResetUserPassword } from './authAPIs';
 import { Toast } from '../application/AdminDashboard/components/ui/Toast';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 
@@ -10,9 +10,9 @@ import { useAuth } from '../../contexts/AuthContext.jsx';
 const RoleCard = ({ title, description, icon, onClick }) => (
     <button
         onClick={onClick}
-        className="group w-full flex items-center gap-4 px-5 py-4 bg-white border border-gray-200 rounded-2xl hover:border-[#0a61a4] hover:shadow-lg hover:shadow-blue-100 transition-all duration-200 text-left active:scale-[0.98]"
+        className="group w-full flex items-center gap-4 px-5 py-4 bg-white border border-gray-200 rounded-2xl hover:border-[#002684] hover:shadow-lg hover:shadow-blue-100 transition-all duration-200 text-left active:scale-[0.98]"
     >
-        <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 text-lg shrink-0 group-hover:bg-[#0a61a4] group-hover:text-white transition-all duration-200">
+        <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 text-lg shrink-0 group-hover:bg-[#002684] group-hover:text-white transition-all duration-200">
             {icon}
         </div>
         <div className="flex-1 min-w-0">
@@ -42,7 +42,8 @@ export default function AuthPage() {
     const [showPassword, setShowPassword] = useState(false);
     const [formData, setFormData] = useState({ schoolId: '', email: '', password: '' });
     const [forgotData, setForgotData] = useState({ schoolId: '', email: '' });
-    const [resetData, setResetData] = useState({ otp: '', email: '', newPassword: '', confirmPassword: '' });
+    const [resetIsAdmin, setResetIsAdmin] = useState(false); // locks the reset endpoint to the role used in the forgot step
+    const [resetData, setResetData] = useState({ otp: '', email: '', schoolId: '', newPassword: '', confirmPassword: '' });
     const [toast, setToast] = useState({ show: false, message: '', type: 'error' });
     const [isLoading, setIsLoading] = useState(false);
     const [checkedSession, setCheckedSession] = useState(false);
@@ -82,12 +83,6 @@ export default function AuthPage() {
         try {
             const payload = { schoolId: formData.schoolId.trim(), email: formData.email.trim().toLowerCase(), password: formData.password };
 
-            // const payload = {
-            //     schoolId: "NEW3473",
-            //     email: "kogakip523@inraud.com",
-            //     password: "$Kene3504$"
-            // };
-
             const res = selectedRole === 'admin' ? await LoginSchool(payload) : await LoginUser(payload);
             if (res.success) {
                 await login(res);
@@ -109,18 +104,16 @@ export default function AuthPage() {
         if (!forgotData.email) return showToast('Please enter your email address.');
         setIsLoading(true);
         try {
-            const res = await fetch('/api/school/auth/forgot-password', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: forgotData.email.trim().toLowerCase(), schoolId: forgotData.schoolId.trim() }),
-            });
-            const data = await res.json();
+            const forgotPayload = { email: forgotData.email.trim().toLowerCase(), schoolId: forgotData.schoolId.trim().toUpperCase() };
+            const data = await (selectedRole === 'admin' ? ForgotPassword : ForgotUserPassword)(forgotPayload);
+            
             if (data.success) {
-                setResetData(p => ({ ...p, email: forgotData.email.trim().toLowerCase() }));
+                setResetIsAdmin(selectedRole === 'admin');
+                setResetData(p => ({ ...p, email: forgotData.email.trim().toLowerCase(), schoolId: forgotData.schoolId.trim().toUpperCase() }));
                 showToast('OTP sent! Check your email.', 'success');
                 setView('reset');
             } else {
-                showToast(data.message || 'Failed to send reset link.');
+                showToast(data.errors?.[0]?.msg || data.message || 'Failed to send reset link.');
             }
         } catch {
             showToast('Something went wrong. Please try again.');
@@ -135,16 +128,14 @@ export default function AuthPage() {
         if (resetData.newPassword !== resetData.confirmPassword) return showToast('Passwords do not match.');
         setIsLoading(true);
         try {
-            const res = await fetch('/api/school/auth/reset-password', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(resetData),
-            });
-            const data = await res.json();
+            const data = resetIsAdmin
+                ? await ResetPassword(resetData)
+                : await ResetUserPassword({ email: resetData.email, schoolId: resetData.schoolId, otp: resetData.otp, newPassword: resetData.newPassword });
+            
             if (data.success) {
                 showToast('Password reset successfully!', 'success', 2000, () => setView('login'));
             } else {
-                showToast('Password reset failed.');
+                showToast(data.errors?.[0]?.msg || data.message || 'Password reset failed.');
             }
         } catch {
             showToast('Something went wrong. Please try again.');

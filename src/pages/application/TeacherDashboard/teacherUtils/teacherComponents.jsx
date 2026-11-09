@@ -108,7 +108,7 @@ const QuickActionCard = ({ title, description, buttonText, buttonFunction, icon:
                         className={`w-full py-2 mt-3  text-xs font-bold rounded-lg transition-colors ${
                             comingSoon
                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-transparent'
-                                : 'bg-gray-50 text-gray-700 border border-gray-200 hover:bg-[#0A61A4] hover:text-white'
+                                : 'bg-gray-50 text-gray-700 border border-gray-200 hover:bg-[#002684] hover:text-white'
                         }`}
                     >
                         {buttonText}
@@ -139,8 +139,8 @@ export const QuickActions = () => {
                 title="Manage Classes"
                 description="View and manage your classes"
                 buttonText="Manage Classes"
-                icon={Mail}
-                colorClass="bg-orange-50 text-orange-600"
+                icon={GraduationCap}
+                colorClass="bg-blue-50 text-blue-600"
                 buttonFunction={() => navigate('/dashboard/teacher/classes')}
                 comingSoon={false}
             />

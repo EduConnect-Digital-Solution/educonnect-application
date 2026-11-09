@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { API_BASE_URL } from '../utils/apiConfig';
 
 const AuthContext = createContext();
 
@@ -18,8 +19,7 @@ export const AuthProvider = ({ children }) => {
     const [tokenExpiry, setTokenExpiry] = useState(null);
     const refreshTimerRef = useRef(null);
 
-    // const baseURL = 'https://educonnect-backend-t7j1.onrender.com';
-    const baseURL = 'https://educonnect-backend-staging.onrender.com';
+    const baseURL = API_BASE_URL;
 
     // Normalize user object to ensure name/fullName are available for UI
     const normalizeUser = (u) => {
@@ -175,6 +175,17 @@ export const AuthProvider = ({ children }) => {
         setUser(normalizeUser(loginData.data.user));
         setTokenExpiry(expiry);
         scheduleTokenRefresh(expiry);
+
+        // The login response carries the internal school id; /me returns the school's
+        // human-readable code and details, so pull them in once in the background.
+        try {
+            const me = await axios.get(`${baseURL}/api/user/auth/me`, { withCredentials: true });
+            if (me.data?.success && me.data.user) {
+                setUser((current) => normalizeUser({ ...(current || {}), ...me.data.user }));
+            }
+        } catch {
+            /* keep the login response; the next page load refreshes it */
+        }
     };
 
     // Logout: invalidate server session and clear local state

@@ -136,7 +136,7 @@ export function VerifySchool() {
                         <button
                             onClick={handleSubmit}
                             disabled={loading || verificationCode.length !== 6}
-                            className="flex items-center justify-center gap-1.5 w-full max-w-xs px-6 py-3.5 text-sm font-semibold text-white bg-[#0A61A4] hover:bg-[#085490] disabled:opacity-60 rounded-xl transition-colors shadow-sm"
+                            className="flex items-center justify-center gap-1.5 w-full max-w-xs px-6 py-3.5 text-sm font-semibold text-white bg-[#002684] hover:bg-[#085490] disabled:opacity-60 rounded-xl transition-colors shadow-sm"
                         >
                             {loading ? (
                                 <>
@@ -159,7 +159,7 @@ export function VerifySchool() {
                                 className={`font-semibold transition-colors ${
                                     cooldown > 0
                                         ? "text-gray-400 cursor-not-allowed"
-                                        : "text-[#0A61A4] hover:underline"
+                                        : "text-[#002684] hover:underline"
                                 }`}
                             >
                                 {cooldown > 0 ? `Resend in ${cooldown}s` : "Resend"}

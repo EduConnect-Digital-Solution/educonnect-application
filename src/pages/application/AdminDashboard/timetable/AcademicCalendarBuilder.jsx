@@ -20,6 +20,10 @@ import {
   AlertDialogFooter
 } from '../../../../components/ui/alert-dialog';
 import {formatYear} from "../utils/formatters";
+import { pushToast } from '../../../../components/patterns';
+
+// Readable message from a failed API call (validation detail first, then the server message)
+const errMsg = (e) => e?.response?.data?.errors?.[0]?.msg || e?.response?.data?.message || e?.message || 'Something went wrong. Please try again.';
 
 export default function AcademicCalendarBuilder() {
   // Academic years + terms are this page's own data — fetched directly here.
@@ -126,91 +130,76 @@ export default function AcademicCalendarBuilder() {
   // --- Handlers ---
 
   const handleCreateYear = async () => {
-    const payload = {
-      years: [
-        {
-          year: `${yearForm.startYear}-${yearForm.endYear}`,
-          name: `${yearForm.startYear}/${yearForm.endYear} Academic Year`,
-          startDate: yearForm.startDate,
-          endDate: yearForm.endDate,
-          isCurrent: false, // Temporary till Explanation is provided
+    const year = `${yearForm.startYear}-${yearForm.endYear}`;
+    const name = `${yearForm.startYear}/${yearForm.endYear} Academic Year`;
+    try {
+      if (editYearId) {
+        const res = await updateAcademicYear(editYearId, { year, name, startDate: yearForm.startDate, endDate: yearForm.endDate });
+        if (res.success) {
+          const updated = res.data.year;
+          setAcademicYears(prev => prev.map(y => (y.id === updated.id ? updated : y)));
+          setShowYearModal(false);
+          setEditYearId(null);
         }
-      ]
-    };
-    if (editYearId) {
-      const res = await updateAcademicYear(editYearId, payload);
-      if (res.success) {
-        const updated = res.data.academicYear;
-        setAcademicYears(prev => prev.map(y => (y.id === updated.id ? updated : y)));
-        setShowYearModal(false);
-        setEditYearId(null);
+      } else {
+        const payload = { years: [{ year, name, startDate: yearForm.startDate, endDate: yearForm.endDate, isCurrent: false }] };
+        const res = await createAcademicYear(payload);
+        if (res.success) {
+          const created = res.data.years?.[0] ?? res.data.academicYear;
+          setAcademicYears(prev => [...prev, created]);
+          setShowYearModal(false);
+          if (!selectedViewYearId) setSelectedViewYearId(created.id);
+        }
       }
-    } else {
-      const res = await createAcademicYear(payload);
-      if (res.success) {
-        const created = res.data.academicYear;
-        setAcademicYears(prev => [...prev, created]);
-        setShowYearModal(false);
-        if (!selectedViewYearId) setSelectedViewYearId(created.id);
-      }
+    } catch (e) {
+      pushToast({ message: errMsg(e) });
     }
   };
 
   const handleDeleteYear = async (id) => {
-    if (confirm('Delete this academic year? All associated terms and schedules may be affected.')) {
+    if (!confirm('Delete this academic year? This only works if it has no terms and nothing is using it.')) return;
+    try {
       const res = await deleteAcademicYear(id);
       if (res.success) {
         setAcademicYears(prev => prev.filter(y => y.id !== id));
         if (selectedViewYearId === id) setSelectedViewYearId(null);
       }
+    } catch (e) {
+      pushToast({ message: errMsg(e) });
     }
   };
 
   const handleCreateTerm = async () => {
     if (!selectedViewYearId) return;
-    // const payload = {
-    //   years: [
-    //     {
-    //       year: `${yearForm.startYear}-${yearForm.endYear}`,
-    //       name: `${yearForm.startYear}/${yearForm.endYear} Academic Year`,
-    //       startDate: yearForm.startDate,
-    //       endDate: yearForm.endDate,
-    //       isCurrent: false, // Temporary till Explanation is provided
-    //     }
-    //   ]
-    // };
-    const payload = {
-      terms: [
-        {
-          ...termForm,
-          academicYearId: selectedViewYearId,
-          "termNumber": 1, // Temporary till Explanation is provided
-          isCurrent: false, // Temporary till Explanation is provided
+    try {
+      if (editTermId) {
+        const res = await updateTerm(editTermId, { name: termForm.name, startDate: termForm.startDate, endDate: termForm.endDate });
+        if (res.success) {
+          const updated = res.data.term;
+          setTerms(prev => prev.map(t => (t.id === updated.id ? updated : t)));
+          setShowTermModal(false);
+          setEditTermId(null);
         }
-      ]
-    };
-    
-    if (editTermId) {
-      const res = await updateTerm(editTermId, payload);
-      if (res.success) {
-        const updated = res.data.term;
-        setTerms(prev => prev.map(t => (t.id === updated.id ? updated : t)));
-        setShowTermModal(false);
-        setEditTermId(null);
+      } else {
+        const payload = { terms: [{ ...termForm, academicYearId: selectedViewYearId, isCurrent: false }] };
+        const res = await createTerm(payload);
+        if (res.success) {
+          setTerms(prev => [...prev, res.data.terms?.[0] ?? res.data.term]);
+          setShowTermModal(false);
+        }
       }
-    } else {
-      const res = await createTerm(payload);
-      if (res.success) {
-        setTerms(prev => [...prev, res.data.term]);
-        setShowTermModal(false);
-      }
+    } catch (e) {
+      pushToast({ message: errMsg(e) });
     }
   };
 
   const handleDeleteTerm = async (id) => {
-    if (confirm('Delete this term? All associated schedules will be affected.')) {
+    if (!confirm('Delete this term? This only works if nothing is using it.')) return;
+    try {
       const res = await deleteTerm(id);
       if (res.success) setTerms(prev => prev.filter(t => t.id !== id));
+    } catch (e) {
+      pushToast({ message: errMsg(e) });
     }
   };
 

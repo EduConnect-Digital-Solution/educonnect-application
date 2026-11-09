@@ -327,7 +327,7 @@ export default function CompleteRegistration() {
                     <div className="pt-6">
                         <button
                             onClick={handleSubmit}
-                            className="w-full py-4 bg-[#0a61a4] text-white text-[11px] font-bold uppercase tracking-[0.3em] rounded-xl hover:bg-slate-800 transition-all duration-300 shadow-sm active:scale-[0.99]"
+                            className="w-full py-4 bg-[#002684] text-white text-[11px] font-bold uppercase tracking-[0.3em] rounded-xl hover:bg-slate-800 transition-all duration-300 shadow-sm active:scale-[0.99]"
                         >
                             {!isLoading ? 'Finalize Registration' : 'Processing...'}
                         </button>
