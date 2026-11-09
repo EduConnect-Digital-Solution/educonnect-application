@@ -122,7 +122,8 @@ function feeFin(fee) {
 }
 
 const firstName = (fee) => (fee.studentName || "").split(" ")[0] || (fee.studentName || "");
-function deriveTerm(name = "") {
+function deriveTerm(name = "", termName = null) {
+  if (termName) return termName;
   const m = name.match(/(First|Second|Third)\s+Term/i);
   return m ? `${m[1][0].toUpperCase()}${m[1].slice(1).toLowerCase()} Term` : "—";
 }
@@ -151,7 +152,7 @@ function Meta({ label, children, mono }) {
 
 /* ---------- Student summary banner ---------------------------------------- */
 function StudentSummary({ fee }) {
-  const term = deriveTerm(fee.feeStructureName);
+  const term = deriveTerm(fee.feeStructureName, fee.termName);
   const klass = deriveClass(fee);
   return (
     <div className="flex items-center gap-6 flex-wrap p-5.5 bg-white border border-gray-200 rounded-xl shadow-sm mb-6 p-[22px]">
@@ -216,7 +217,7 @@ function MoneyStat({ label, value, icon: IconCmp, emphasis = false, sub }) {
 
 function StatTrio({ fee }) {
   const fs = feeFin(fee);
-  const term = deriveTerm(fee.feeStructureName);
+  const term = deriveTerm(fee.feeStructureName, fee.termName);
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
       <MoneyStat label="Total fees" value={money(fs.total)} icon={Receipt} sub={`${term}, all charges`} />
@@ -229,7 +230,7 @@ function StatTrio({ fee }) {
 /* ---------- Fee detail card ----------------------------------------------- */
 function FeeDetailCard({ fee }) {
   const fs = feeFin(fee);
-  const term = deriveTerm(fee.feeStructureName);
+  const term = deriveTerm(fee.feeStructureName, fee.termName);
   return (
     <Card 
       title={fs.outstanding > 0 ? "Outstanding fee" : "Term fee"} 
@@ -299,7 +300,7 @@ function CheckoutCard({ fee, onViewReceipt, onPaid }) {
 function BreakdownCard({ fee }) {
   const [open, setOpen] = useState(true);
   const fs = feeFin(fee);
-  const items = [{ label: fee.feeStructureName, desc: `${deriveTerm(fee.feeStructureName)} invoice`, amount: fs.total }];
+  const items = [{ label: fee.feeStructureName, desc: `${deriveTerm(fee.feeStructureName, fee.termName)} invoice`, amount: fs.total }];
   
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mb-6">
@@ -501,7 +502,7 @@ function StudentSwitcher({ fees, selectedFee, onSelect }) {
                     {f.studentName}
                   </span>
                   <span className="text-xs text-gray-500 truncate">
-                    {deriveClass(f)} · {deriveTerm(f.feeStructureName)}
+                    {deriveClass(f)} · {deriveTerm(f.feeStructureName, f.termName)}
                   </span>
                 </span>
               </div>
