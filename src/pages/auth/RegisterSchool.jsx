@@ -8,7 +8,7 @@ import { setPendingLogo } from '../application/AdminDashboard/services/onboardin
 
 // ─── Shared styles ──────────────
 const inputCls =
-    'w-full px-4 py-3 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-[#0A61A4] focus:border-transparent transition-all';
+    'w-full px-4 py-3 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 bg-white focus:outline-none focus:ring-2 focus:ring-[#002684] focus:border-transparent transition-all';
 
 // ─── Field wrapper ──────────────
 const Field = ({ label, required, hint, children }) => (
@@ -183,7 +183,7 @@ export function RegisterSchool() {
             <div className="mb-7">
                 <div className="h-[3px] w-full bg-gray-200 rounded-full overflow-hidden mb-5">
                     <div
-                        className="h-full bg-[#0A61A4] rounded-full transition-all duration-500 ease-out"
+                        className="h-full bg-[#002684] rounded-full transition-all duration-500 ease-out"
                         style={{ width: `${((step - 1) / (STEPS.length - 1)) * 100}%` }}
                     />
                 </div>
@@ -191,8 +191,8 @@ export function RegisterSchool() {
                     {STEPS.map((s) => (
                         <div key={s.id} className="flex flex-col items-center gap-1.5">
                             <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
-                                step > s.id  ? 'bg-[#0A61A4] text-white' :
-                                    step === s.id ? 'bg-[#0A61A4] text-white ring-[3px] ring-[#0A61A4]/20' :
+                                step > s.id  ? 'bg-[#002684] text-white' :
+                                    step === s.id ? 'bg-[#002684] text-white ring-[3px] ring-[#002684]/20' :
                                         'bg-white border-2 border-gray-200 text-gray-400'
                             }`}>
                                 {step > s.id ? <Check size={13} strokeWidth={3} /> : s.id}
@@ -237,7 +237,7 @@ export function RegisterSchool() {
                                             </button>
                                         </div>
                                     ) : (
-                                        <label className="flex flex-col items-center justify-center w-16 h-16 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 hover:border-[#0A61A4] hover:text-[#0A61A4] cursor-pointer transition-colors">
+                                        <label className="flex flex-col items-center justify-center w-16 h-16 rounded-xl border-2 border-dashed border-gray-200 text-gray-400 hover:border-[#002684] hover:text-[#002684] cursor-pointer transition-colors">
                                             <ImagePlus size={18} />
                                             <input type="file" accept="image/*" className="hidden"
                                                    onChange={e => handleLogoFile(e.target.files?.[0])} />
@@ -361,12 +361,12 @@ export function RegisterSchool() {
                         )}
                         {step < 3 ? (
                             <button onClick={handleNext}
-                                    className="flex items-center gap-1.5 px-6 py-2.5 text-sm font-semibold text-white bg-[#0A61A4] hover:bg-[#085490] rounded-xl transition-colors shadow-sm ml-auto">
+                                    className="flex items-center gap-1.5 px-6 py-2.5 text-sm font-semibold text-white bg-[#002684] hover:bg-[#085490] rounded-xl transition-colors shadow-sm ml-auto">
                                 Continue <ArrowRight size={14} />
                             </button>
                         ) : (
                             <button onClick={handleSubmit} disabled={loading}
-                                    className="flex items-center gap-1.5 px-6 py-2.5 text-sm font-semibold text-white bg-[#0A61A4] hover:bg-[#085490] disabled:opacity-60 rounded-xl transition-colors shadow-sm ml-auto">
+                                    className="flex items-center gap-1.5 px-6 py-2.5 text-sm font-semibold text-white bg-[#002684] hover:bg-[#085490] disabled:opacity-60 rounded-xl transition-colors shadow-sm ml-auto">
                                 {loading ? (
                                     <>
                                         <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
@@ -388,14 +388,14 @@ export function RegisterSchool() {
             <div className="mt-5 text-center space-y-2">
                 <p className="text-sm text-gray-500">
                     Already registered?{' '}
-                    <NavLink to="/" className="text-[#0A61A4] font-semibold hover:underline">Sign in</NavLink>
+                    <NavLink to="/" className="text-[#002684] font-semibold hover:underline">Sign in</NavLink>
                 </p>
                 {step === 3 && (
                     <p className="text-xs text-gray-400 max-w-sm mx-auto leading-relaxed">
                         By creating an account you agree to EduConnect's{' '}
-                        <NavLink to="/terms" className="text-[#0A61A4] hover:underline">Terms of Service</NavLink>
+                        <NavLink to="/terms" className="text-[#002684] hover:underline">Terms of Service</NavLink>
                         {' '}and{' '}
-                        <NavLink to="/privacy" className="text-[#0A61A4] hover:underline">Privacy Policy</NavLink>
+                        <NavLink to="/privacy" className="text-[#002684] hover:underline">Privacy Policy</NavLink>
                     </p>
                 )}
             </div>

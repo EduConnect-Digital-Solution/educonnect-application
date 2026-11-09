@@ -61,7 +61,7 @@ export function PWAInstallPrompt() {
                             <button
                                 type="button"
                                 onClick={handleInstall}
-                                className="inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-lg bg-[#104889] hover:bg-[#0d3a70] text-white text-sm font-semibold"
+                                className="inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-lg bg-[#002684] hover:bg-[#001a5e] text-white text-sm font-semibold"
                             >
                                 <Download className="w-4 h-4" /> Install
                             </button>

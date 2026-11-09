@@ -108,7 +108,7 @@ const QuickActionCard = ({ title, description, buttonText, buttonFunction, icon:
                         className={`w-full py-2 mt-3  text-xs font-bold rounded-lg transition-colors ${
                             comingSoon
                                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed border border-transparent'
-                                : 'bg-gray-50 text-gray-700 border border-gray-200 hover:bg-[#0A61A4] hover:text-white'
+                                : 'bg-gray-50 text-gray-700 border border-gray-200 hover:bg-[#002684] hover:text-white'
                         }`}
                     >
                         {buttonText}

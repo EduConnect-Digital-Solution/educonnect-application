@@ -66,7 +66,7 @@ export const Sidebar = () => {
 
                 <div className="flex items-center justify-between h-16 px-6 border-b border-gray-200 shrink-0">
                     {/*<NavLink to="/" className="flex items-center">*/}
-                        <img src={`${Images.main_logo}`} alt="Logo" className="w-32" />
+                        <img src={`${Images.main_logo}`} alt="EduConnect" className="h-10 w-auto" />
                     {/*</NavLink>*/}
                     <button
                         onClick={() => setIsOpen(false)}

@@ -10,9 +10,9 @@ import { useAuth } from '../../contexts/AuthContext.jsx';
 const RoleCard = ({ title, description, icon, onClick }) => (
     <button
         onClick={onClick}
-        className="group w-full flex items-center gap-4 px-5 py-4 bg-white border border-gray-200 rounded-2xl hover:border-[#0a61a4] hover:shadow-lg hover:shadow-blue-100 transition-all duration-200 text-left active:scale-[0.98]"
+        className="group w-full flex items-center gap-4 px-5 py-4 bg-white border border-gray-200 rounded-2xl hover:border-[#002684] hover:shadow-lg hover:shadow-blue-100 transition-all duration-200 text-left active:scale-[0.98]"
     >
-        <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 text-lg shrink-0 group-hover:bg-[#0a61a4] group-hover:text-white transition-all duration-200">
+        <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 text-lg shrink-0 group-hover:bg-[#002684] group-hover:text-white transition-all duration-200">
             {icon}
         </div>
         <div className="flex-1 min-w-0">

@@ -113,9 +113,9 @@ const SidebarShell = ({ collapsed, setCollapsed, onNavigate, hasPolicyPermission
             {/* Product logo */}
             <div className={`flex items-center h-14 border-b border-gray-100 shrink-0 ${collapsed && !onNavigate ? 'justify-center px-2' : 'justify-between px-5'}`}>
                 {(!collapsed || onNavigate) ? (
-                    <img src={logoSrc} alt="EduConnect" className="w-30 max-w-[120px] transition-opacity duration-300" />
+                    <img src={logoSrc} alt="EduConnect" className="h-9 w-auto transition-opacity duration-300" />
                 ) : (
-                    <img src={Images.logo} alt="EduConnect" className="w-7 transition-opacity duration-300" />
+                    <img src={isDark ? Images.logo_light : Images.logo} alt="EduConnect" className="w-7 transition-opacity duration-300" />
                 )}
                 {!onNavigate && (
                     <button
