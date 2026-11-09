@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
     RefreshCw, Loader2, Download, AlertTriangle, Table2, Trophy,
 } from 'lucide-react';
@@ -6,7 +6,7 @@ import { StatusChip, EmptyState, pushToast } from '../../../../../../components/
 import { useAcademic } from '../../../../../../contexts/AcademicContext.jsx';
 import { getSchoolClasses } from '../../../services/classAPIs.js';
 import { getClassArms } from '../../../services/armAPIs.js';
-import { getBroadsheet } from '../../../services/gradingAPIs.js';
+import { getBroadsheet, getBroadsheetOverview } from '../../../services/gradingAPIs.js';
 
 // ─── Grade colour helper ────────────────────────────────────────────────────────
 
@@ -61,7 +61,7 @@ function exportBroadsheetToExcel({ armName, className, termName, subjects, stude
     URL.revokeObjectURL(url);
 }
 
-// ─── Readiness banner (sheets not all approved) ──────────────────────────────────
+// ─── Readiness banner (subjects still incomplete) ──────────────────────────────────
 
 function ReadinessBanner({ readiness }) {
     return (
@@ -70,10 +70,10 @@ function ReadinessBanner({ readiness }) {
                 <AlertTriangle size={18} className="text-amber-500 shrink-0 mt-0.5" />
                 <div className="flex-1">
                     <p className="text-sm font-bold text-amber-900">
-                        Broadsheet locked — {readiness.approved} of {readiness.total} subject sheets approved
+                        Broadsheet locked — {readiness.completed} of {readiness.total} subjects complete
                     </p>
                     <p className="text-xs text-amber-700 mt-0.5">
-                        Every score sheet for this arm must be approved in the Submission Matrix
+                        Every subject in this arm needs scores entered for all its students
                         before the broadsheet can be compiled. Still pending:
                     </p>
                     <div className="flex flex-wrap gap-1.5 mt-2">
@@ -195,12 +195,13 @@ function BroadsheetGrid({ subjects, students, detailed }) {
 // Main tab
 // ═════════════════════════════════════════════════════════════════════════════
 
-export default function BroadsheetTab() {
+function ArmBroadsheet({ preset }) {
     const { currentTerm, loading: scopeLoading } = useAcademic();
+    const pendingArm = useRef(preset?.armId || null);
 
     const [classes, setClasses]     = useState([]);
     const [arms, setArms]           = useState([]);
-    const [classId, setClassId]     = useState('');
+    const [classId, setClassId]     = useState(preset?.classId || '');
     const [armId, setArmId]         = useState('');
 
     const [loadingClasses, setLoadingClasses] = useState(true);
@@ -225,7 +226,10 @@ export default function BroadsheetTab() {
         if (!classId) return;
         setLoadingArms(true);
         getClassArms(classId)
-            .then(res => setArms(res.data?.arms ?? []))
+            .then(res => {
+                setArms(res.data?.arms ?? []);
+                if (pendingArm.current) { setArmId(pendingArm.current); pendingArm.current = null; }
+            })
             .catch(() => pushToast({ message: 'Failed to load arms.', type: 'error' }))
             .finally(() => setLoadingArms(false));
     }, [classId]);
@@ -252,7 +256,7 @@ export default function BroadsheetTab() {
 
     useEffect(() => { setData(null); }, [armId]);
 
-    const ready = data?.readiness?.allApproved;
+    const ready = data?.readiness?.allComplete;
     const isLoading = scopeLoading || loading;
 
     const handleExport = () => {
@@ -268,16 +272,6 @@ export default function BroadsheetTab() {
 
     return (
         <div className="flex flex-col gap-5">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                    <h2 className="text-base font-bold text-gray-900">Master Broadsheet</h2>
-                    <p className="text-sm text-gray-500 mt-0.5">
-                        Consolidated results for an arm — every subject, every student, ranked by total score.
-                    </p>
-                </div>
-            </div>
-
             {/* Selectors */}
             <div className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-wrap items-end gap-3">
                 <div className="flex-1 min-w-[160px]">
@@ -342,7 +336,7 @@ export default function BroadsheetTab() {
                     <EmptyState
                         variant="first-use"
                         title="Compile a broadsheet"
-                        description="Pick a class and arm above, then press Compile. The broadsheet appears once every score sheet for that arm has been approved."
+                        description="Pick a class and arm above, then press Compile. The broadsheet appears once scores are complete for every subject in that arm."
                     />
                 </div>
             )}
@@ -408,6 +402,140 @@ export default function BroadsheetTab() {
                     </p>
                 </>
             )}
+        </div>
+    );
+}
+
+
+// ─── All-classes overview ──────────────────────────────────────────────────────
+
+function AllClassesOverview({ onOpen }) {
+    const { currentTerm, loading: scopeLoading } = useAcademic();
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+
+    const load = useCallback(async () => {
+        if (!currentTerm?.id) return;
+        setLoading(true); setError(null);
+        try {
+            const res = await getBroadsheetOverview(currentTerm.id);
+            setData(res.data);
+        } catch (e) {
+            setError(e?.message || 'Failed to load the overview.');
+        } finally {
+            setLoading(false);
+        }
+    }, [currentTerm?.id]);
+
+    useEffect(() => { load(); }, [load]);
+
+    if (!currentTerm?.id && !scopeLoading) {
+        return (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-sm text-amber-800 font-medium">
+                Select an academic term above to see the overview.
+            </div>
+        );
+    }
+    if (loading || scopeLoading) {
+        return <div className="flex items-center justify-center py-20"><Loader2 size={24} className="animate-spin text-blue-500" /></div>;
+    }
+    if (error) {
+        return <div className="bg-white border border-gray-200 rounded-2xl"><EmptyState variant="error" description={error} onRetry={load} /></div>;
+    }
+    if (!data || data.arms.length === 0) {
+        return (
+            <div className="bg-white border border-gray-200 rounded-2xl">
+                <EmptyState variant="first-use" title="No classes yet" description="Create classes and arms in Classes & Arms to see their results here." />
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-3 gap-3">
+                {[['Arms', data.totals.arms], ['Ready to publish', `${data.totals.ready} / ${data.totals.arms}`], ['Students ranked', data.totals.students]].map(([label, value]) => (
+                    <div key={label} className="bg-white border border-gray-200 rounded-2xl p-4">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">{label}</p>
+                        <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+                    </div>
+                ))}
+            </div>
+            <div className="bg-white border border-gray-200 rounded-2xl overflow-x-auto">
+                <table className="w-full text-sm">
+                    <thead>
+                        <tr className="text-left text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
+                            <th className="px-4 py-3 font-semibold">Class</th>
+                            <th className="px-4 py-3 font-semibold">Subjects complete</th>
+                            <th className="px-4 py-3 font-semibold">Students</th>
+                            <th className="px-4 py-3 font-semibold">Class average</th>
+                            <th className="px-4 py-3 font-semibold">Top student</th>
+                            <th className="px-4 py-3" />
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {data.arms.map(r => (
+                            <tr key={r.armId} className="border-b border-gray-50 last:border-0">
+                                <td className="px-4 py-3 font-semibold text-gray-900">{r.className} {r.armName}</td>
+                                <td className="px-4 py-3">
+                                    <span className={r.ready ? 'text-green-700 font-semibold' : 'text-amber-700 font-semibold'}>
+                                        {r.subjectsComplete} / {r.subjectsTotal}
+                                    </span>
+                                    {!r.ready && r.pending.length > 0 && (
+                                        <span className="block text-xs text-gray-500">Waiting on {r.pending.join(', ')}</span>
+                                    )}
+                                </td>
+                                <td className="px-4 py-3 text-gray-700">{r.studentCount ?? '—'}</td>
+                                <td className="px-4 py-3 text-gray-700">{r.classAverage != null ? `${r.classAverage}%` : '—'}</td>
+                                <td className="px-4 py-3 text-gray-700">{r.topStudent ? `${r.topStudent.name} (${r.topStudent.average}%)` : '—'}</td>
+                                <td className="px-4 py-3 text-right">
+                                    <button type="button" onClick={() => onOpen(r)}
+                                        className="px-3 py-1.5 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg">
+                                        Open
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
+
+// ─── Tab: switch between the one-arm view and the all-classes overview ─────────
+
+export default function BroadsheetTab() {
+    const [mode, setMode] = useState('overview');
+    const [preset, setPreset] = useState(null);
+
+    const open = (row) => { setPreset({ classId: row.classId, armId: row.armId }); setMode('arm'); };
+    const tab = (id, label) => (
+        <button type="button" onClick={() => { if (id === 'arm') setPreset(null); setMode(id); }}
+            className={`px-3 py-1.5 text-sm font-semibold rounded-lg ${mode === id ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            {label}
+        </button>
+    );
+
+    return (
+        <div className="flex flex-col gap-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h2 className="text-base font-bold text-gray-900">Master Broadsheet</h2>
+                    <p className="text-sm text-gray-500 mt-0.5">
+                        {mode === 'overview'
+                            ? 'Every class at a glance: how far scoring has got and how each class is doing.'
+                            : 'Consolidated results for an arm: every subject, every student, ranked by total score.'}
+                    </p>
+                </div>
+                <div className="inline-flex bg-gray-100 rounded-xl p-1 self-start">
+                    {tab('overview', 'All classes')}
+                    {tab('arm', 'One class')}
+                </div>
+            </div>
+            {mode === 'overview'
+                ? <AllClassesOverview onOpen={open} />
+                : <ArmBroadsheet key={preset?.armId || 'blank'} preset={preset} />}
         </div>
     );
 }

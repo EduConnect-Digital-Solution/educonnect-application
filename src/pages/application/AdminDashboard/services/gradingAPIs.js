@@ -521,6 +521,16 @@ export async function getBroadsheet(armId, termId) {
 
 }
 
+// GET /api/admin/broadsheets/overview?termId= — one summary row per arm
+export async function getBroadsheetOverview(termId) {
+    try {
+        const { data } = await apiClient.get('/api/admin/broadsheets/overview', { params: { termId } });
+        return data;
+    } catch (error) {
+        throw error?.response?.data || error;
+    }
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // RESULT PUBLISHING — LIVE
 // ═════════════════════════════════════════════════════════════════════════════
