@@ -574,3 +574,7 @@ const postAuth = async (url, payload) => {
 
 export const ForgotPassword = (payload) => postAuth('/api/school/auth/forgot-password', payload);
 export const ResetPassword = (payload) => postAuth('/api/school/auth/reset-password', payload);
+
+// Teacher / parent accounts use the user auth routes.
+export const ForgotUserPassword = (payload) => postAuth('/api/user/auth/forgot-password', payload);
+export const ResetUserPassword = (payload) => postAuth('/api/user/auth/reset-password', payload);
