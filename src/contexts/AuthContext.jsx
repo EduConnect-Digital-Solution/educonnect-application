@@ -175,6 +175,17 @@ export const AuthProvider = ({ children }) => {
         setUser(normalizeUser(loginData.data.user));
         setTokenExpiry(expiry);
         scheduleTokenRefresh(expiry);
+
+        // The login response carries the internal school id; /me returns the school's
+        // human-readable code and details, so pull them in once in the background.
+        try {
+            const me = await axios.get(`${baseURL}/api/user/auth/me`, { withCredentials: true });
+            if (me.data?.success && me.data.user) {
+                setUser((current) => normalizeUser({ ...(current || {}), ...me.data.user }));
+            }
+        } catch {
+            /* keep the login response; the next page load refreshes it */
+        }
     };
 
     // Logout: invalidate server session and clear local state

@@ -607,9 +607,13 @@ export default function FeesAndPayments() {
     // Back from Paystack: the reference arrives in the query string. Check it, then tidy the URL.
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
-        const reference = params.get('reference') || params.get('trxref');
+        let stored = null;
+        try { stored = localStorage.getItem('ec_pending_paystack_ref'); } catch { /* storage unavailable */ }
+        // The query string wins; otherwise fall back to the payment this browser last started
+        const reference = params.get('reference') || params.get('trxref') || stored;
         if (!reference) return;
         window.history.replaceState({}, '', window.location.pathname);
+        try { localStorage.removeItem('ec_pending_paystack_ref'); } catch { /* storage unavailable */ }
 
         verifyPayment('paystack', reference)
             .then((res) => {

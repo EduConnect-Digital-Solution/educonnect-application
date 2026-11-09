@@ -49,6 +49,9 @@ export default function PayPanel({ fee, onPaid }) {
                 if (!res?.authorizationUrl || !String(res.authorizationUrl).startsWith('https://')) {
                     throw new Error('Could not start the payment. Please try again.');
                 }
+                // Remember it, so the fees page can still confirm the payment if the gateway
+                // does not send the parent straight back with the reference.
+                try { if (res.reference) localStorage.setItem('ec_pending_paystack_ref', res.reference); } catch { /* storage unavailable */ }
                 window.location.assign(res.authorizationUrl);
                 return; // leaving the page; keep the button disabled
             }

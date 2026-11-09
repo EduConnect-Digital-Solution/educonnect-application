@@ -69,7 +69,11 @@ const NavList = ({ collapsed, onNavigate, hasPolicyPermission }) => {
 const SidebarFooter = ({ collapsed, onNavigate }) => {
     const { user } = useAuth();
     // The signed-in user carries their school's name; fall back to a generic label if it's missing
-    const schoolName = user?.schoolName || 'Your school';
+    const schoolName = user?.schoolName || user?.school?.schoolName || 'Your school';
+    // Show the human-readable school code (e.g. EDU5009), never the internal UUID
+    const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const rawCode = user?.school?.schoolId || user?.schoolId;
+    const schoolCode = rawCode && !UUID.test(rawCode) ? rawCode : 'Teacher';
     const initials = schoolName.split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'YS';
 
     return (
@@ -82,7 +86,7 @@ const SidebarFooter = ({ collapsed, onNavigate }) => {
                     <div className="min-w-0">
                         <p className="text-[13px] font-bold text-gray-800 truncate leading-tight">{schoolName}</p>
                         <p className="text-[10px] font-semibold text-gray-400 truncate uppercase tracking-wide">
-                            {user?.schoolId || 'Teacher'}
+                            {schoolCode}
                         </p>
                     </div>
                 )}
