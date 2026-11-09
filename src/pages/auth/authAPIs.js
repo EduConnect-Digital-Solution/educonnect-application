@@ -561,3 +561,16 @@ export async function getPendingFees(parentId) {
    }]
 }
 
+
+// Password reset (admin/school accounts). Always resolves to { success, message }.
+const postAuth = async (url, payload) => {
+    try {
+        const { data } = await apiClient.post(url, payload);
+        return data;
+    } catch (err) {
+        return err?.response?.data ?? { success: false, message: 'Something went wrong. Please try again.' };
+    }
+};
+
+export const ForgotPassword = (payload) => postAuth('/api/school/auth/forgot-password', payload);
+export const ResetPassword = (payload) => postAuth('/api/school/auth/reset-password', payload);

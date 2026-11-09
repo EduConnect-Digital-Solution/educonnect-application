@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, ArrowLeft, CheckCircle } from 'lucide-react';
 import { Images } from '../../components/images';
-import { LoginSchool, LoginUser } from './authAPIs';
+import { LoginSchool, LoginUser, ForgotPassword, ResetPassword } from './authAPIs';
 import { Toast } from '../application/AdminDashboard/components/ui/Toast';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 
@@ -82,12 +82,6 @@ export default function AuthPage() {
         try {
             const payload = { schoolId: formData.schoolId.trim(), email: formData.email.trim().toLowerCase(), password: formData.password };
 
-            // const payload = {
-            //     schoolId: "NEW3473",
-            //     email: "kogakip523@inraud.com",
-            //     password: "$Kene3504$"
-            // };
-
             const res = selectedRole === 'admin' ? await LoginSchool(payload) : await LoginUser(payload);
             if (res.success) {
                 await login(res);
@@ -109,12 +103,8 @@ export default function AuthPage() {
         if (!forgotData.email) return showToast('Please enter your email address.');
         setIsLoading(true);
         try {
-            const res = await fetch('/api/school/auth/forgot-password', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email: forgotData.email.trim().toLowerCase(), schoolId: forgotData.schoolId.trim() }),
-            });
-            const data = await res.json();
+            const data = await ForgotPassword({ email: forgotData.email.trim().toLowerCase(), schoolId: forgotData.schoolId.trim() });
+            
             if (data.success) {
                 setResetData(p => ({ ...p, email: forgotData.email.trim().toLowerCase() }));
                 showToast('OTP sent! Check your email.', 'success');
@@ -135,12 +125,8 @@ export default function AuthPage() {
         if (resetData.newPassword !== resetData.confirmPassword) return showToast('Passwords do not match.');
         setIsLoading(true);
         try {
-            const res = await fetch('/api/school/auth/reset-password', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(resetData),
-            });
-            const data = await res.json();
+            const data = await ResetPassword(resetData);
+            
             if (data.success) {
                 showToast('Password reset successfully!', 'success', 2000, () => setView('login'));
             } else {
