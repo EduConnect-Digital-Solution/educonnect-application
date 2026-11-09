@@ -125,7 +125,7 @@ export async function deleteGradingScale(id) {
 }
 
 /**
- * POST /api/admin/grading-scales/:id/set-default
+ * PUT /api/admin/grading-scales/:id/default
  * Marks this scale as the school-wide default. Only one scale can be default
  * at a time — the backend unsets the previous default automatically.
  *
@@ -134,7 +134,7 @@ export async function deleteGradingScale(id) {
  */
 export async function setDefaultGradingScale(id) {
     try {
-        const { data } = await apiClient.post(`/api/admin/grading-scales/${id}/set-default`);
+        const { data } = await apiClient.put(`/api/admin/grading-scales/${id}/default`);
         return data;
     } catch (error) {
         throw error?.response?.data || error;
