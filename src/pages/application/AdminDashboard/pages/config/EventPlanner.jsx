@@ -19,6 +19,31 @@ function fmtHour(h) {
     return `${h - 12} PM`;
 }
 
+const pad2 = (n) => String(n).padStart(2, '0');
+// YYYY-MM-DD in the user's local time zone (toISOString() would use UTC and can shift the day)
+const localDateKey = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const eventStartKey = (ev) => localDateKey(new Date(ev.date));
+const eventEndKey = (ev) => {
+    const start = eventStartKey(ev);
+    const end = ev.endDate ? localDateKey(new Date(ev.endDate)) : start;
+    return end < start ? start : end;
+};
+const isMultiDay = (ev) => eventEndKey(ev) > eventStartKey(ev);
+const isEventPast = (ev) => eventEndKey(ev) < localDateKey(new Date());
+const shortDate = (key) => new Date(`${key}T00:00:00`).toLocaleDateString([], { day: 'numeric', month: 'short' });
+// Events saved without a time start at midnight; show those as all-day instead of "12:00 AM"
+const timeLabel = (ev) => {
+    const d = new Date(ev.date);
+    if (d.getHours() === 0 && d.getMinutes() === 0) return 'All day';
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+const dayPosition = (ev, key) => {
+    const start = eventStartKey(ev);
+    const total = Math.round((new Date(`${eventEndKey(ev)}T00:00:00`) - new Date(`${start}T00:00:00`)) / 86400000) + 1;
+    const index = Math.round((new Date(`${key}T00:00:00`) - new Date(`${start}T00:00:00`)) / 86400000) + 1;
+    return { index, total };
+};
+
 function isSameDay(a, b) {
     return (
         a.getFullYear() === b.getFullYear() &&
@@ -74,6 +99,7 @@ export default function EventPlanner() {
     const [panelMode, setPanelMode] = useState('create');
     const [editingEventId, setEditingEventId] = useState(null);
     const [selectedDateMsg, setSelectedDateMsg] = useState(null);
+    const [endDateMsg, setEndDateMsg] = useState(null);
 
     // Event form
     const [eventForm, setEventForm] = useState({
@@ -200,7 +226,9 @@ export default function EventPlanner() {
 
     // ── Event CRUD ──
     const openCreatePanel = (dateObj) => {
-        setSelectedDateMsg(dateObj.toISOString().split('T')[0]);
+        const dayKey = localDateKey(dateObj);
+        setSelectedDateMsg(dayKey);
+        setEndDateMsg(dayKey);
         setPanelMode('create');
         setEditingEventId(null);
         setEventForm({
@@ -215,7 +243,8 @@ export default function EventPlanner() {
     };
 
     const fetchEventDataForPanel = async (eventObj, mode) => {
-        setSelectedDateMsg(eventObj.date.split('T')[0]);
+        setSelectedDateMsg(eventStartKey(eventObj));
+        setEndDateMsg(eventEndKey(eventObj));
         setPanelMode(mode);
         setEditingEventId(eventObj.id);
 
@@ -257,7 +286,7 @@ export default function EventPlanner() {
 
     const handleEditEvent = (ev, e) => {
         e.stopPropagation();
-        if (new Date(ev.date) < new Date(new Date().toISOString().split('T')[0])) return;
+        if (isEventPast(ev)) return;
         fetchEventDataForPanel(ev, 'edit');
     };
 
@@ -285,17 +314,25 @@ export default function EventPlanner() {
         const timeStr = eventForm.time || '00:00';
         const finalIsoDate = new Date(`${dateStr}T${timeStr}:00`).toISOString();
 
+        if (endDateMsg && endDateMsg < dateStr) return alert('The end date cannot be before the start date.');
+        // A multi-day event runs through the end of its last day; null clears a previous range
+        const finalEndIso = endDateMsg && endDateMsg > dateStr ? new Date(`${endDateMsg}T23:59:00`).toISOString() : null;
+
         const payload = {
             termId: activeProfile.currentTerm?.id,
             name: eventForm.name,
             type: eventForm.type,
             date: finalIsoDate,
-            notifications: {
-                enabled: eventForm.notificationsEnabled,
-                targets: eventForm.notificationTargets,
-                channels: ['in_app'],
-                schedule: scheduleForPayload
-            }
+            endDate: finalEndIso,
+            // With notifications off there is nothing else to send (an empty sendAt is rejected as an invalid date)
+            notifications: eventForm.notificationsEnabled
+                ? {
+                    enabled: true,
+                    targets: eventForm.notificationTargets,
+                    channels: ['in_app'],
+                    schedule: scheduleForPayload
+                }
+                : { enabled: false }
         };
 
         if (panelMode === 'edit') {
@@ -328,8 +365,9 @@ export default function EventPlanner() {
 
     const getEventsForDate = (dateObj) => {
         if (!dateObj) return [];
-        const dStr = dateObj.toISOString().split('T')[0];
-        return events.filter(h => h.date.split('T')[0] === dStr);
+        const dStr = localDateKey(dateObj);
+        // An event belongs to every day from its start through its end
+        return events.filter(h => eventStartKey(h) <= dStr && dStr <= eventEndKey(h));
     };
 
     // ── Loading ──
@@ -346,7 +384,7 @@ export default function EventPlanner() {
     }
 
     const upcomingEvents = events
-        .filter(ev => new Date(ev.date) >= new Date(new Date().toISOString().split('T')[0]))
+        .filter(ev => !isEventPast(ev))
         .sort((a, b) => new Date(a.date) - new Date(b.date))
         .slice(0, 5);
 
@@ -446,7 +484,8 @@ export default function EventPlanner() {
                                 {/* Events */}
                                 {dayEvts.map(ev => {
                                     const evDate = new Date(ev.date);
-                                    const startMin = evDate.getHours() * 60 + evDate.getMinutes();
+                                    const isFirstDay = eventStartKey(ev) === localDateKey(d);
+                                    const startMin = isFirstDay ? evDate.getHours() * 60 + evDate.getMinutes() : 0;
                                     const top = (startMin / 60) * HOUR_H;
                                     const height = HOUR_H * 0.9;
 
@@ -454,7 +493,7 @@ export default function EventPlanner() {
                                     if (ev.type === 'holiday') bg = 'bg-emerald-500 hover:bg-emerald-600';
                                     if (ev.type === 'exam') bg = 'bg-red-500 hover:bg-red-600';
 
-                                    const isPast = evDate < new Date(new Date().toISOString().split('T')[0]);
+                                    const isPast = isEventPast(ev);
 
                                     return (
                                         <div
@@ -465,7 +504,9 @@ export default function EventPlanner() {
                                         >
                                             <div className="font-semibold truncate leading-tight">{ev.name}</div>
                                             <div className="text-[10px] opacity-80 mt-0.5">
-                                                {evDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                {isMultiDay(ev)
+                                                    ? `Day ${dayPosition(ev, localDateKey(d)).index} of ${dayPosition(ev, localDateKey(d)).total}`
+                                                    : timeLabel(ev)}
                                             </div>
                                         </div>
                                     );
@@ -549,7 +590,15 @@ export default function EventPlanner() {
                                         return (
                                             <div
                                                 key={idx}
-                                                onClick={() => { setSelectedDate(dateObj); openCreatePanel(dateObj); }}
+                                                onClick={() => {
+                                                    setSelectedDate(dateObj);
+                                                    // Panel already open on a start date: clicking a later day sets the end date
+                                                    if (isPanelOpen && panelMode !== 'view' && selectedDateMsg && localDateKey(dateObj) > selectedDateMsg) {
+                                                        setEndDateMsg(localDateKey(dateObj));
+                                                        return;
+                                                    }
+                                                    openCreatePanel(dateObj);
+                                                }}
                                                 className={`border-r border-b border-gray-100 p-2 hover:bg-blue-50/30 cursor-pointer transition-colors flex flex-col group min-h-[100px]
                                                     ${isToday ? 'bg-blue-50/20' : ''}`}
                                             >
@@ -563,13 +612,21 @@ export default function EventPlanner() {
                                                         let iconColor = 'text-blue-400 hover:text-blue-700';
                                                         if (ev.type === 'holiday') { colors = 'bg-emerald-50 text-emerald-700 border-emerald-200'; iconColor = 'text-emerald-400 hover:text-emerald-700'; }
                                                         if (ev.type === 'exam') { colors = 'bg-red-50 text-red-700 border-red-200'; iconColor = 'text-red-400 hover:text-red-700'; }
-                                                        const isPast = new Date(ev.date) < new Date(new Date().toISOString().split('T')[0]);
+                                                        const isPast = isEventPast(ev);
+                                                        const cellKey = localDateKey(dateObj);
+                                                        const multi = isMultiDay(ev);
+                                                        const isFirstDay = eventStartKey(ev) === cellKey;
                                                         return (
                                                             <div key={ev.id} className={`text-xs px-1.5 py-0.5 rounded border flex items-center justify-between font-medium ${colors} ${isPast ? 'opacity-60' : ''}`}>
                                                                 <span className="truncate cursor-pointer flex-1 mr-1" onClick={e => { e.stopPropagation(); handleViewEvent(ev); }}>
-                                                                    {new Date(ev.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} {ev.name}
+                                                                    {multi ? ev.name : `${timeLabel(ev)} ${ev.name}`}
                                                                 </span>
-                                                                <div className="flex gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                {multi && (
+                                                                    <span className="shrink-0 text-[10px] opacity-70 mr-0.5">
+                                                                        {isFirstDay ? '' : '↳ '}{dayPosition(ev, cellKey).index}/{dayPosition(ev, cellKey).total}
+                                                                    </span>
+                                                                )}
+                                                                <div className="hidden gap-0.5 shrink-0 group-hover:flex">
                                                                     {!isPast && <button onClick={e => handleEditEvent(ev, e)} className={`p-0.5 rounded ${iconColor}`}><Edit2 size={11} /></button>}
                                                                     <button onClick={e => handleDeleteEvent(ev.id, e)} className={`p-0.5 rounded ${iconColor}`}><Trash2 size={11} /></button>
                                                                 </div>
@@ -706,9 +763,11 @@ export default function EventPlanner() {
                                     <div className="flex-1 min-w-0">
                                         <div className="flex justify-between items-start mb-0.5">
                                             <span className={`text-[11px] font-semibold ${timeColor}`}>
-                                                {evDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                {timeLabel(ev)}
                                             </span>
-                                            <span className="text-[10px] text-gray-500">{evDate.toLocaleDateString([], { day: 'numeric', month: 'short' })}</span>
+                                            <span className="text-[10px] text-gray-500">
+                                                {isMultiDay(ev) ? `${shortDate(eventStartKey(ev))} – ${shortDate(eventEndKey(ev))}` : evDate.toLocaleDateString([], { day: 'numeric', month: 'short' })}
+                                            </span>
                                         </div>
                                         <h4 className="text-sm font-semibold text-gray-900 truncate">{ev.name}</h4>
                                         <div className="flex items-center gap-1 text-[10px] text-gray-500 mt-0.5">
@@ -739,6 +798,9 @@ export default function EventPlanner() {
                                 </h3>
                                 <p className="text-xs text-gray-500 mt-1 font-medium">
                                     {selectedDateMsg && new Date(selectedDateMsg + 'T00:00:00').toLocaleDateString('default', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                                    {selectedDateMsg && endDateMsg && endDateMsg > selectedDateMsg && (
+                                        <> {'→'} {new Date(endDateMsg + 'T00:00:00').toLocaleDateString('default', { weekday: 'long', month: 'long', day: 'numeric' })}</>
+                                    )}
                                 </p>
                             </div>
                             <button onClick={() => setIsPanelOpen(false)} className="p-2 hover:bg-gray-200 rounded-lg text-gray-500 transition-colors"><X size={20} /></button>
@@ -769,6 +831,39 @@ export default function EventPlanner() {
                                         <option value="exam">Examination Period</option>
                                         <option value="event">Special School Event</option>
                                     </select>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="text-xs font-semibold text-gray-600 mb-1.5 block">Start date</label>
+                                        <input
+                                            disabled={panelMode === 'view'}
+                                            type="date"
+                                            value={selectedDateMsg || ''}
+                                            onChange={e => {
+                                                const next = e.target.value;
+                                                setSelectedDateMsg(next);
+                                                // keep the end date from falling before the new start
+                                                if (!endDateMsg || endDateMsg < next) setEndDateMsg(next);
+                                            }}
+                                            className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-colors disabled:opacity-70 disabled:bg-gray-50"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-semibold text-gray-600 mb-1.5 block">End date</label>
+                                        <input
+                                            disabled={panelMode === 'view'}
+                                            type="date"
+                                            min={selectedDateMsg || undefined}
+                                            value={endDateMsg || ''}
+                                            onChange={e => setEndDateMsg(e.target.value)}
+                                            className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-colors disabled:opacity-70 disabled:bg-gray-50"
+                                        />
+                                    </div>
+                                    {panelMode !== 'view' && (
+                                        <p className="col-span-2 -mt-1 text-[11px] text-gray-500">
+                                            Spans several days? Pick an end date here, or click a later day on the calendar.
+                                        </p>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="text-xs font-semibold text-gray-600 mb-1.5 block">Event Time</label>
