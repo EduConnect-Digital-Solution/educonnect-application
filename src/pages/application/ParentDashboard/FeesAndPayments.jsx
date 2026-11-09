@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ParentLayout from "./components/layout/ParentLayout.jsx";
-import { getPendingFees } from "../../auth/authAPIs.js";
+import { getMyInvoices } from "./services/parentFeeAPIs.js";
+import ReceiptModal from "./ReceiptModal.jsx";
 import {
     Wallet, Receipt, Calendar, Check, CircleCheck, Download,
     FileText, FileSpreadsheet, Printer, Lock, ChevronDown,
@@ -307,7 +308,7 @@ function GatewayCard({ g, selected, onSelect }) {
 }
 
 /* ---------- Checkout card (rail) ------------------------------------------ */
-function CheckoutCard({ fee }) {
+function CheckoutCard({ fee, onViewReceipt }) {
   const fs = feeFin(fee);
   const [sel, setSel] = useState("paystack");
   
@@ -319,11 +320,13 @@ function CheckoutCard({ fee }) {
         </span>
         <span className="font-bold text-xl leading-tight text-green-800">Fees fully paid</span>
         <span className="text-sm leading-relaxed text-green-700 max-w-[260px]">
-          {firstName(fee)}'s fees are settled in full. A receipt has been emailed to you.
+          {firstName(fee)}'s fees are settled in full.
         </span>
-        <Button variant="outline" size="md" iconLeft={<Download size={15} />} className="mt-2 text-green-800 border-green-300 hover:bg-green-50 hover:border-green-400">
-          Download receipt
-        </Button>
+        {fee.payments?.[0] && (
+          <Button variant="outline" size="md" iconLeft={<Download size={15} />} onClick={() => onViewReceipt(fee.payments[0].id)} className="mt-2 text-green-800 border-green-300 hover:bg-green-50 hover:border-green-400">
+            View latest receipt
+          </Button>
+        )}
       </div>
     );
   }
@@ -457,9 +460,9 @@ function TimelineCard({ fee }) {
 }
 
 /* ---------- Payment history ----------------------------------------------- */
-function HistoryCard() {
-  const rows = []; /* payload exposes no transaction records — designed empty state */
-  
+function HistoryCard({ fee, onViewReceipt }) {
+  const rows = fee.payments || [];
+
   const empty = (
     <div className="flex flex-col items-center gap-3.5 px-5 py-10 text-center">
       <span className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 text-gray-400">
@@ -473,10 +476,27 @@ function HistoryCard() {
       </div>
     </div>
   );
-  
+
   return (
     <Card title="Payment history" subtitle="Transactions for this invoice" padding={false} className="mb-6">
-      <div className={rows.length ? "px-1 pt-2 pb-1" : ""}>{empty}</div>
+      {rows.length === 0 ? empty : (
+        <ul className="divide-y divide-gray-100 px-1 pt-1 pb-1">
+          {rows.map((p) => (
+            <li key={p.id} className="flex items-center justify-between gap-3 px-4 py-3">
+              <div className="min-w-0">
+                <div className="font-semibold text-gray-900">{money(p.amount)}</div>
+                <div className="text-xs text-gray-500">
+                  {fmtDate(p.paidAt)} · {titleCase(String(p.paymentMethod || "").replace(/_/g, " "))}
+                  {p.receiptNumber ? ` · ${p.receiptNumber}` : ""}
+                </div>
+              </div>
+              <Button variant="outline" size="sm" iconLeft={<Receipt size={14} />} onClick={() => onViewReceipt(p.id)}>
+                Receipt
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
     </Card>
   );
 }
@@ -601,8 +621,10 @@ function StudentSwitcher({ fees, selectedFee, onSelect }) {
 /* ---------- Statement layout (two-column, sticky checkout rail) ----------- */
 function LayoutStatement({ fee }) {
   const fs = feeFin(fee);
+  const [receiptPaymentId, setReceiptPaymentId] = useState(null);
   return (
     <div className="flex flex-col w-full">
+      {receiptPaymentId && <ReceiptModal paymentId={receiptPaymentId} onClose={() => setReceiptPaymentId(null)} />}
       <StudentSummary fee={fee} />
       
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_372px] gap-6 items-start">
@@ -616,11 +638,11 @@ function LayoutStatement({ fee }) {
           <FeeDetailCard fee={fee} />
           <BreakdownCard fee={fee} />
           <TimelineCard fee={fee} />
-          <HistoryCard />
+          <HistoryCard fee={fee} onViewReceipt={setReceiptPaymentId} />
         </div>
         
         <div className="flex flex-col lg:sticky lg:top-4">
-          <CheckoutCard fee={fee} />
+          <CheckoutCard fee={fee} onViewReceipt={setReceiptPaymentId} />
           <DownloadsCard />
         </div>
       </div>
@@ -640,30 +662,25 @@ function PageHeader() {
 
 export default function FeesAndPayments() {
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
     const [fees, setFees] = useState([]);
     const [selectedFee, setSelectedFee] = useState(null);
 
+    const fetchFees = async () => {
+        try {
+            setLoading(true);
+            setError('');
+            const feesList = await getMyInvoices();
+            setFees(feesList);
+            setSelectedFee(feesList[0] ?? null);
+        } catch (err) {
+            setError(err.message || 'Could not load fees. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchFees = async () => {
-            try {
-                setLoading(true);
-                // Simulate network request loading time for the demo
-                await new Promise(resolve => setTimeout(resolve, 1200));
-
-                const response = await getPendingFees();
-                // We ensure it is an array just in case
-                const feesList = Array.isArray(response) ? response : [response];
-                setFees(feesList);
-                if (feesList.length > 0) {
-                    setSelectedFee(feesList[0]);
-                }
-            } catch (err) {
-                console.error("Error fetching fees", err);
-            } finally {
-                setLoading(false);
-            }
-        };
-
         fetchFees();
     }, []);
 
@@ -688,7 +705,12 @@ export default function FeesAndPayments() {
             <div className="mx-auto w-full pb-10">
                 <PageHeader />
 
-                {fees.length === 0 ? (
+                {error ? (
+                    <div className="flex flex-col items-center gap-3 p-12 text-center bg-red-50 border border-red-200 rounded-2xl max-w-2xl mx-auto">
+                        <span className="font-semibold text-lg text-red-800">{error}</span>
+                        <Button variant="outline" size="md" onClick={fetchFees}>Try again</Button>
+                    </div>
+                ) : fees.length === 0 ? (
                     <div className="flex flex-col items-center gap-3 p-12 text-center bg-green-50 border border-green-500/30 rounded-2xl max-w-2xl mx-auto">
                         <span className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-500 text-white">
                             <Check size={32} />
