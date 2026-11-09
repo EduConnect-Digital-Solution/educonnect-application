@@ -15,6 +15,7 @@ import {
     Search,
     User,
     UserCheck,
+    UserCog,
     Users,
     X
 } from "lucide-react";
@@ -27,16 +28,16 @@ import {formatDate} from "../../AdminDashboard/utils/formatters.js";
 export const StatsMetricCard = ({ title, value, icon: Icon, colorClass }) => {
     return (
         // Apply background and text color based on the colorClass prop
-        <div className={`p-6 rounded-xl shadow-md flex items-center justify-between min-w-[200px] ${colorClass}`}>
+        <div className={`p-6 rounded-xl shadow-md flex items-center justify-between gap-4 min-w-0 ${colorClass}`}>
 
             {/* Icon and Title Container */}
-            <div className="flex flex-col space-y-2">
+            <div className="flex flex-col space-y-2 min-w-0">
                 <Icon className="w-8 h-8 opacity-70" /> {/* Larger icon */}
-                <p className="text-base font-medium opacity-80 whitespace-nowrap">{title}</p>
+                <p className="text-base font-medium opacity-80 leading-snug">{title}</p>
             </div>
 
             {/* Value */}
-            <h2 className="text-5xl font-bold">{value}</h2>
+            <h2 className="text-5xl font-bold shrink-0">{value}</h2>
         </div>
     );
 };
@@ -261,7 +262,7 @@ export const AnalyticsAndActions = ({quickActions}) => {
                         title="View Children"
                         description="See all your children's information"
                         buttonText="View Children"
-                        icon={FileText}
+                        icon={Users}
                         colorClass="bg-blue-100 text-blue-400"
                         comingSoon={false}
                         buttonFunction={() => navigate('/dashboard/parent/children')}
@@ -280,8 +281,8 @@ export const AnalyticsAndActions = ({quickActions}) => {
                         title="Update Profile"
                         description="Manage your contact information"
                         buttonText="Update Profile"
-                        icon={MessageCircle}
-                        colorClass="bg-red-100 text-red-400"
+                        icon={UserCog}
+                        colorClass="bg-indigo-50 text-indigo-500"
                         comingSoon={false}
                         buttonFunction={() => navigate('/dashboard/parent/profile')}
                     />
@@ -307,7 +308,7 @@ export const ChildListandNotification = ({ children, notifications }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     const childrenList = children.map(child => ({
-        id: child.studentId, name: child.fullName,
+        key: child.id, id: child.studentId || '—', name: child.fullName,
         class: child.classDisplay, teacher: child.teachers[0]?.name || '-',
         status: child.isEnrolled ? 'Active' : 'Inactive'}));
 
@@ -355,13 +356,13 @@ export const ChildListandNotification = ({ children, notifications }) => {
                             </thead>
                             <tbody className="divide-y divide-gray-100">
                             {childrenList.map((child) => (
-                                <tr key={child.id} className="hover:bg-gray-50/50 transition-colors">
+                                <tr key={child.key} className="hover:bg-gray-50/50 transition-colors">
                                     <td className="px-6 py-4">
                                         <span className="text-sm font-bold text-gray-700">{child.id}</span>
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
-                                            <span className="font-bold text-gray-800">{child.name}</span>
+                                            <span className="font-bold text-gray-800 whitespace-nowrap">{child.name}</span>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">

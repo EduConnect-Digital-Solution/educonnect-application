@@ -139,8 +139,8 @@ export const QuickActions = () => {
                 title="Manage Classes"
                 description="View and manage your classes"
                 buttonText="Manage Classes"
-                icon={Mail}
-                colorClass="bg-orange-50 text-orange-600"
+                icon={GraduationCap}
+                colorClass="bg-blue-50 text-blue-600"
                 buttonFunction={() => navigate('/dashboard/teacher/classes')}
                 comingSoon={false}
             />
