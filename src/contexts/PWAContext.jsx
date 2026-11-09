@@ -11,6 +11,7 @@ import { useLocation } from 'react-router-dom';
 
 const INSTALL_DISMISS_KEY = 'educonnect_pwa_dismissed_at';
 const DISMISS_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const INSTALL_PROMPT_DELAY_MS = 60 * 1000;            // wait a minute into the session
 
 const PWAContext = createContext(null);
 
@@ -226,10 +227,10 @@ export function PWAProvider({ children }) {
             if (elapsed < DISMISS_COOLDOWN_MS) return;
         }
 
-        // Wait a few seconds AFTER entering the dashboard to avoid interfering with load/redirects
+        // Offer it only after the user has been working for a while, never on arrival
         promptTimerRef.current = setTimeout(() => {
             setShowInstallPrompt(true);
-        }, 3000);
+        }, INSTALL_PROMPT_DELAY_MS);
 
         return () => {
             if (promptTimerRef.current) clearTimeout(promptTimerRef.current);
