@@ -68,9 +68,9 @@ const NavList = ({ collapsed, onNavigate, hasPolicyPermission }) => {
 /* ─── Pinned bottom: school branding ────────────────────────────── */
 const SidebarFooter = ({ collapsed, onNavigate }) => {
     const { user } = useAuth();
-    // Assuming we don't have schoolBrand loaded globally for teachers, fallback to standard icon
-    const schoolName = 'Your school';
-    const initials = 'YS';
+    // The signed-in user carries their school's name; fall back to a generic label if it's missing
+    const schoolName = user?.schoolName || 'Your school';
+    const initials = schoolName.split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'YS';
 
     return (
         <div className="shrink-0 border-t border-gray-100 px-3 py-3 space-y-1.5">

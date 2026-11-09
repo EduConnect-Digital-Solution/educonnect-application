@@ -4,8 +4,7 @@ import { Link } from 'react-router-dom';
 import {getSubjectsByClass, getTeacherClasses} from "../../auth/authAPIs.js";
 import { Dialog, Transition } from '@headlessui/react';
 import { X, GraduationCap } from 'lucide-react';
-import {CardGridSkeleton} from "../../../components/patterns/index.js";
-// import { CardGridSkeleton, EmptyState } from '../../../components/patterns';
+import { CardGridSkeleton, EmptyState } from "../../../components/patterns/index.js";
 
 const TeacherClasses = () => {
     const [loading, setLoading] = useState(true);
