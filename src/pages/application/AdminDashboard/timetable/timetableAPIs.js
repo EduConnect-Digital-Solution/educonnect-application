@@ -110,8 +110,9 @@ export async function sendNotificationOverride(eventId, payload) {
   return data;
 }
 
-export async function getNotificationLogs(eventId, status) {
-  const { data } = await apiClient.get('/api/admin/notifications/logs', { params: { eventId, status } });
+// eventId is optional: without it the logs for the whole school come back
+export async function getNotificationLogs(eventId, status, channel) {
+  const { data } = await apiClient.get('/api/admin/notifications/logs', { params: { eventId, status, channel } });
   return data;
 }
 
