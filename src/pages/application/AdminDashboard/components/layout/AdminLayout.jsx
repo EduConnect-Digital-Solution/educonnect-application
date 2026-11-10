@@ -134,15 +134,11 @@ const SidebarFooter = ({ collapsed, onNavigate }) => {
 
     return (
         <div className="shrink-0 border-t border-gray-100 px-3 py-3 space-y-1.5">
-            {/* School branding block — shows the uploaded logo when present */}
+            {/* School name block: the sidebar carries EduConnect branding; the school's own logo lives on its profile page */}
             <div className={`flex items-center ${collapsed && !onNavigate ? 'justify-center' : 'gap-2.5 px-2'} py-1.5`}>
-                {brand?.logoUrl ? (
-                    <img src={brand.logoUrl} alt={schoolName} className="w-8 h-8 rounded-lg object-cover shrink-0 ring-1 ring-gray-200" />
-                ) : (
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-blue-500 text-white flex items-center justify-center text-[11px] font-bold shrink-0 shadow-sm">
-                        {initials || <School size={14} />}
-                    </div>
-                )}
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-blue-500 text-white flex items-center justify-center text-[11px] font-bold shrink-0 shadow-sm">
+                    {initials || <School size={14} />}
+                </div>
                 {(!collapsed || onNavigate) && (
                     <div className="min-w-0">
                         <p className="text-[13px] font-bold text-gray-800 truncate leading-tight">{schoolName}</p>

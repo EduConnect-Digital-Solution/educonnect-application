@@ -16,7 +16,6 @@ import TeacherLayout from "./components/layout/TeacherLayout.jsx";
 import { Dialog, Transition } from '@headlessui/react';
 import {getSubjectsByClass, getTeacherClasses, getTeacherDashboard} from "../../auth/authAPIs.js";
 import {Link} from "react-router-dom";
-import {getInitials} from "../AdminDashboard/utils/formatters.js";
 import {useAuth} from "../../../contexts/AuthContext.jsx";
 // import {getTeacherDashboard, getTeacherClasses} from '../services/teacherService.jsx';
 
@@ -25,7 +24,7 @@ const TeacherProfile = () => {
     const [loading, setLoading] = useState(true);
     const [classes, setClasses] = useState([]);
     const [teacher, setTeacher] = useState(null);
-    const [teacherSubjects, setTeacherSubjects] = useState([]);
+    const [, setTeacherSubjects] = useState([]);
     const [error, setError] = useState(null);
 
     useEffect(() => {
@@ -76,6 +75,23 @@ const TeacherProfile = () => {
         setSubjects([]);
     };
     
+    if (error) {
+        return (
+            <TeacherLayout>
+                <div className="max-w-md mx-auto mt-16 text-center bg-white border border-red-100 rounded-2xl p-8">
+                    <p className="font-semibold text-gray-900">We couldn't load your profile</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                        {error.response?.data?.message || 'Please check your connection and try again.'}
+                    </p>
+                    <button onClick={() => window.location.reload()}
+                        className="mt-4 px-4 py-2 text-sm font-medium text-white bg-[#002684] rounded-lg">
+                        Try again
+                    </button>
+                </div>
+            </TeacherLayout>
+        );
+    }
+
     if (loading || !teacher) {
         return (
             <TeacherLayout>

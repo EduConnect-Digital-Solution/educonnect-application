@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, ArrowLeft, CheckCircle } from 'lucide-react';
 import { Images } from '../../components/images';
@@ -37,6 +37,18 @@ const inputCls = "w-full px-4 py-3 border border-gray-200 rounded-xl text-sm tex
 
 // ─── Main Component ─────────────
 export default function AuthPage() {
+    // Why the user was signed out (set by AuthContext), shown once on the portal picker
+    const [signOutNotice, setSignOutNotice] = useState(() => {
+        try {
+            const reason = sessionStorage.getItem('ec_signout_reason');
+            if (reason === 'idle') return 'You were signed out because there was no activity for a while. Please sign in again.';
+            if (reason === 'expired') return 'Your session has ended. Please sign in again to continue.';
+        } catch { /* storage unavailable */ }
+        return null;
+    });
+    useEffect(() => {
+        try { sessionStorage.removeItem('ec_signout_reason'); } catch { /* storage unavailable */ }
+    }, []);
     const [selectedRole, setSelectedRole] = useState(null);
     const [view, setView] = useState('login'); // 'login' | 'forgot' | 'reset' | 'confirmed'
     const [showPassword, setShowPassword] = useState(false);
@@ -181,6 +193,12 @@ export default function AuthPage() {
                                 <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Welcome back</h1>
                                 <p className="text-gray-500 text-sm mt-1.5">Select your portal to sign in</p>
                             </div>
+                            {signOutNotice && (
+                                <div role="status" className="flex items-start justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
+                                    <span>{signOutNotice}</span>
+                                    <button type="button" onClick={() => setSignOutNotice(null)} aria-label="Dismiss" className="font-semibold opacity-70 hover:opacity-100">✕</button>
+                                </div>
+                            )}
                             <div className="space-y-3">
                                 <RoleCard title="School Administrator" description="Manage staff, students, and school data" icon="🏫" onClick={() => handleRoleSelection('admin')} />
                                 <RoleCard title="Teacher" description="Access classrooms, grades, and lessons" icon="📚" onClick={() => handleRoleSelection('teacher')} />

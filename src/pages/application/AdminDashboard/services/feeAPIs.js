@@ -34,8 +34,6 @@ import apiClient from '../../../../utils/axiosConfig.js';
 
 export const FEE_BACKEND_LIVE = true;
 
-const delay = (ms = 400) => new Promise(r => setTimeout(r, ms));
-
 // ── ID normalisation (live-mode only) ────
 const normalizeId = (obj) => {
   if (!obj || typeof obj !== 'object') return obj;
@@ -146,9 +144,6 @@ export function sumItems(items = []) {
   return items.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
 }
 
-// ── Mock id helper ──────────────
-let _seq = 0;
-const mockId = (prefix) => `${prefix}_${Date.now().toString(36)}_${_seq++}`;
 
 // ═════════════════════════════════════════════════════════════════════════════
 //  A. FEE CONFIGURATION LAYER

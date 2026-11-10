@@ -198,7 +198,7 @@ function ProgressBar({ pct, heightClass = "h-3", showLabels = true }) {
 }
 
 /* ---------- Money stat tile ----------------------------------------------- */
-function MoneyStat({ label, value, icon: IconCmp, emphasis = false, sub }) {
+function MoneyStat({ label, value, icon: IconCmp, sub }) {
   return (
     <div className={`flex flex-col gap-3.5 p-5 border rounded-xl overflow-hidden relative bg-white border-gray-200 text-gray-900 shadow-sm }`}>
       <div className="flex items-center justify-between">

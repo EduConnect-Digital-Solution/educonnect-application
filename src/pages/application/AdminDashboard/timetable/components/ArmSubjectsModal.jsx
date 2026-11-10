@@ -140,7 +140,7 @@ export default function ArmSubjectsModal({ arm, classArms, onClose, onSubjectsCh
       // Roll back on error
       setArmSubjects(previous);
       onSubjectsChange?.(arm.id, previous.length);
-      showToast('Failed to remove subject', 'error');
+      showToast(e?.response?.data?.message || 'Could not remove the subject. Please try again.', 'error');
     }
   };
 
@@ -160,6 +160,8 @@ export default function ArmSubjectsModal({ arm, classArms, onClose, onSubjectsCh
           setArmSubjects(nextArmSubjects);
           onSubjectsChange?.(arm.id, nextArmSubjects.length);
           showToast(`${ids.length} subject(s) added to all arms`);
+        } else {
+          showToast(res?.message || 'The subjects could not be added.', 'error');
         }
       } else {
         const res = await addSubjectsToArm(arm.id, ids);
@@ -167,12 +169,14 @@ export default function ArmSubjectsModal({ arm, classArms, onClose, onSubjectsCh
           setArmSubjects(nextArmSubjects);
           onSubjectsChange?.(arm.id, nextArmSubjects.length);
           showToast(`${ids.length} subject(s) added`);
+        } else {
+          showToast(res?.message || 'The subjects could not be added.', 'error');
         }
       }
       setSelectedToAdd(new Set());
       setActiveTab('current');
     } catch (e) {
-      showToast('Failed to add subjects', 'error');
+      showToast(e?.response?.data?.message || 'Could not add the subjects. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -196,7 +200,7 @@ export default function ArmSubjectsModal({ arm, classArms, onClose, onSubjectsCh
         setActiveTab('current');
       }
     } catch (e) {
-      showToast('Failed to copy subjects', 'error');
+      showToast(e?.response?.data?.message || 'Could not copy the subjects. Please try again.', 'error');
     } finally {
       setLoading(false);
     }

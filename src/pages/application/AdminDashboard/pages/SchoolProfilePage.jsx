@@ -4,7 +4,8 @@ import AdminLayout from '../components/layout/AdminLayout';
 import Input from '../components/ui/Input';
 import {getSchoolProfile, updateSchool, deactivateSchool, reactivateSchool} from "../../../auth/authAPIs.js";
 import SettingsBreadcrumb from '../components/ui/SettingsBreadcrumb.jsx';
-import { pushToast, DetailSkeleton } from '../../../../components/patterns';
+import { pushToast, DetailSkeleton, ImageUploadField } from '../../../../components/patterns';
+import { getSchoolSettings, saveSchoolLogo } from '../services/onboardingAPIs.js';
 
 const Field = ({ label, value, icon: Icon, editable, name, onChange }) => (
     <div>
@@ -33,6 +34,23 @@ const SchoolProfilePage = () => {
     const [statusReason, setStatusReason] = useState('');
     const [loading, setLoading] = useState(false);
     const [school, setSchool] = useState({});
+    const [logoUrl, setLogoUrl] = useState(null);
+
+    useEffect(() => {
+        getSchoolSettings().then(r => setLogoUrl(r.logoUrl)).catch(() => {});
+    }, []);
+
+    const handleLogoChange = async (url) => {
+        const previous = logoUrl;
+        setLogoUrl(url || null);
+        try {
+            await saveSchoolLogo(url || null);
+            pushToast({ type: 'success', message: url ? 'School logo updated.' : 'School logo removed.' });
+        } catch (e) {
+            setLogoUrl(previous);
+            pushToast({ type: 'error', message: e?.message || 'Could not save the school logo.' });
+        }
+    };
 
     const showToast = (message, type) => pushToast({ message, type });
 
@@ -157,6 +175,11 @@ const SchoolProfilePage = () => {
                         >
                             <PencilLine size={18} />
                         </button>
+                    </div>
+
+                    <div className="mb-6 pb-6 border-b border-gray-100">
+                        <ImageUploadField name={school.schoolName || ''} value={logoUrl} onChange={handleLogoChange} label="School logo" size={72} />
+                        <p className="text-xs text-gray-400 mt-1.5">Shown on report cards, receipts and emails. The sidebar always shows EduConnect.</p>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

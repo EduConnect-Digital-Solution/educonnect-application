@@ -28,6 +28,7 @@ const ParentManagement    = lazy(() => import("./pages/application/AdminDashboar
 const StudentManagement   = lazy(() => import("./pages/application/AdminDashboard/pages/StudentManagement.jsx"));
 const SchoolProfilePage   = lazy(() => import("./pages/application/AdminDashboard/pages/SchoolProfilePage.jsx"));
 const AdminProfilePage    = lazy(() => import("./pages/application/AdminDashboard/pages/AdminProfilePage.jsx"));
+const SubjectMappingPage  = lazy(() => import("./pages/application/AdminDashboard/pages/academics/SubjectMappingPage.jsx"));
 const SubjectsPage        = lazy(() => import("./pages/application/AdminDashboard/pages/config/SubjectsPage.jsx"));
 const ClassesPage         = lazy(() => import("./pages/application/AdminDashboard/pages/config/ClassesPage.jsx"));
 const SubjectGradingViewPage = lazy(() => import("./pages/application/AdminDashboard/pages/academics/grading/SubjectGradingViewPage.jsx"));
@@ -138,6 +139,7 @@ function AppRoutes() {
                 {/* Academics */}
                 <Route path="/dashboard/admin/academics/classes"            element={<ProtectedRoute requiredRole="admin"><ClassesPage /></ProtectedRoute>} />
                 <Route path="/dashboard/admin/academics/subjects"           element={<ProtectedRoute requiredRole="admin"><SubjectsPage /></ProtectedRoute>} />
+                <Route path="/dashboard/admin/academics/subject-mapping"    element={<ProtectedRoute requiredRole="admin"><SubjectMappingPage /></ProtectedRoute>} />
                 <Route path="/dashboard/admin/academics/grading"            element={<ProtectedRoute requiredRole="admin"><GradingPage /></ProtectedRoute>} />
                 <Route path="/dashboard/admin/academics/grading/subject-view" element={<ProtectedRoute requiredRole="admin"><SubjectGradingViewPage /></ProtectedRoute>} />
                 <Route path="/dashboard/admin/academics/report-cards"       element={<ProtectedRoute requiredRole="admin"><ReportCardsPage /></ProtectedRoute>} />

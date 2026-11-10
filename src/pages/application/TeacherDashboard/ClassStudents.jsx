@@ -27,7 +27,7 @@ export default function ClassStudents() {
     
     const [students, setStudents] = useState([]);
     const [policy, setPolicy] = useState(null);
-    const [stats, setStats] = useState(null);
+    const [, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -88,7 +88,8 @@ export default function ClassStudents() {
                     scores: studentScores,
                     mostRecentAssessment: mostRecent,
                     total: currentTotal,
-                    displayGrade: student.grade || 'Pending'
+                    // The API returns the grade as an object ({ letterGrade, percentage, ... }); show its label
+                    displayGrade: student.grade?.letterGrade || 'Pending'
                 };
             });
 

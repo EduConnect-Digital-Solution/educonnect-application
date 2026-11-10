@@ -11,7 +11,7 @@ import {Toast} from "../AdminDashboard/components/ui/Toast.jsx";
 const ParentProfilePage = () => {
     const [loading, setLoading] = useState(true);
     const [parentInfo, setParentInfo] = useState();
-    const [error, setError] = useState(null);
+    const [, setError] = useState(null);
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -72,15 +72,20 @@ const ParentProfilePage = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try{
-            const updateProfile = await updateParentProfile(formData)
+            // Blank optional fields are omitted: the API validates "" as an invalid value
+            const payload = Object.fromEntries(
+                Object.entries(formData).filter(([, v]) => v !== '' && v != null)
+            );
+            const updateProfile = await updateParentProfile(payload)
             showToast(`${updateProfile.message}`, 'success');
-
+            setIsEditing(false);
         } catch(error){
-            const message = error.response?.data?.message || 'Failed to update profile. Please try again.';
-            showToast(message, 'error');
+            const data = error.response?.data;
+            const detail = Array.isArray(data?.errors) && data.errors.length
+                ? data.errors.map(e => e.msg || e.message).filter(Boolean).join(', ')
+                : null;
+            showToast(detail || data?.message || 'Failed to update profile. Please try again.', 'error');
         }
-        // Add your update API call here
-        setIsEditing(false);
     };
 
     if (loading) {

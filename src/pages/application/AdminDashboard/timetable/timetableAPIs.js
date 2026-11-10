@@ -110,8 +110,9 @@ export async function sendNotificationOverride(eventId, payload) {
   return data;
 }
 
-export async function getNotificationLogs(eventId, status) {
-  const { data } = await apiClient.get('/api/admin/notifications/logs', { params: { eventId, status } });
+// eventId is optional: without it the logs for the whole school come back
+export async function getNotificationLogs(eventId, status, channel) {
+  const { data } = await apiClient.get('/api/admin/notifications/logs', { params: { eventId, status, channel } });
   return data;
 }
 
@@ -136,6 +137,12 @@ export async function deleteTimetableDraft(classId, termId, armId = null) {
 export async function checkConflicts(payload) {
   const { data } = await apiClient.post('/api/admin/timetable/check-conflicts', payload);
   return data;
+}
+
+/** Copy one arm's saved timetable into other arms as drafts. */
+export async function copyTimetable(payload) {
+  const { data } = await apiClient.post('/api/admin/timetable/copy', payload);
+  return data?.data ?? { copied: [], skipped: [] };
 }
 
 export async function publishTimetable(payload) {

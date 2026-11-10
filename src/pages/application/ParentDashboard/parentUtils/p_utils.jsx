@@ -19,10 +19,9 @@ import {
     Users,
     X
 } from "lucide-react";
-import React, {useEffect, useState} from "react";
-import {NavLink, useLocation, useNavigate} from "react-router-dom";
+import React, {useState} from "react";
+import {NavLink, useNavigate} from "react-router-dom";
 import {Images} from "../../../../components/images.jsx";
-import {getParentDashboard} from "../../../auth/authAPIs.js";
 import {formatDate} from "../../AdminDashboard/utils/formatters.js";
 
 export const StatsMetricCard = ({ title, value, icon: Icon, colorClass }) => {
@@ -101,12 +100,9 @@ export const ParentsOverviewDashboard = ({ overview }) => {
 };
 
 
-export const AnalyticsAndActions = ({quickActions}) => {
-    const [selectedChild, setSelectedChild] = useState('Sandra J');
-    const [selectedSubject, setSelectedSubject] = useState('All Subjects');
+export const AnalyticsAndActions = () => {
+    const [selectedSubject] = useState('All Subjects');
 
-    const children = ['Sandra J', 'David J', 'Daniel J'];
-    const subjects = ['All Subjects', 'Mathematics', 'Basic Science', 'English'];
     const weeks = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
 
     const navigate = useNavigate();

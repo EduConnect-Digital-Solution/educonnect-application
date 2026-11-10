@@ -2,7 +2,7 @@ import React, {useState, useEffect} from 'react';
 import { Phone, BookOpen, GraduationCap, X, User, Hash, Info, Mail, Users } from 'lucide-react';
 import { StatRing } from "./parentUtils/p_utils.jsx";
 import ParentLayout from "./components/layout/ParentLayout.jsx";
-import {formatDate, getInitials} from "../AdminDashboard/utils/formatters.js";
+import {getInitials} from "../AdminDashboard/utils/formatters.js";
 import {StudentInfoModal} from "./components/modals.jsx";
 import {getParentDashboard, getStudentInfo} from "../../auth/authAPIs.js";
 // import { getParentDashboard } from './services/parentService';
@@ -55,6 +55,23 @@ const ChildSelectionPage = () => {
                         <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
                     </div>
                     <p className="mt-4 text-gray-500 font-medium animate-pulse">Syncing student records...</p>
+                </div>
+            </ParentLayout>
+        );
+    }
+
+    if (error) {
+        return (
+            <ParentLayout>
+                <div className="max-w-md mx-auto mt-16 text-center bg-white border border-red-100 rounded-2xl p-8">
+                    <p className="font-semibold text-gray-900">We couldn't load your children's records</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                        {error.response?.data?.message || 'Please check your connection and try again.'}
+                    </p>
+                    <button onClick={() => window.location.reload()}
+                        className="mt-4 px-4 py-2 text-sm font-medium text-white bg-[#002684] rounded-lg">
+                        Try again
+                    </button>
                 </div>
             </ParentLayout>
         );

@@ -10,7 +10,6 @@ import { getSubjectColor } from '../TimetableContext';
  * Left sidebar containing draggable entities (Subjects, Teachers, Rooms).
  */
 export default function PalettePanel({ resources }) {
-  const { state } = useTimetable();
   const { subjects, teachers, arms } = resources;
 
   const [openSections, setOpenSections] = useState({
@@ -28,12 +27,6 @@ export default function PalettePanel({ resources }) {
   const filteredSubjects = subjects.filter(s => s.name.toLowerCase().includes(term));
   const filteredTeachers = teachers.filter(t => t.name.toLowerCase().includes(term));
 
-  // Extract arms that belong to the currently selected class
-  const classArms = state.selectedClass
-    ? arms.filter(arm => arm.classId === state.selectedClass.id)
-    : [];
-
-  const filteredArms = classArms.filter(a => a.name.toLowerCase().includes(term));
 
   return (
     <div className="w-64 bg-white border-r border-gray-200 flex-col h-full shrink-0 hidden lg:flex">

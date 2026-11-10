@@ -7,14 +7,6 @@ import { FaXTwitter } from "react-icons/fa6";
 import {navItems} from "../utils/imports.jsx";
 
 export default function Footer() {
-    const [formData, setFormData] = useState({
-        name: '',
-        email: '',
-        company: '',
-        phone: '',
-        message: ''
-    });
-
     const [newsletterEmail, setNewsletterEmail] = useState('');
 
     const handleNewsletterSubmit = () => {

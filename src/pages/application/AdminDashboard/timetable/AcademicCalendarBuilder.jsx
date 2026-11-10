@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAcademic } from '../../../../contexts/AcademicContext.jsx';
 import {
   Plus, Edit2, Trash2, CheckCircle, AlertCircle, Calendar as CalendarIcon,
@@ -9,21 +9,21 @@ import {
   createTerm, updateTerm, deleteTerm, setAcademicContext, getAcademicProfile,
   getAcademicYears, getTerms, setCurrentTerm
 } from './timetableAPIs';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter
-} from '../../../../components/ui/alert-dialog';
 import {formatYear} from "../utils/formatters";
-import { pushToast } from '../../../../components/patterns';
+import { pushToast, Field, Drawer, ConfirmDestructiveDialog, EmptyState, inputClass, useFieldErrors } from '../../../../components/patterns';
 
 // Readable message from a failed API call (validation detail first, then the server message)
-const errMsg = (e) => e?.response?.data?.errors?.[0]?.msg || e?.response?.data?.message || e?.message || 'Something went wrong. Please try again.';
+const errMsg = (e) => {
+  const data = e?.response?.data;
+  const details = Array.isArray(data?.errors) ? data.errors.map(x => x?.msg || x?.message).filter(Boolean) : [];
+  if (details.length) return [...new Set(details)].join(' · ');
+  if (!e?.response && e?.message === 'Network Error') return 'Could not reach the server. Check your internet connection and try again.';
+  return data?.message || e?.message || 'Something went wrong. Please try again.';
+};
+
+// API dates arrive as ISO timestamps; <input type="date"> needs YYYY-MM-DD
+const toDay = (v) => (v ? String(v).slice(0, 10) : '');
+const niceDate = (v) => (v ? new Date(`${toDay(v)}T00:00:00`).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }) : '');
 
 export default function AcademicCalendarBuilder() {
   // Academic years + terms are this page's own data — fetched directly here.
@@ -32,6 +32,13 @@ export default function AcademicCalendarBuilder() {
   const [terms, setTerms] = useState([]);
   const [isYearsLoading, setIsYearsLoading] = useState(true);
   const [isTermsLoading, setIsTermsLoading] = useState(false);
+  const [, setYearsError] = useState(null);
+  const [, setTermsError] = useState(null);
+  const [savingYear, setSavingYear] = useState(false);
+  const [savingTerm, setSavingTerm] = useState(false);
+  const [yearServerError, setYearServerError] = useState(null);
+  const [termServerError, setTermServerError] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null); // { type: 'year' | 'term', item }
 
 
 
@@ -56,10 +63,56 @@ export default function AcademicCalendarBuilder() {
   const [termForm, setTermForm] = useState({ name: '', startDate: '', endDate: '', term: '' });
 
   // Calendar State
-  const [selectedDateMsg, setSelectedDateMsg] = useState(null);
-  const [eventForm, setEventForm] = useState({ name: '', type: 'holiday' });
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedCalendarTermId, setSelectedCalendarTermId] = useState(null);
+  const [currentDate] = useState(new Date());
+
+  // ── Validation (runs on blur and again on save) ──
+  const selectedYear = academicYears.find(y => y.id === selectedViewYearId);
+
+  const yearValidators = useMemo(() => ({
+    endYear: (v, all) => (Number(all.endYear) > Number(all.startYear) ? null : 'The end year must come after the start year'),
+    startDate: (v, all) => {
+      if (!v) return 'Pick the date this academic year starts';
+      const label = `${all.startYear}-${all.endYear}`;
+      if (academicYears.some(y => y.id !== editYearId && y.year === label)) return `${all.startYear}/${all.endYear} already exists`;
+      return null;
+    },
+    endDate: (v, all) => {
+      if (!v) return 'Pick the date this academic year ends';
+      if (all.startDate && v <= all.startDate) return 'The end date must be after the start date';
+      return null;
+    },
+  }), [academicYears, editYearId]);
+
+  const termValidators = useMemo(() => {
+    const yStart = toDay(selectedYear?.startDate);
+    const yEnd = toDay(selectedYear?.endDate);
+    // `terms` already holds only the viewed year's terms (loaded per year)
+    const siblings = terms.filter(t => t.id !== editTermId);
+    return {
+      name: (v) => {
+        if (!v) return 'Choose which term this is';
+        if (siblings.some(t => t.name === v)) return `${v} already exists in this academic year`;
+        return null;
+      },
+      startDate: (v, all) => {
+        if (!v) return 'Pick the date this term starts';
+        if (yStart && v < yStart) return `Cannot start before the academic year (${niceDate(yStart)})`;
+        if (yEnd && v > yEnd) return `Cannot start after the academic year ends (${niceDate(yEnd)})`;
+        const clash = all.endDate && siblings.find(t => v <= toDay(t.endDate) && all.endDate >= toDay(t.startDate));
+        if (clash) return `Overlaps ${clash.name} (${niceDate(clash.startDate)} – ${niceDate(clash.endDate)})`;
+        return null;
+      },
+      endDate: (v, all) => {
+        if (!v) return 'Pick the date this term ends';
+        if (all.startDate && v <= all.startDate) return 'The end date must be after the start date';
+        if (yEnd && v > yEnd) return `Cannot end after the academic year ends (${niceDate(yEnd)})`;
+        return null;
+      },
+    };
+  }, [terms, selectedYear, editTermId]);
+
+  const yearV = useFieldErrors(yearValidators);
+  const termV = useFieldErrors(termValidators);
 
   const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
   const firstDayIndex = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1).getDay(); 
@@ -79,20 +132,23 @@ export default function AcademicCalendarBuilder() {
     if (!selectedViewYearId) { setTerms([]); return; }
     let cancelled = false;
     setIsTermsLoading(true);
+    setTermsError(null);
     getTerms(selectedViewYearId)
       .then(res => { if (!cancelled && res?.success) setTerms(res.data?.terms ?? []); })
-      .catch(e => console.error('Failed to load terms', e))
+      .catch(e => { if (!cancelled) setTermsError(errMsg(e)); })
       .finally(() => { if (!cancelled) setIsTermsLoading(false); });
     return () => { cancelled = true; };
   }, [selectedViewYearId]);
 
   const loadYears = async () => {
     setIsYearsLoading(true);
+    setYearsError(null);
     try {
       const res = await getAcademicYears();
       if (res?.success) setAcademicYears(res.data?.years ?? []);
+      else setYearsError(res?.message || 'Could not load academic years.');
     } catch (e) {
-      console.error('Failed to load academic years', e);
+      setYearsError(errMsg(e));
     } finally {
       setIsYearsLoading(false);
     }
@@ -129,107 +185,169 @@ export default function AcademicCalendarBuilder() {
 
   // --- Handlers ---
 
-  const handleCreateYear = async () => {
+  const openCreateYear = () => {
+    setEditYearId(null);
+    setYearForm({ startYear: currentYearNum, endYear: currentYearNum + 1, startDate: '', endDate: '' });
+    setYearServerError(null);
+    yearV.clearErrors();
+    setShowYearModal(true);
+  };
+
+  const openEditYear = (y) => {
+    const [sy, ey] = String(y.year || '').split('-').map(n => parseInt(n, 10));
+    setYearForm({
+      startYear: sy || currentYearNum,
+      endYear: ey || (sy || currentYearNum) + 1,
+      startDate: toDay(y.startDate),
+      endDate: toDay(y.endDate),
+    });
+    setEditYearId(y.id);
+    setYearServerError(null);
+    yearV.clearErrors();
+    setShowYearModal(true);
+  };
+
+  const closeYearModal = () => {
+    if (savingYear) return;
+    setShowYearModal(false);
+    setEditYearId(null);
+    setYearServerError(null);
+    yearV.clearErrors();
+  };
+
+  const handleSaveYear = async () => {
+    if (!yearV.validateAll(yearForm)) return;
     const year = `${yearForm.startYear}-${yearForm.endYear}`;
     const name = `${yearForm.startYear}/${yearForm.endYear} Academic Year`;
+    setSavingYear(true);
+    setYearServerError(null);
     try {
       if (editYearId) {
         const res = await updateAcademicYear(editYearId, { year, name, startDate: yearForm.startDate, endDate: yearForm.endDate });
-        if (res.success) {
-          const updated = res.data.year;
-          setAcademicYears(prev => prev.map(y => (y.id === updated.id ? updated : y)));
-          setShowYearModal(false);
-          setEditYearId(null);
-        }
+        if (!res?.success) throw new Error(res?.message || 'The academic year could not be updated.');
+        const updated = res.data.year;
+        setAcademicYears(prev => prev.map(y => (y.id === updated.id ? { ...y, ...updated } : y)));
+        pushToast({ message: `${updated.name || name} updated` });
       } else {
         const payload = { years: [{ year, name, startDate: yearForm.startDate, endDate: yearForm.endDate, isCurrent: false }] };
         const res = await createAcademicYear(payload);
-        if (res.success) {
-          const created = res.data.years?.[0] ?? res.data.academicYear;
-          setAcademicYears(prev => [...prev, created]);
-          setShowYearModal(false);
-          if (!selectedViewYearId) setSelectedViewYearId(created.id);
-        }
+        if (!res?.success) throw new Error(res?.message || 'The academic year could not be created.');
+        const created = res.data.years?.[0] ?? res.data.academicYear;
+        setAcademicYears(prev => [...prev, created]);
+        if (!selectedViewYearId) setSelectedViewYearId(created.id);
+        pushToast({ message: `${created?.name || name} created. Next, add its terms.` });
       }
+      setShowYearModal(false);
+      setEditYearId(null);
+      refreshAcademic();
     } catch (e) {
-      pushToast({ message: errMsg(e) });
+      setYearServerError(errMsg(e));
+    } finally {
+      setSavingYear(false);
     }
   };
 
-  const handleDeleteYear = async (id) => {
-    if (!confirm('Delete this academic year? This only works if it has no terms and nothing is using it.')) return;
+  const confirmDeleteYear = async (reason, y) => {
     try {
-      const res = await deleteAcademicYear(id);
-      if (res.success) {
-        setAcademicYears(prev => prev.filter(y => y.id !== id));
-        if (selectedViewYearId === id) setSelectedViewYearId(null);
-      }
+      const res = await deleteAcademicYear(y.id);
+      if (!res?.success) throw new Error(res?.message || 'The academic year could not be deleted.');
     } catch (e) {
-      pushToast({ message: errMsg(e) });
+      throw new Error(errMsg(e));
     }
+    setAcademicYears(prev => prev.filter(x => x.id !== y.id));
+    if (selectedViewYearId === y.id) setSelectedViewYearId(null);
+    pushToast({ message: `${y.name} deleted` });
+    refreshAcademic();
   };
 
-  const handleCreateTerm = async () => {
+  const openCreateTerm = () => {
+    setEditTermId(null);
+    setTermForm({ name: '', startDate: '', endDate: '', term: '' });
+    setTermServerError(null);
+    termV.clearErrors();
+    setShowTermModal(true);
+  };
+
+  const openEditTerm = (t) => {
+    setTermForm({ name: t.name, term: t.term || t.name.replace(/\s+/g, '_'), startDate: toDay(t.startDate), endDate: toDay(t.endDate) });
+    setEditTermId(t.id);
+    setTermServerError(null);
+    termV.clearErrors();
+    setShowTermModal(true);
+  };
+
+  const closeTermModal = () => {
+    if (savingTerm) return;
+    setShowTermModal(false);
+    setEditTermId(null);
+    setTermServerError(null);
+    termV.clearErrors();
+  };
+
+  const handleSaveTerm = async () => {
     if (!selectedViewYearId) return;
+    if (!termV.validateAll(termForm)) return;
+    setSavingTerm(true);
+    setTermServerError(null);
     try {
       if (editTermId) {
         const res = await updateTerm(editTermId, { name: termForm.name, startDate: termForm.startDate, endDate: termForm.endDate });
-        if (res.success) {
-          const updated = res.data.term;
-          setTerms(prev => prev.map(t => (t.id === updated.id ? updated : t)));
-          setShowTermModal(false);
-          setEditTermId(null);
-        }
+        if (!res?.success) throw new Error(res?.message || 'The term could not be updated.');
+        const updated = res.data.term;
+        setTerms(prev => prev.map(t => (t.id === updated.id ? { ...t, ...updated } : t)));
+        pushToast({ message: `${updated.name || termForm.name} updated` });
       } else {
         const payload = { terms: [{ ...termForm, academicYearId: selectedViewYearId, isCurrent: false }] };
         const res = await createTerm(payload);
-        if (res.success) {
-          setTerms(prev => [...prev, res.data.terms?.[0] ?? res.data.term]);
-          setShowTermModal(false);
-        }
+        if (!res?.success) throw new Error(res?.message || 'The term could not be created.');
+        const created = res.data.terms?.[0] ?? res.data.term;
+        setTerms(prev => [...prev, created]);
+        pushToast({ message: `${created?.name || termForm.name} added` });
       }
+      setShowTermModal(false);
+      setEditTermId(null);
+      refreshAcademic();
     } catch (e) {
-      pushToast({ message: errMsg(e) });
+      setTermServerError(errMsg(e));
+    } finally {
+      setSavingTerm(false);
     }
   };
 
-  const handleDeleteTerm = async (id) => {
-    if (!confirm('Delete this term? This only works if nothing is using it.')) return;
+  const confirmDeleteTerm = async (reason, t) => {
     try {
-      const res = await deleteTerm(id);
-      if (res.success) setTerms(prev => prev.filter(t => t.id !== id));
+      const res = await deleteTerm(t.id);
+      if (!res?.success) throw new Error(res?.message || 'The term could not be deleted.');
     } catch (e) {
-      pushToast({ message: errMsg(e) });
+      throw new Error(errMsg(e));
     }
+    setTerms(prev => prev.filter(x => x.id !== t.id));
+    pushToast({ message: `${t.name} deleted` });
+    refreshAcademic();
   };
 
-  const handleSetActiveContext = async (yearId, termId) => {
-    const res = await setAcademicContext(yearId);
-    if (res.success) {
+  const handleSetActiveContext = async (yearId) => {
+    try {
+      const res = await setAcademicContext(yearId);
+      if (!res?.success) throw new Error(res?.message || 'Could not change the current academic year.');
+      pushToast({ message: `${academicYears.find(y => y.id === yearId)?.name || 'Academic year'} is now the current year` });
       fetchProfile();        // Refresh local active badges
       refreshAcademic();     // Propagate to the global academic scope
+    } catch (e) {
+      pushToast({ message: errMsg(e), type: 'error' });
     }
   };
 
   const handleSetActiveTerm = async (termId) => {
-    const res = await setCurrentTerm(termId);
-    if (res.success) {
+    try {
+      const res = await setCurrentTerm(termId);
+      if (!res?.success) throw new Error(res?.message || 'Could not change the current term.');
+      pushToast({ message: `${terms.find(t => t.id === termId)?.name || 'Term'} is now the current term` });
       fetchProfile();        // Refresh local active badges
       refreshAcademic();     // Propagate to the global academic scope
+    } catch (e) {
+      pushToast({ message: errMsg(e), type: 'error' });
     }
-  };
-
-  const openEditYear = (y) => {
-    const [sy, ey] = y.name.split('/');
-    setYearForm({ ...y, startYear: parseInt(sy, 10), endYear: parseInt(ey, 10) });
-    setEditYearId(y.id);
-    setShowYearModal(true);
-  };
-
-  const openEditTerm = (t) => {
-    setTermForm({ name: t.name, startDate: t.startDate || '', endDate: t.endDate || '' });
-    setEditTermId(t.id);
-    setShowTermModal(true);
   };
 
   const getStatusBadge = (isActive) => (
@@ -238,7 +356,6 @@ export default function AcademicCalendarBuilder() {
       : <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600"><Clock size={12} /> Inactive</span>
   );
 
-  const viewTerms = terms?.filter(t => t.academicYearId === selectedViewYearId);
 
 
 
@@ -292,11 +409,7 @@ export default function AcademicCalendarBuilder() {
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-bold text-gray-800">Academic Years</h3>
               <button
-                  onClick={() => {
-                    setEditYearId(null);
-                    setYearForm({ startYear: currentYearNum, endYear: currentYearNum + 1, startDate: '', endDate: '' });
-                    setShowYearModal(true);
-                  }}
+                  onClick={openCreateYear}
                   className="flex items-center gap-1 text-sm bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition shadow-sm"
               >
                 <Plus size={16} /> New Year
@@ -316,7 +429,7 @@ export default function AcademicCalendarBuilder() {
                     </div>
                     <h4 className="text-gray-900 font-bold mb-1">No Academic Years</h4>
                     <p className="text-gray-500 text-sm mb-4">Create an academic year to start configuring terms and schedules.</p>
-                    <button onClick={() => setShowYearModal(true)} className="text-blue-600 font-medium text-sm hover:underline">Create First Year</button>
+                    <button onClick={openCreateYear} className="text-blue-600 font-medium text-sm hover:underline">Create First Year</button>
                   </div>
               ) : (
                   <div className="overflow-y-auto flex-1">
@@ -350,7 +463,7 @@ export default function AcademicCalendarBuilder() {
                                   {!isSystemActive && (
                                       <button
                                           title="Set as Active Year"
-                                          onClick={() => handleSetActiveContext(y.id, null)}
+                                          onClick={() => handleSetActiveContext(y.id)}
                                           className="p-1.5 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded"
                                       ><Check size={16}/></button>
                                   )}
@@ -361,7 +474,7 @@ export default function AcademicCalendarBuilder() {
                                   ><Edit2 size={16}/></button>
                                   <button
                                       title="Delete"
-                                      onClick={() => handleDeleteYear(y.id)}
+                                      onClick={() => setDeleteTarget({ type: 'year', item: y })}
                                       className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
                                   ><Trash2 size={16}/></button>
                                 </div>
@@ -389,11 +502,7 @@ export default function AcademicCalendarBuilder() {
               </h3>
               {selectedViewYearId && (
                   <button
-                      onClick={() => {
-                        setEditTermId(null);
-                        setTermForm({ name: '', startDate: '', endDate: '' });
-                        setShowTermModal(true);
-                      }}
+                      onClick={openCreateTerm}
                       className="flex items-center gap-1 text-sm bg-white border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition shadow-sm"
                   >
                     <Plus size={16} /> Add Term
@@ -419,13 +528,12 @@ export default function AcademicCalendarBuilder() {
                     </div>
                     <h4 className="text-gray-900 font-bold mb-1">No Terms Defined</h4>
                     <p className="text-gray-500 text-sm mb-4">Create terms (e.g. First Term, Fall Semester) for this academic year.</p>
-                    <button onClick={() => setShowTermModal(true)} className="text-blue-600 font-medium text-sm hover:underline">Add First Term</button>
+                    <button onClick={openCreateTerm} className="text-blue-600 font-medium text-sm hover:underline">Add First Term</button>
                   </div>
               ) : (
                   <div className="overflow-y-auto flex-1 p-4">
                     <div className="grid grid-cols-1 gap-3">
                       {terms.map(t => {
-                        const isSystemActiveYear = activeProfile.currentYear?.id === selectedViewYearId;
                         const isSystemActiveTerm = activeProfile.currentTerm?.id === t.id;
 
                         return (
@@ -456,7 +564,7 @@ export default function AcademicCalendarBuilder() {
                                 </div>
                                 <div className="flex gap-2">
                                   <button onClick={() => openEditTerm(t)} className="flex items-center gap-1 text-xs text-gray-600 hover:text-blue-600 px-2 py-1 bg-gray-50 hover:bg-blue-50 rounded transition"><Edit2 size={12}/> Edit</button>
-                                  <button onClick={() => handleDeleteTerm(t.id)} className="flex items-center gap-1 text-xs text-gray-600 hover:text-red-600 px-2 py-1 bg-gray-50 hover:bg-red-50 rounded transition"><Trash2 size={12}/> Delete</button>
+                                  <button onClick={() => setDeleteTarget({ type: 'term', item: t })} className="flex items-center gap-1 text-xs text-gray-600 hover:text-red-600 px-2 py-1 bg-gray-50 hover:bg-red-50 rounded transition"><Trash2 size={12}/> Delete</button>
                                 </div>
                               </div>
                             </div>
@@ -471,121 +579,138 @@ export default function AcademicCalendarBuilder() {
 
 
       </div>
-      {/* --- Modals --- */}
-      
-      {/* Create/Edit Year Modal */}
-      <AlertDialog open={showYearModal} onOpenChange={setShowYearModal}>
-        <AlertDialogContent className="sm:max-w-[450px]">
-          <AlertDialogHeader>
-            <AlertDialogTitle>{editYearId ? 'Edit Academic Year' : 'Create Academic Year'}</AlertDialogTitle>
-            <AlertDialogDescription>
-              Define the overarching academic year structure.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-bold text-gray-700 uppercase mb-1 block">Start Year</label>
-                <select 
-                  value={yearForm.startYear} 
-                  onChange={e => {
-                    const sy = parseInt(e.target.value, 10);
-                    setYearForm({...yearForm, startYear: sy, endYear: Math.max(yearForm.endYear, sy + 1)});
-                  }} 
-                  className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20"
-                >
-                  {Array.from({length: 10}, (_, i) => currentYearNum - 2 + i).map(y => (
-                    <option key={y} value={y}>{y}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-bold text-gray-700 uppercase mb-1 block">End Year</label>
-                <select 
-                  value={yearForm.endYear} 
-                  onChange={e => setYearForm({...yearForm, endYear: parseInt(e.target.value, 10)})} 
-                  className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20"
-                >
-                  {Array.from({length: 10}, (_, i) => yearForm.startYear + i).map(y => (
-                    <option key={y} value={y}>{y}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-bold text-gray-700 uppercase mb-1 block">Expected Start Date</label>
-                <input type="date" value={yearForm.startDate} onChange={e => setYearForm({...yearForm, startDate: e.target.value})} className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20" />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-gray-700 uppercase mb-1 block">Expected End Date</label>
-                <input type="date" value={yearForm.endDate} onChange={e => setYearForm({...yearForm, endDate: e.target.value})} className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20" />
-              </div>
-            </div>
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCreateYear} className="bg-blue-600 hover:bg-blue-700 text-white">
-              {editYearId ? 'Save Changes' : 'Create Year'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* --- Forms & dialogs --- */}
 
-      {/* Create/Edit Term Modal */}
-      <AlertDialog open={showTermModal} onOpenChange={setShowTermModal}>
-        <AlertDialogContent className="sm:max-w-[450px]">
-          <AlertDialogHeader>
-            <AlertDialogTitle>{editTermId ? 'Edit Term' : 'Add Term'}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {selectedViewYearId && `Adding term to ${academicYears.find(y => y.id === selectedViewYearId)?.name}`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <label className="text-xs font-bold text-gray-700 uppercase mb-1 block">Term Name</label>
-              <select
-                  value={termForm.name}
-                  onChange={e => {
-                    const selectedName = e.target.value;
-                    // Converts "First Term" to "first_term"
-                    const termKey = selectedName.replace(/\s+/g, '_');
-
-                    setTermForm({
-                      ...termForm,
-                      name: selectedName,
-                      term: termKey
-                    });
-                  }}
-                  className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 bg-white"
-              >
-                <option value="" disabled>Select a term</option>
-                {["First Term", "Second Term", "Third Term"].map((term) => (
-                    <option key={term} value={term}>
-                      {term}
-                    </option>
-                ))}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-bold text-gray-700 uppercase mb-1 block">Start Date</label>
-                <input type="date" value={termForm.startDate} onChange={e => setTermForm({...termForm, startDate: e.target.value})} className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20" />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-gray-700 uppercase mb-1 block">End Date</label>
-                <input type="date" value={termForm.endDate} onChange={e => setTermForm({...termForm, endDate: e.target.value})} className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20" />
-              </div>
-            </div>
+      {/* Create/Edit Academic Year */}
+      <Drawer
+        open={showYearModal}
+        onClose={closeYearModal}
+        title={editYearId ? 'Edit academic year' : 'New academic year'}
+        subtitle="The school year that terms, classes and fees are organised under."
+        footer={(
+          <>
+            <button onClick={closeYearModal} disabled={savingYear} className="flex-1 py-2.5 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+            <button onClick={handleSaveYear} disabled={savingYear} className="flex-1 py-2.5 rounded-lg bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 inline-flex items-center justify-center gap-2">
+              {savingYear && <Loader2 size={14} className="animate-spin" />}
+              {savingYear ? 'Saving…' : editYearId ? 'Save changes' : 'Create academic year'}
+            </button>
+          </>
+        )}
+      >
+        {yearServerError && (
+          <div role="alert" className="flex gap-2.5 p-3 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-700">
+            <AlertCircle size={16} className="mt-0.5 shrink-0" />
+            <div><p className="font-semibold">This academic year could not be saved</p><p className="mt-0.5">{yearServerError}</p></div>
           </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCreateTerm} className="bg-blue-600 hover:bg-blue-700 text-white">
-              {editTermId ? 'Save Changes' : 'Create Term'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        )}
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Starts in" required htmlFor="ay-start-year">
+            <select
+              id="ay-start-year"
+              value={yearForm.startYear}
+              onChange={e => { const sy = parseInt(e.target.value, 10); setYearForm({ ...yearForm, startYear: sy, endYear: Math.max(yearForm.endYear, sy + 1) }); }}
+              className={inputClass(false)}
+            >
+              {Array.from({ length: 10 }, (_, i) => currentYearNum - 2 + i).map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </Field>
+          <Field label="Ends in" required htmlFor="ay-end-year" error={yearV.errors.endYear}>
+            <select
+              id="ay-end-year"
+              value={yearForm.endYear}
+              onChange={e => { const next = { ...yearForm, endYear: parseInt(e.target.value, 10) }; setYearForm(next); if (yearV.errors.endYear) yearV.validateField('endYear', next.endYear, next); }}
+              onBlur={() => yearV.validateField('endYear', yearForm.endYear, yearForm)}
+              className={inputClass(!!yearV.errors.endYear)}
+            >
+              {Array.from({ length: 10 }, (_, i) => yearForm.startYear + i).map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </Field>
+        </div>
+        <p className="text-[12px] text-gray-500 -mt-2">This will be called <strong className="text-gray-700">{yearForm.startYear}/{yearForm.endYear} Academic Year</strong>.</p>
+        <Field label="First day of the year" required hint="e.g. September" htmlFor="ay-start" error={yearV.errors.startDate}>
+          <input id="ay-start" type="date" value={yearForm.startDate}
+            onChange={e => { const next = { ...yearForm, startDate: e.target.value }; setYearForm(next); if (yearV.errors.startDate) yearV.validateField('startDate', next.startDate, next); if (yearV.errors.endDate) yearV.validateField('endDate', next.endDate, next); }}
+            onBlur={() => yearV.validateField('startDate', yearForm.startDate, yearForm)}
+            className={inputClass(!!yearV.errors.startDate)} />
+        </Field>
+        <Field label="Last day of the year" required hint="e.g. July" htmlFor="ay-end" error={yearV.errors.endDate}>
+          <input id="ay-end" type="date" value={yearForm.endDate} min={yearForm.startDate || undefined}
+            onChange={e => { const next = { ...yearForm, endDate: e.target.value }; setYearForm(next); if (yearV.errors.endDate) yearV.validateField('endDate', next.endDate, next); }}
+            onBlur={() => yearV.validateField('endDate', yearForm.endDate, yearForm)}
+            className={inputClass(!!yearV.errors.endDate)} />
+        </Field>
+        <p className="text-[12px] text-gray-400"><span className="text-red-400">*</span> Required. You can add the terms (First, Second, Third) right after.</p>
+      </Drawer>
+
+      {/* Create/Edit Term */}
+      <Drawer
+        open={showTermModal}
+        onClose={closeTermModal}
+        title={editTermId ? 'Edit term' : 'Add a term'}
+        subtitle={selectedYear ? `${selectedYear.name} · ${niceDate(selectedYear.startDate)} – ${niceDate(selectedYear.endDate)}` : undefined}
+        footer={(
+          <>
+            <button onClick={closeTermModal} disabled={savingTerm} className="flex-1 py-2.5 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+            <button onClick={handleSaveTerm} disabled={savingTerm} className="flex-1 py-2.5 rounded-lg bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 inline-flex items-center justify-center gap-2">
+              {savingTerm && <Loader2 size={14} className="animate-spin" />}
+              {savingTerm ? 'Saving…' : editTermId ? 'Save changes' : 'Add term'}
+            </button>
+          </>
+        )}
+      >
+        {termServerError && (
+          <div role="alert" className="flex gap-2.5 p-3 rounded-lg bg-red-50 border border-red-200 text-[13px] text-red-700">
+            <AlertCircle size={16} className="mt-0.5 shrink-0" />
+            <div><p className="font-semibold">This term could not be saved</p><p className="mt-0.5">{termServerError}</p></div>
+          </div>
+        )}
+        <Field label="Which term?" required htmlFor="term-name" error={termV.errors.name}>
+          <select
+            id="term-name"
+            value={termForm.name}
+            onChange={e => {
+              const selectedName = e.target.value;
+              const next = { ...termForm, name: selectedName, term: selectedName.replace(/\s+/g, '_') };
+              setTermForm(next);
+              if (termV.errors.name) termV.validateField('name', selectedName, next);
+            }}
+            onBlur={() => termV.validateField('name', termForm.name, termForm)}
+            className={inputClass(!!termV.errors.name)}
+          >
+            <option value="" disabled>Select a term</option>
+            {['First Term', 'Second Term', 'Third Term'].map(term => <option key={term} value={term}>{term}</option>)}
+          </select>
+        </Field>
+        <Field label="Term starts" required htmlFor="term-start" error={termV.errors.startDate}>
+          <input id="term-start" type="date" value={termForm.startDate}
+            min={toDay(selectedYear?.startDate) || undefined} max={toDay(selectedYear?.endDate) || undefined}
+            onChange={e => { const next = { ...termForm, startDate: e.target.value }; setTermForm(next); if (termV.errors.startDate) termV.validateField('startDate', next.startDate, next); if (termV.errors.endDate) termV.validateField('endDate', next.endDate, next); }}
+            onBlur={() => termV.validateField('startDate', termForm.startDate, termForm)}
+            className={inputClass(!!termV.errors.startDate)} />
+        </Field>
+        <Field label="Term ends" required htmlFor="term-end" error={termV.errors.endDate}>
+          <input id="term-end" type="date" value={termForm.endDate}
+            min={termForm.startDate || toDay(selectedYear?.startDate) || undefined} max={toDay(selectedYear?.endDate) || undefined}
+            onChange={e => { const next = { ...termForm, endDate: e.target.value }; setTermForm(next); if (termV.errors.endDate) termV.validateField('endDate', next.endDate, next); if (termV.errors.startDate) termV.validateField('startDate', next.startDate, next); }}
+            onBlur={() => termV.validateField('endDate', termForm.endDate, termForm)}
+            className={inputClass(!!termV.errors.endDate)} />
+        </Field>
+        <p className="text-[12px] text-gray-400"><span className="text-red-400">*</span> Required. Terms must sit inside the academic year and cannot overlap each other.</p>
+      </Drawer>
+
+      <ConfirmDestructiveDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        verb="Delete"
+        noun={deleteTarget?.type === 'year' ? 'academic year' : 'term'}
+        recordName={deleteTarget?.item?.name}
+        consequence={deleteTarget?.type === 'year'
+          ? 'This only works when the year has no terms and nothing is using it.'
+          : 'This only works when nothing (events, fees, scores) is using the term.'}
+        onConfirm={(reason) => (deleteTarget?.type === 'year'
+          ? confirmDeleteYear(reason, deleteTarget.item)
+          : confirmDeleteTerm(reason, deleteTarget.item))}
+      />
 
     </div>
   );

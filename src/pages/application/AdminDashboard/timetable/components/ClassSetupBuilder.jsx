@@ -3,6 +3,16 @@ import {createClasses, deleteClasses, getSchoolClasses} from '../../services/cla
 import { createArms, deleteArms, updateArm, getClassArms } from '../../services/armAPIs';
 import { registryStyles } from '../../../../../utils/imports';
 import ArmSubjectsModal from './ArmSubjectsModal';
+import { pushToast, ConfirmDestructiveDialog } from '../../../../../components/patterns';
+
+// Readable message from a failed API call (all validation details, then the server message)
+const errMsg = (e) => {
+  const data = e?.response?.data;
+  const details = Array.isArray(data?.errors) ? data.errors.map(x => x?.msg || x?.message).filter(Boolean) : [];
+  if (details.length) return [...new Set(details)].join(' · ');
+  if (!e?.response && e?.message === 'Network Error') return 'Could not reach the server. Check your connection and try again.';
+  return data?.message || e?.message || 'Something went wrong. Please try again.';
+};
 import {
   Layers,
   Search,
@@ -32,7 +42,7 @@ export default function ClassSetupBuilder() {
   // Classes + arms are this page's own data — fetched directly from the API.
   const [classes, setClasses] = useState([]);
   const [arms, setArms] = useState([]);
-  const [armSubjectCounts, setArmSubjectCounts] = useState({}); // { [armId]: count }
+  const [, setArmSubjectCounts] = useState({}); // { [armId]: count }
   const [initialLoading, setInitialLoading] = useState(true);
 
   const [loading, setLoading] = useState(false);
@@ -149,6 +159,7 @@ export default function ClassSetupBuilder() {
   };
 
   const uniqueBaseCount = baseLevels.length;
+  const [deleteTarget, setDeleteTarget] = useState(null); // { type: 'class' | 'arm', item }
   const totalArmCount = getGeneratedClasses().filter(c => c.arm !== null).length;
 
   // ─── 5. Two-phase Save ──────────
@@ -159,8 +170,10 @@ export default function ClassSetupBuilder() {
    * This cleanly separates the Class and Arm entities as required by newFeatures.md.
    */
   const handleSaveMatrix = async () => {
-    if (uniqueBaseCount === 0) return alert('Define at least one base level before saving.');
-    if (!confirm(`Save ${uniqueBaseCount} class(es) and their arm configurations?`)) return;
+    if (uniqueBaseCount === 0) {
+      pushToast({ message: 'Add at least one class level before saving.', type: 'error' });
+      return;
+    }
 
     setLoading(true);
     try {
@@ -189,38 +202,46 @@ export default function ClassSetupBuilder() {
         const armRes = await createArms({ arms: armsToCreate });
         if (armRes.success) {
           setArms(armRes.data.arms);
+        } else {
+          throw new Error(armRes.message || 'The classes were saved, but their arms could not be created.');
         }
       }
 
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
+      pushToast({ message: `${uniqueBaseCount} class${uniqueBaseCount === 1 ? '' : 'es'} saved${armsToCreate.length ? ` with ${armsToCreate.length} arm${armsToCreate.length === 1 ? '' : 's'}` : ''}` });
     } catch (err) {
-      console.error(err);
-      alert(`Save failed: ${err.message}`);
+      pushToast({ message: `Could not save the class structure. ${errMsg(err)}`, type: 'error', duration: 8000 });
     } finally {
       setLoading(false);
     }
   };
 
   // ─── 6. Delete (active-view) ────
-  const handleDeleteClass = async (cls) => {
-    if (!confirm(`Remove "${cls.name}" and all its arms? This cannot be undone.`)) return;
-    try {
-      const res = await deleteClasses(cls.id);
-      if (res.success) {
-        setClasses(prev => prev.filter(c => c.id !== cls.id));
-        setArms(prev => prev.filter(a => a.classId !== cls.id));
-        if (expandedClassId === cls.id) setExpandedClassId(null);
-      }
-    } catch (e) { console.error(e); }
-  };
+  // The buttons only ask; the confirm dialog (rendered at the bottom) does the deleting.
+  const handleDeleteClass = (cls) => setDeleteTarget({ type: 'class', item: cls });
+  const handleDeleteArm = (arm) => setDeleteTarget({ type: 'arm', item: arm });
 
-  const handleDeleteArm = async (arm) => {
-    if (!confirm(`Remove arm "${arm.name}"?`)) return;
+  const confirmDelete = async () => {
+    const { type, item } = deleteTarget;
     try {
-      const res = await deleteArms(arm.id);
-      if (res.success) setArms(prev => prev.filter(a => a.id !== arm.id));
-    } catch (e) { console.error(e); }
+      if (type === 'class') {
+        const res = await deleteClasses(item.id);
+        if (!res?.success) throw new Error(res?.message || 'The class could not be removed.');
+        setClasses(prev => prev.filter(c => c.id !== item.id));
+        setArms(prev => prev.filter(a => a.classId !== item.id));
+        if (expandedClassId === item.id) setExpandedClassId(null);
+        pushToast({ message: `${item.name} removed` });
+      } else {
+        const res = await deleteArms(item.id);
+        if (!res?.success) throw new Error(res?.message || 'The arm could not be removed.');
+        setArms(prev => prev.filter(a => a.id !== item.id));
+        pushToast({ message: `Arm ${item.name} removed` });
+      }
+    } catch (e) {
+      // ConfirmDestructiveDialog shows this inside the dialog and keeps it open
+      throw new Error(errMsg(e));
+    }
   };
 
   // ─── 7. Edit arm name (optimistic + API) ─
@@ -234,13 +255,17 @@ export default function ClassSetupBuilder() {
     const name = editArmName.trim();
     if (!name) return;
     const id = editingArmId;
+    const previousName = arms.find(a => a.id === id)?.name;
     setEditingArmId(null);
     setEditArmName('');
     setArms(prev => prev.map(a => (a.id === id ? { ...a, name } : a))); // optimistic
     try {
-      await updateArm(id, { name });
+      const res = await updateArm(id, { name });
+      if (res && res.success === false) throw new Error(res.message || 'The arm could not be renamed.');
+      pushToast({ message: `Arm renamed to ${name}` });
     } catch (err) {
-      console.error('[ClassSetupBuilder] updateArm failed:', err);
+      setArms(prev => prev.map(a => (a.id === id ? { ...a, name: previousName } : a))); // put the old name back
+      pushToast({ message: `Could not rename the arm. ${errMsg(err)}`, type: 'error', duration: 8000 });
     }
   };
 
@@ -249,15 +274,16 @@ export default function ClassSetupBuilder() {
     e.preventDefault();
     const name = newArmName.trim();
     if (!name) return;
-    setNewArmName('');
-    setAddingArmToClassId(null);
     try {
       const res = await createArms({ arms: [{ classId: cls.id, name }] });
-      if (res.success && res.data?.arms?.length > 0) {
-        setArms(prev => [...prev, ...res.data.arms]);
-      }
+      if (!(res.success && res.data?.arms?.length > 0)) throw new Error(res?.message || 'The arm could not be added.');
+      setArms(prev => [...prev, ...res.data.arms]);
+      setNewArmName('');
+      setAddingArmToClassId(null);
+      pushToast({ message: `Arm ${name} added to ${cls.name}` });
     } catch (err) {
-      console.error('[ClassSetupBuilder] createArms failed:', err);
+      // leave the form open with what was typed so nothing is lost
+      pushToast({ message: `Could not add the arm. ${errMsg(err)}`, type: 'error', duration: 8000 });
     }
   };
 
@@ -405,8 +431,6 @@ export default function ClassSetupBuilder() {
                         </p>
                       )}
                       {arms.length > 0 && arms.map(arm => {
-                        const subjectCount = armSubjectCounts[arm.id] ?? 0;
-
                         return (
                           <div
                             key={arm.id}
@@ -774,6 +798,19 @@ export default function ClassSetupBuilder() {
           </div>
         </div>
       </div>
+
+      <ConfirmDestructiveDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        verb="Remove"
+        noun={deleteTarget?.type === 'class' ? 'class' : 'arm'}
+        recordName={deleteTarget?.item?.name}
+        requireReason={false}
+        consequence={deleteTarget?.type === 'class'
+          ? 'The class and all of its arms are removed. This only works when no students, fees or timetables are using it.'
+          : 'The arm is removed. This only works when no students or timetables are using it.'}
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }

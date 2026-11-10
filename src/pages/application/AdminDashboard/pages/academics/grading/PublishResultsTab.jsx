@@ -259,10 +259,15 @@ export default function PublishResultsTab() {
                                 </div>
                             )}
 
-                            {pdfJob && pdfJob.status === 'completed' ? (
+                            {pdfJob && pdfJob.status === 'completed' && !pdfJob.downloadUrl ? (
+                                <p role="alert" className="text-sm text-red-600">
+                                    The PDFs were generated but no download link was returned. File storage may not be set up. Please try again, or contact support.
+                                </p>
+                            ) : pdfJob && pdfJob.status === 'completed' ? (
                                 <a
                                     href={pdfJob.downloadUrl}
-                                    onClick={(e) => { e.preventDefault(); pushToast({ message: 'Mock download — backend will return a real file URL.', type: 'success' }); }}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
                                     className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors"
                                 >
                                     <FileDown size={15} /> Download all PDFs

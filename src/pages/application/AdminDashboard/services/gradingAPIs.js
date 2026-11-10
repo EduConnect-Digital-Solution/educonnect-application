@@ -115,6 +115,16 @@ export async function updateGradingScale(id, payload) {
  * Expected response shape:
  * { success, message }
  */
+// PUT /api/admin/grading-scales/:id/classes — the scale grades exactly these classes; others use the default
+export async function assignGradingScaleClasses(id, classIds) {
+    try {
+        const { data } = await apiClient.put(`/api/admin/grading-scales/${id}/classes`, { classIds });
+        return data;
+    } catch (error) {
+        throw error?.response?.data || error;
+    }
+}
+
 export async function deleteGradingScale(id) {
     try {
         const { data } = await apiClient.delete(`/api/admin/grading-scales/${id}`);
@@ -369,6 +379,16 @@ export async function addPolicyAssignment(policyId, payload) {
  * Expected response shape:
  * { success: true, message: string }
  */
+// PUT /api/admin/assessment-policies/:id/class-assignments — the policy covers exactly these classes
+export async function setPolicyClassAssignments(policyId, classIds) {
+    try {
+        const { data } = await apiClient.put(`/api/admin/assessment-policies/${policyId}/class-assignments`, { classIds });
+        return data;
+    } catch (error) {
+        throw error?.response?.data || error;
+    }
+}
+
 export async function removePolicyAssignment(policyId, assignmentId) {
     // MOCK — replace with live call when backend is ready:
     try {
@@ -519,6 +539,16 @@ export async function getBroadsheet(armId, termId) {
         throw error?.response?.data || error;
     }
 
+}
+
+// GET /api/admin/broadsheets/overview?termId= — one summary row per arm
+export async function getBroadsheetOverview(termId) {
+    try {
+        const { data } = await apiClient.get('/api/admin/broadsheets/overview', { params: { termId } });
+        return data;
+    } catch (error) {
+        throw error?.response?.data || error;
+    }
 }
 
 // ═════════════════════════════════════════════════════════════════════════════

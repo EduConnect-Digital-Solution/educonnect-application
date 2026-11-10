@@ -50,14 +50,16 @@ const SECTIONS = [
     {
         icon: Wallet,
         title: 'Finance',
-        description: 'Fee categories, late-fee and discount policies, payment gateways, and receipts.',
-        live: false,
+        description: 'Fee structures, invoices, payments, defaulters, and finance reports.',
+        live: true,
+        to: ROUTES.feeStructures,
     },
     {
         icon: MessagesSquare,
         title: 'Communication',
-        description: 'Email, SMS, and WhatsApp channels, sender identity, and message templates.',
-        live: false,
+        description: 'Events and notices, plus delivery logs showing what actually arrived.',
+        live: true,
+        to: ROUTES.events,
     },
     {
         icon: BellRing,
@@ -68,8 +70,9 @@ const SECTIONS = [
     {
         icon: ShieldCheck,
         title: 'Roles & Permissions',
-        description: 'Who can view, edit, approve, and export — per module.',
-        live: false,
+        description: 'Choose which teachers may create their own assessment policies, class by class.',
+        live: true,
+        to: ROUTES.settingsGradingSetup,
     },
     {
         icon: FolderArchive,

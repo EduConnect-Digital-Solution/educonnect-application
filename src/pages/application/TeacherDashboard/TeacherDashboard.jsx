@@ -22,8 +22,6 @@ export default function TeacherDashboard() {
     });
     const [recentActivity, setRecentActivity] = useState();
     const [students, setStudents] = useState([]);
-    const [subjects, setSubjects] = useState([]);
-    const [teacher, setTeacher] = useState(null);
 
     const [error, setError] = useState(null);
 
@@ -38,8 +36,6 @@ export default function TeacherDashboard() {
                 ]);
 
                 setStatistics(dashboardRes.data.statistics);
-                setTeacher(dashboardRes.data.teacher);
-                setSubjects(dashboardRes.data.teacher.subjects);
                 setClasses(classRes.data.classes);
                 setRecentActivity(dashboardRes.data.recentActivity.map(notification => ({
                     type: notification.type,
@@ -77,6 +73,23 @@ export default function TeacherDashboard() {
             </TeacherLayout>
         );
     }
+    if (error) {
+        return (
+            <TeacherLayout>
+                <div className="max-w-md mx-auto mt-16 text-center bg-white border border-red-100 rounded-2xl p-8">
+                    <p className="font-semibold text-gray-900">We couldn't load your dashboard</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                        {error.response?.data?.message || 'Please check your connection and try again.'}
+                    </p>
+                    <button onClick={() => window.location.reload()}
+                        className="mt-4 px-4 py-2 text-sm font-medium text-white bg-[#002684] rounded-lg">
+                        Try again
+                    </button>
+                </div>
+            </TeacherLayout>
+        );
+    }
+
     return (
         <>
             <TeacherLayout>
