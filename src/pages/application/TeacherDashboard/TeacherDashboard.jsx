@@ -4,6 +4,7 @@ import {
     RecentActivity,
     TeacherAnalyticsBox, QuickActions, TeacherResponsibilities
 } from "./teacherUtils/teacherComponents.jsx";
+import TodaySchedule from './TodaySchedule.jsx';
 import TeacherLayout from "./components/layout/TeacherLayout.jsx";
 import {getTeacherClasses, getTeacherDashboard, getTeacherStudents} from "../../auth/authAPIs.js";
 import {DashboardSkeleton} from "../../../components/patterns/index.js";
@@ -44,6 +45,7 @@ export default function TeacherDashboard() {
                 })));
                 setStudents(StudentsRes.data.students.map(std => ({
                     id: std.studentId,
+                    studentId: std.studentId,
                     fullName: std.fullName,
                     email: std.email,
                     class: std.classDisplay,
@@ -94,6 +96,8 @@ export default function TeacherDashboard() {
         <>
             <TeacherLayout>
                 <EducationOverviewDashboard statistics={statistics}/>
+
+                <div className="p-2 mt-2"><TodaySchedule /></div>
 
                 <div className="grid grid-cols-1 p-2 lg:grid-cols-3 gap-6">
                     <TeacherResponsibilities classes={classes} students={students} />

@@ -1,6 +1,8 @@
+import { notify } from '@/components/patterns/toastBus.js';
+import LoaderIcon from '@/components/brand/LoaderIcon.jsx';
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, NavLink } from 'react-router-dom';
-import { Check, ArrowLeft, Home } from 'lucide-react';
+import { Check, Home } from 'lucide-react';
 
 import {
     InputOTP,
@@ -9,7 +11,6 @@ import {
 } from "../../components/ui/input-otp.jsx";
 import { Images } from "../../components/images.jsx";
 import { resendOTP, verifyOTP } from "./authAPIs.js";
-import { Toast } from '../application/AdminDashboard/components/ui/Toast.jsx';
 
 export function VerifySchool() {
     const navigate = useNavigate();
@@ -18,7 +19,6 @@ export function VerifySchool() {
     
     const [verificationCode, setVerificationCode] = useState('');
     const [cooldown, setCooldown] = useState(0);
-    const [toast, setToast] = useState({ show: false, message: '', type: 'error' });
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -37,13 +37,7 @@ export function VerifySchool() {
         return () => clearInterval(timer);
     }, [cooldown]);
 
-    const showToast = (message, type = 'error', duration = 3000, onClose = null) => {
-        setToast({ show: true, message, type });
-        setTimeout(() => {
-            setToast(p => ({ ...p, show: false }));
-            if (onClose) onClose();
-        }, duration);
-    };
+    const showToast = (message, type = 'error', duration, onClose = null) => notify(message, type, duration, onClose);
 
     const handleResend = async () => {
         if (cooldown > 0) return;
@@ -78,9 +72,6 @@ export function VerifySchool() {
 
     return (
         <>
-            {toast.show && (
-                <Toast message={toast.message} type={toast.type} onClose={() => setToast(p => ({ ...p, show: false }))} />
-            )}
 
             <div className="mb-6">
                 <NavLink
@@ -140,10 +131,7 @@ export function VerifySchool() {
                         >
                             {loading ? (
                                 <>
-                                    <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                                    </svg>
+                                    <LoaderIcon size={16} className="text-white" />
                                     Verifying…
                                 </>
                             ) : (

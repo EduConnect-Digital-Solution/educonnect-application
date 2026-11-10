@@ -1,11 +1,7 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import {
-    ClipboardList, BookOpen, AlertCircle, Loader2, Plus,
-    ChevronDown, Pencil, Trash2, Eye, X as XIcon,
-    CheckCircle2, Clock, BarChart3, FileText, ChevronRight,
-    Users, Calendar,
-} from 'lucide-react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { ClipboardList, BookOpen, AlertCircle, Plus, ChevronDown, Pencil, Trash2, Eye, X as XIcon, CheckCircle2, Clock, BarChart3, FileText, ChevronRight, Users, Calendar } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import TeacherLayout from './components/layout/TeacherLayout.jsx';
 import { Drawer, pushToast } from '../../../components/patterns';
 import { useAcademic } from '../../../contexts/AcademicContext.jsx';
@@ -833,6 +829,11 @@ function AssessmentDrawer({
 export default function ScoreEntryPage() {
     const { currentTerm } = useAcademic();
 
+    // "Enter Scores" from a class page links here with ?className=&subjectName= so the teacher lands ready to work
+    const [searchParams] = useSearchParams();
+    const presetClassRef = useRef(searchParams.get('className') || '');
+    const pendingSubjectRef = useRef(searchParams.get('subjectName') || '');
+
     // ── Selector state ────────────────────────────────────────────────────────
     const [classes,         setClasses]         = useState([]);
     const [subjects,        setSubjects]        = useState([]);
@@ -864,7 +865,12 @@ export default function ScoreEntryPage() {
     useEffect(() => {
         setLoadingClasses(true);
         getTeacherClasses()
-            .then(res => setClasses(res.data?.classes ?? []))
+            .then(res => {
+                const list = res.data?.classes ?? [];
+                setClasses(list);
+                if (presetClassRef.current && list.some(c => c.name === presetClassRef.current)) setSelectedClass(presetClassRef.current);
+                else pendingSubjectRef.current = '';
+            })
             .catch(() => pushToast({ message: 'Failed to load your classes.', type: 'error' }))
             .finally(() => setLoadingClasses(false));
     }, []);
@@ -883,7 +889,13 @@ export default function ScoreEntryPage() {
         setStudents([]); setEntries([]);
 
         getSubjectsByClass(selectedClass)
-            .then(res => setSubjects(res.data?.subjects ?? []))
+            .then(res => {
+                const list = res.data?.subjects ?? [];
+                setSubjects(list);
+                const wanted = pendingSubjectRef.current;
+                pendingSubjectRef.current = '';
+                if (wanted && list.some(sub => (sub.name ?? sub) === wanted)) setSelectedSubject(wanted);
+            })
             .catch(() => pushToast({ message: 'Failed to load subjects.', type: 'error' }))
             .finally(() => setLoadingSubjects(false));
     }, [selectedClass]);

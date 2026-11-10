@@ -1,9 +1,10 @@
+import { notify } from '@/components/patterns/toastBus.js';
+import { BrandLoader } from '@/components/brand/BrandLoader.jsx';
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, ArrowLeft, CheckCircle } from 'lucide-react';
+import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { Images } from '../../components/images';
 import { LoginSchool, LoginUser, ForgotPassword, ResetPassword, ForgotUserPassword, ResetUserPassword } from './authAPIs';
-import { Toast } from '../application/AdminDashboard/components/ui/Toast';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 
 // ─── Role Selection Card ───────
@@ -56,20 +57,13 @@ export default function AuthPage() {
     const [forgotData, setForgotData] = useState({ schoolId: '', email: '' });
     const [resetIsAdmin, setResetIsAdmin] = useState(false); // locks the reset endpoint to the role used in the forgot step
     const [resetData, setResetData] = useState({ otp: '', email: '', schoolId: '', newPassword: '', confirmPassword: '' });
-    const [toast, setToast] = useState({ show: false, message: '', type: 'error' });
     const [isLoading, setIsLoading] = useState(false);
     const [checkedSession, setCheckedSession] = useState(false);
     const [showLoggedIn, setShowLoggedIn] = useState(false);
     const navigate = useNavigate();
     const { user, login, logout, checkAuthStatus } = useAuth();
 
-    const showToast = (message, type = 'error', duration = 3000, onClose = null) => {
-        setToast({ show: true, message, type });
-        setTimeout(() => {
-            setToast(p => ({ ...p, show: false }));
-            if (onClose) onClose();
-        }, duration);
-    };
+    const showToast = (message, type = 'error', duration, onClose = null) => notify(message, type, duration, onClose);
 
     const handleRoleSelection = async (role) => {
         setSelectedRole(role);
@@ -175,10 +169,6 @@ export default function AuthPage() {
                 {/*</NavLink>*/}
             </div>
 
-            {/* Toast */}
-            {toast.show && (
-                <Toast message={toast.message} type={toast.type} onClose={() => setToast(p => ({ ...p, show: false }))} />
-            )}
 
             {/* Background */}
             <div className="min-h-screen flex items-center justify-center p-4 bg-[#F0F2F8]">
@@ -211,11 +201,7 @@ export default function AuthPage() {
                     {/* ── Loading ── */}
                     {selectedRole && (isLoading && !checkedSession) && (
                         <div className="flex flex-col items-center justify-center gap-4 py-16">
-                            <div className="relative w-14 h-14">
-                                <div className="absolute inset-0 border-4 border-blue-100 rounded-full" />
-                                <div className="absolute inset-0 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                            </div>
-                            <p className="text-gray-400 text-sm animate-pulse">Loading...</p>
+                            <BrandLoader label="Loading..." size={88} />
                         </div>
                     )}
 

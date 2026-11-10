@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Loader2, ArrowLeft, Copy, Monitor } from 'lucide-react';
+import { ArrowLeft, Copy, Monitor } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import { Link, useSearchParams } from 'react-router-dom';
 import AdminLayout from '../../components/layout/AdminLayout.jsx';
 import { TimetableProvider, useTimetable } from '../../timetable/TimetableContext.jsx';

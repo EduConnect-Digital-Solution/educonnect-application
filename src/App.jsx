@@ -1,3 +1,5 @@
+import { PageLoader } from '@/components/brand/BrandLoader.jsx';
+import ToastHost from '@/components/patterns/ToastHost.jsx';
 import React, { lazy, useEffect} from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
@@ -72,16 +74,13 @@ const ClassStudents          = lazy(() => import("./pages/application/TeacherDas
 const TeacherClasses         = lazy(() => import("./pages/application/TeacherDashboard/TeacherClasses.jsx"));
 const AttendancePage         = lazy(() => import("./pages/application/TeacherDashboard/AttendancePage.jsx"));
 const AttendanceRegisterPage = lazy(() => import("./pages/application/TeacherDashboard/AttendanceRegisterPage.jsx"));
+const MyTimetablePage                = lazy(() => import("./pages/application/TeacherDashboard/MyTimetablePage.jsx"));
 const ScoreEntryPage                 = lazy(() => import("./pages/application/TeacherDashboard/ScoreEntryPage.jsx"));
 const TeacherAssessmentPoliciesPage  = lazy(() => import("./pages/application/TeacherDashboard/TeacherAssessmentPoliciesPage.jsx"));
 
 
 
-const LoadingFallback = () => (
-    <div className="h-screen w-full flex items-center justify-center font-[Outfit]">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-    </div>
-);
+const LoadingFallback = () => <PageLoader />;
 
 /**
  * AuthContextBridge
@@ -104,12 +103,6 @@ const AuthContextBridge = ({ children }) => {
 
 
 function AppRoutes() {
-    const { isLoading } = useAuth();
-
-    if (isLoading) {
-        return <LoadingFallback />;
-    }
-
     return (
         <div className={`font-[Inter]`}>
             <React.Suspense fallback={<LoadingFallback />}>
@@ -215,6 +208,7 @@ function AppRoutes() {
                 <Route path="/dashboard/teacher/students/:class/:subject" element={<ProtectedRoute requiredRole="teacher"><ClassStudents /></ProtectedRoute>} />
                 <Route path="/dashboard/teacher/attendance" element={<ProtectedRoute requiredRole="teacher"><AttendancePage /></ProtectedRoute>} />
                 <Route path="/dashboard/teacher/attendance/register/:scheduleId" element={<ProtectedRoute requiredRole="teacher"><AttendanceRegisterPage /></ProtectedRoute>} />
+                <Route path="/dashboard/teacher/timetable" element={<ProtectedRoute requiredRole="teacher"><MyTimetablePage /></ProtectedRoute>} />
                 <Route path="/dashboard/teacher/score-entry" element={<ProtectedRoute requiredRole="teacher"><ScoreEntryPage /></ProtectedRoute>} />
                 <Route path="/dashboard/teacher/assessment-policies" element={<ProtectedRoute requiredRole="teacher"><TeacherAssessmentPoliciesPage /></ProtectedRoute>} />
 
@@ -227,6 +221,7 @@ function AppRoutes() {
             <PWAInstallPrompt />
             <OfflineBanner />
             <PWAInstalledToast />
+            <ToastHost />
         </div>
     );
 }

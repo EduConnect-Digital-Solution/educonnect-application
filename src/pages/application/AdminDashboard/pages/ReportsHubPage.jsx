@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { BarChart3, Printer, Loader2, RefreshCw } from 'lucide-react';
+import { BarChart3, Printer, RefreshCw } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import AdminLayout from '../components/layout/AdminLayout.jsx';
 import { EmptyState } from '../../../../components/patterns';
 import { useAcademic } from '../../../../contexts/AcademicContext.jsx';

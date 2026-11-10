@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
+    CalendarDays,
     LayoutDashboard, LogOut, Menu, X, GraduationCap, User,
     ClipboardCheck, ClipboardList, BookOpen, ChevronDown, ChevronLeft, ChevronRight, School
 } from 'lucide-react';
@@ -8,7 +9,6 @@ import { Header } from '../../../dashboardUtilities.jsx';
 import { useAuth } from '../../../../../contexts/AuthContext.jsx';
 import { Images } from '../../../../../components/images.jsx';
 import { getMyPolicyPermission } from '../../services/teacherPoliciesAPIs.js';
-import { ToastHost } from '../../../../../components/patterns';
 
 import MobileBrandLogo from '../../../../../components/MobileBrandLogo.jsx';
 const OPEN_GROUPS_KEY = 'educonnect-teacher-nav-open';
@@ -22,6 +22,7 @@ const NavList = ({ collapsed, onNavigate, hasPolicyPermission }) => {
     const baseNavItems = [
         { name: 'Dashboard',    icon: LayoutDashboard, link: '/dashboard/teacher', exact: true },
         { name: 'My Classes',   icon: GraduationCap,   link: '/dashboard/teacher/classes' },
+        { name: 'My Timetable', icon: CalendarDays,    link: '/dashboard/teacher/timetable' },
         { name: 'Attendance',   icon: ClipboardCheck,  link: '/dashboard/teacher/attendance' },
         { name: 'Score Entry',  icon: ClipboardList,   link: '/dashboard/teacher/score-entry' },
         { name: 'User Profile', icon: User,            link: '/dashboard/teacher/profile' },
@@ -29,7 +30,7 @@ const NavList = ({ collapsed, onNavigate, hasPolicyPermission }) => {
 
     const navItems = hasPolicyPermission
         ? [
-            ...baseNavItems.slice(0, 4),
+            ...baseNavItems.slice(0, 5),
             { name: 'Assessment Policies', icon: BookOpen, link: '/dashboard/teacher/assessment-policies' },
             ...baseNavItems.slice(4),
           ]
@@ -195,7 +196,6 @@ const TeacherLayout = ({ children, className = '' }) => {
                 </main>
             </div>
 
-            <ToastHost />
         </div>
     );
 };

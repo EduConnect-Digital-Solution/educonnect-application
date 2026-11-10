@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronRight, Pencil, Trash2, Printer, Loader2, BookOpen, User } from 'lucide-react';
+import { ChevronRight, Pencil, Trash2, Printer, BookOpen, User } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import AdminLayout from '../../components/layout/AdminLayout.jsx';
 import { EmptyState, StatusChip, ConfirmDestructiveDialog, pushToast } from '../../../../../components/patterns';
 import {

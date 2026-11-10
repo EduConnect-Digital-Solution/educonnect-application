@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft, Loader2, Users, TrendingUp, AlertTriangle, BookOpen, ExternalLink, Calendar, CheckCircle2 } from 'lucide-react';
+import { ChevronLeft, Users, TrendingUp, AlertTriangle, BookOpen, ExternalLink, Calendar, CheckCircle2 } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import TeacherLayout from "./components/layout/TeacherLayout.jsx";
 import { getStudentsByClassandSubject } from "../../auth/authAPIs.js";
 import { getEffectivePolicy } from './services/scoreEntryAPIs.js';

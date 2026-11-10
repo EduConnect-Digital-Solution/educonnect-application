@@ -1,3 +1,4 @@
+import { pushToast } from '@/components/patterns/toastBus.js';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   getArmSubjects,
@@ -7,18 +8,8 @@ import {
 } from '../../services/armAPIs';
 import { addSubjectsToClass } from '../../services/classAPIs';
 import { getSchoolSubjects, CATEGORY_STYLES, CATEGORY_LABELS } from '../../services/subjectAPIs';
-import {
-  X,
-  BookOpen,
-  Plus,
-  Trash2,
-  Copy,
-  RefreshCw,
-  Search,
-  CheckCircle2,
-  Loader2,
-  AlertTriangle,
-} from 'lucide-react';
+import { X, BookOpen, Plus, Trash2, Copy, RefreshCw, Search, CheckCircle2 } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 
 // ─── Tab IDs ────────────────────
 const TABS = [
@@ -51,7 +42,6 @@ export default function ArmSubjectsModal({ arm, classArms, onClose, onSubjectsCh
   const [activeTab,    setActiveTab]    = useState('current');
   const [loading,      setLoading]      = useState(false);
   const [initializing, setInitializing] = useState(true);
-  const [toast,        setToast]        = useState(null); // { msg, type }
 
   // Data owned by this modal, fetched directly from the API.
   const [subjects,    setSubjects]    = useState([]);  // school-wide pool
@@ -104,10 +94,7 @@ export default function ArmSubjectsModal({ arm, classArms, onClose, onSubjectsCh
   }, [arm.id]);
 
   // ─── Toast helper ─────────────
-  const showToast = (msg, type = 'success') => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  };
+  const showToast = (msg, type = 'success') => pushToast({ message: msg, type });
 
   // ─── School-wide subjects available to add ──────────────────────────────────
   const assignedIds = useMemo(
@@ -269,19 +256,6 @@ export default function ArmSubjectsModal({ arm, classArms, onClose, onSubjectsCh
             ))}
           </div>
 
-          {/* Toast */}
-          {toast && (
-            <div className={`mx-6 mt-3 px-4 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2 shrink-0 ${
-              toast.type === 'error'
-                ? 'bg-red-50 text-red-700'
-                : 'bg-green-50 text-green-700'
-            }`}>
-              {toast.type === 'error'
-                ? <AlertTriangle size={14} />
-                : <CheckCircle2 size={14} />}
-              {toast.msg}
-            </div>
-          )}
 
           {/* Tab Content */}
           <div className="flex-1 overflow-y-auto p-6">

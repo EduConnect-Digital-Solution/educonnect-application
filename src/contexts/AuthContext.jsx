@@ -338,7 +338,7 @@ export const AuthProvider = ({ children }) => {
                     role="alertdialog"
                     aria-live="assertive"
                     aria-label="You are about to be signed out"
-                    className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[100] w-[calc(100%-2rem)] max-w-md rounded-2xl border border-amber-200 bg-white shadow-2xl p-4"
+                    className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[120] w-[calc(100%-2rem)] max-w-md rounded-2xl border border-amber-200 bg-white shadow-2xl p-4"
                 >
                     <p className="text-[14px] font-bold text-gray-900">Are you still there?</p>
                     <p className="mt-1 text-[13px] text-gray-600">

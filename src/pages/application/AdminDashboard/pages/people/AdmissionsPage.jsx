@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { UserPlus, Search, Loader2, AlertCircle } from 'lucide-react';
+import { UserPlus, Search, AlertCircle } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import AdminLayout from '../../components/layout/AdminLayout.jsx';
 import {
     pushToast, Field, Drawer, ConfirmDestructiveDialog, EmptyState, StatusChip, inputClass, useFieldErrors,

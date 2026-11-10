@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2, Plus, X, Layers } from 'lucide-react';
+import { Plus, X, Layers } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import { Drawer, Field, inputClass, EmptyState, pushToast } from '../../../../../components/patterns';
 import { assignClasses } from '../../../../auth/authAPIs.js';
 import { getSchoolClasses } from '../../services/classAPIs.js';
@@ -32,7 +33,7 @@ export default function TeacherClassAssignmentModal({ teacher, schoolId, onClose
                 const res = await getSchoolClasses();
                 setClasses(res.data?.classes ?? []);
             } catch {
-                pushToast({ message: 'Could not load classes.' });
+                pushToast({ message: 'Could not load classes.', type: 'error' });
             } finally {
                 setLoadingClasses(false);
             }

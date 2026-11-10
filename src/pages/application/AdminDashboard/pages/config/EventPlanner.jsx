@@ -1,3 +1,5 @@
+import { notify } from '@/components/patterns/toastBus.js';
+import { BrandLoader } from '@/components/brand/BrandLoader.jsx';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     Trash2, ChevronLeft, ChevronRight, Bell, Calendar as CalendarIcon,
@@ -298,7 +300,7 @@ export default function EventPlanner() {
                 eventForm.notificationTargets.everyone ||
                 eventForm.notificationTargets.roles.length > 0 ||
                 eventForm.notificationTargets.userIds.length > 0;
-            if (!hasTargets) return alert('Please select at least one target audience.');
+            if (!hasTargets) return notify.error('Please select at least one target audience.');
         }
 
         let scheduleForPayload = { ...eventForm.notificationSchedule };
@@ -314,7 +316,7 @@ export default function EventPlanner() {
         const timeStr = eventForm.time || '00:00';
         const finalIsoDate = new Date(`${dateStr}T${timeStr}:00`).toISOString();
 
-        if (endDateMsg && endDateMsg < dateStr) return alert('The end date cannot be before the start date.');
+        if (endDateMsg && endDateMsg < dateStr) return notify.error('The end date cannot be before the start date.');
         // A multi-day event runs through the end of its last day; null clears a previous range
         const finalEndIso = endDateMsg && endDateMsg > dateStr ? new Date(`${endDateMsg}T23:59:00`).toISOString() : null;
 
@@ -374,11 +376,7 @@ export default function EventPlanner() {
     if (activeProfile.isLoading) {
         return (
             <div className="flex flex-col items-center justify-center h-full min-h-[60vh] w-full">
-                <div className="relative w-10 h-10">
-                    <div className="absolute inset-0 border-4 border-blue-100 rounded-full" />
-                    <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin" />
-                </div>
-                <p className="mt-4 text-gray-500">Loading Planner Data...</p>
+                <BrandLoader label="Loading Planner Data..." size={88} />
             </div>
         );
     }

@@ -5,7 +5,8 @@ import {
   PAYMENT_METHODS, ADJUSTMENT_TYPES,
 } from '../../services/feeAPIs.js';
 import StudentLedgerModal from './StudentLedgerModal.jsx';
-import { Search, Loader2, Wallet, BookText, SlidersHorizontal, X } from 'lucide-react';
+import { Search, Wallet, BookText, SlidersHorizontal, X } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import { WorkbenchTable, pushToast } from '../../../../../components/patterns';
 import { ROUTES } from '../../navigation/navConfig.js';
 
@@ -18,15 +19,15 @@ function AdjustmentModal({ onClose, onApplied }) {
   const [busy, setBusy]           = useState(false);
 
   const submit = async () => {
-    if (!studentId.trim()) return pushToast({ message: 'Student ID is required' });
-    if (!amount || Number(amount) <= 0) return pushToast({ message: 'Enter a valid amount' });
-    if (!reason.trim()) return pushToast({ message: 'A reason is required for the audit trail' });
+    if (!studentId.trim()) return pushToast({ message: 'Student ID is required', type: 'error' });
+    if (!amount || Number(amount) <= 0) return pushToast({ message: 'Enter a valid amount', type: 'error' });
+    if (!reason.trim()) return pushToast({ message: 'A reason is required for the audit trail', type: 'error' });
     setBusy(true);
     try {
       const res = await applyAdjustment({ studentId: studentId.trim(), type, amount: toKobo(amount), reason: reason.trim(), approvedBy: 'admin' });
       if (res.success) { onApplied?.(res.data.adjustment); pushToast({ message: 'Adjustment applied to ledger' }); onClose(); }
     } catch (e) {
-      pushToast({ message: e.message || 'Failed to apply adjustment' });
+      pushToast({ message: e.message || 'Failed to apply adjustment', type: 'error' });
     } finally { setBusy(false); }
   };
 

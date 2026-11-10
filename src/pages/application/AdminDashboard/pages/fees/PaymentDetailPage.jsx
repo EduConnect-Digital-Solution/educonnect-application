@@ -36,7 +36,7 @@ export default function PaymentDetailPage() {
             await sendReceipt(paymentId, { channel });
             pushToast({ message: `Receipt sent by ${channel}` });
         } catch (e) {
-            pushToast({ message: e?.message || 'Failed to send receipt' });
+            pushToast({ message: e?.message || 'Failed to send receipt', type: 'error' });
         } finally {
             setSending(false);
         }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, CalendarDays } from 'lucide-react';
+import { CalendarDays } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import AdminLayout from '../../components/layout/AdminLayout.jsx';
 import { WorkbenchTable, StatusChip, EmptyState } from '../../../../../components/patterns';
 import { useAcademic } from '../../../../../contexts/AcademicContext.jsx';

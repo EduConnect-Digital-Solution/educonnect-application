@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { getStatusBadgeStyle } from '../../utils/styleHelpers.js';
-import { UserCircle2, X, Search, Plus, Loader2 } from 'lucide-react';
+import { UserCircle2, X, Search, Plus } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import Input from './Input.jsx';
 import {
     createStudent,

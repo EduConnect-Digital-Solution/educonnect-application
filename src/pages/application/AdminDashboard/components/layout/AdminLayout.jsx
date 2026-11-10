@@ -1,3 +1,4 @@
+import '../../../dark-mode.css';
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { X, ChevronDown, ChevronLeft, ChevronRight, School } from 'lucide-react';
@@ -6,7 +7,6 @@ import { Images } from '../../../../../components/images.jsx';
 import { NAV_GROUPS, SETTINGS_NAV } from '../../navigation/navConfig.js';
 import Topbar from '../topbar/Topbar.jsx';
 import useSchoolBrand from '../../hooks/useSchoolBrand.js';
-import { ToastHost } from '../../../../../components/patterns';
 
 /**
  * AdminLayout — the application shell for every admin page.
@@ -258,7 +258,6 @@ const AdminLayout = ({ children, className = '' }) => {
                 </main>
             </div>
 
-            <ToastHost />
         </div>
     );
 };

@@ -1,7 +1,7 @@
+import { notify } from '@/components/patterns/toastBus.js';
 import React, { useState } from 'react';
 import {useSearchParams, useNavigate, NavLink} from "react-router-dom";
 import { Building2, Lock, Mail, Phone } from "lucide-react";
-import { Toast } from "../../application/AdminDashboard/components/ui/Toast.jsx";
 import { completeRegistration } from "../authAPIs.js";
 import {Images} from "../../../components/images.jsx";
 
@@ -32,15 +32,8 @@ export default function CompleteRegistration() {
         emergencyPhone: ""
     });
 
-    const [toast, setToast] = useState({ show: false, message: '', type: 'error' });
 
-    const showToast = (message, type = 'error', duration = 2000, onClose = null) => {
-        setToast({ show: true, message, type, onClose });
-        setTimeout(() => {
-            setToast((prev) => ({ ...prev, show: false }));
-            if (onClose) onClose();
-        }, duration);
-    };
+    const showToast = (message, type = 'error', duration, onClose = null) => notify(message, type, duration, onClose);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -150,13 +143,6 @@ export default function CompleteRegistration() {
 
     return (
         <div className={``}>
-            {toast.show && (
-                <Toast
-                    message={toast.message}
-                    type={toast.type}
-                    onClose={() => setToast({ ...toast, show: false })}
-                />
-            )}
             <div className="absolute top-0 z-50 p-5 overflow-hidden items-center w-full ">
                 <NavLink to={`/`} onClick={handleLogoClick}>
                     <img

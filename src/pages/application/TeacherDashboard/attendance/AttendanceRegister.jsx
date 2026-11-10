@@ -1,26 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import {
-  ArrowLeft,
-  Search,
-  Save,
-  Send,
-  Users,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  AlertTriangle,
-  ChevronDown,
-  Filter,
-  CheckSquare,
-  Square,
-  Loader2,
-  BookOpen,
-  MapPin,
-  CalendarDays,
-  RefreshCw,
-  LockKeyhole,
-} from 'lucide-react';
+import { ArrowLeft, Search, Save, Send, Users, CheckCircle2, XCircle, Clock, AlertTriangle, ChevronDown, Filter, CheckSquare, Square, BookOpen, MapPin, CalendarDays, RefreshCw, LockKeyhole } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import { cn } from '@/lib/utils';
 import StudentAttendanceRow from './StudentAttendanceRow';
 import { saveDraftAttendance, submitAttendance, updateAttendance } from './attendanceAPIs';
@@ -347,7 +328,7 @@ export default function AttendanceRegister({
       if (res.success) {
         setAttendanceId(res.data.attendanceId);
         hasUnsavedRef.current = false;
-        setNotification({ type: 'success', message: 'Draft saved successfully.' });
+        setNotification({ type: 'success', message: 'Draft saved. Only you can see it until you submit the register.' });
       }
     } catch {
       setNotification({ type: 'error', message: 'Failed to save draft. Please try again.' });
@@ -599,6 +580,7 @@ export default function AttendanceRegister({
               <button
                 onClick={handleSaveDraft}
                 disabled={isSaving || isSubmitting}
+                title="A draft is only visible to you. Submit the register to share it with the school admin."
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium
                   text-gray-700 bg-white hover:bg-gray-50 border border-gray-200
                   rounded-lg transition-colors disabled:opacity-50"

@@ -1,11 +1,12 @@
+import { notify } from '@/components/patterns/toastBus.js';
+import { BrandLoader } from '@/components/brand/BrandLoader.jsx';
 import React, { useState, useEffect } from 'react';
 import {
-    User, MapPin, ShieldCheck, Key,
-    Edit3, Smartphone, Briefcase, Save, X, Info
+    MapPin,
+    Edit3, Briefcase, Save, X
 } from 'lucide-react';
 import ParentLayout from "./components/layout/ParentLayout.jsx";
 import {getParentProfile, updateParentProfile} from "../../auth/authAPIs.js";
-import {Toast} from "../AdminDashboard/components/ui/Toast.jsx";
 // import { getParentProfile } from './services/parentService';
 
 const ParentProfilePage = () => {
@@ -63,11 +64,8 @@ const ParentProfilePage = () => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const [toast, setToast] = useState({ show: false, message: '', type: 'error' });
 
-    const showToast = (message, type = 'error') => {
-        setToast({ show: true, message, type });
-    };
+    const showToast = (message, type = 'error', duration, onClose = null) => notify(message, type, duration, onClose);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -91,19 +89,8 @@ const ParentProfilePage = () => {
     if (loading) {
         return (
             <ParentLayout>
-                {toast.show && (
-                    <Toast
-                        message={toast.message}
-                        type={toast.type}
-                        onClose={() => setToast({ ...toast, show: false })}
-                    />
-                )}
                 <div className="flex flex-col items-center justify-center h-screen bg-gray-50">
-                    <div className="relative w-20 h-20">
-                        <div className="absolute inset-0 border-4 border-blue-100 rounded-full"></div>
-                        <div className="absolute inset-0 border-4 border-[#002684] rounded-full border-t-transparent animate-spin"></div>
-                    </div>
-                    <p className="mt-4 text-gray-500 font-medium animate-pulse">Syncing Profile...</p>
+                    <BrandLoader label="Syncing Profile..." size={88} />
                 </div>
             </ParentLayout>
         );

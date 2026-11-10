@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-    PencilLine, Power, Trash2, ClipboardCheck, ClipboardList, Wallet,
-    Users, UserPlus, Loader2, FilePlus2, RefreshCw,
-} from 'lucide-react';
+import { PencilLine, Power, Trash2, ClipboardCheck, ClipboardList, Wallet, Users, UserPlus, FilePlus2, RefreshCw } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import AdminLayout from '../../components/layout/AdminLayout.jsx';
 import {
     DetailPage, EmptyState, Timeline, Drawer, Field, inputClass,
