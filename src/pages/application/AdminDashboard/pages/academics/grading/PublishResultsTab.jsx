@@ -1,3 +1,4 @@
+import { formatSchoolDateTime } from '../../../../../../utils/schoolLocale.js';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { CheckCircle2, XCircle, Lock, Send, FileDown, ShieldCheck } from 'lucide-react';
 import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
@@ -193,7 +194,7 @@ export default function PublishResultsTab() {
                                 <p className="text-xs text-green-700 mt-0.5">
                                     Grades for this term are locked. Published on{' '}
                                     {status.publishedAt
-                                        ? new Date(status.publishedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                                        ? formatSchoolDateTime(status.publishedAt)
                                         : '—'}.
                                     Un-publishing requires a separate admin action.
                                 </p>

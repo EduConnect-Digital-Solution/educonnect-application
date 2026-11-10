@@ -1,3 +1,4 @@
+import PushToggle from '../../../../../components/pwa/PushToggle.jsx';
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -219,6 +220,7 @@ export function ProfileMenu() {
                             {isDark ? <Sun size={15} className="text-gray-400" /> : <Moon size={15} className="text-gray-400" />}
                             {isDark ? 'Light theme' : 'Dark theme'}
                         </button>
+                        <PushToggle />
                     </div>
                     <div className="py-1.5 border-t border-gray-100">
                         <button

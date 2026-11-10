@@ -1,3 +1,4 @@
+import { formatSchoolDate } from '../../../utils/schoolLocale.js';
 import { notify } from '@/components/patterns/toastBus.js';
 import { BrandLoader } from '@/components/brand/BrandLoader.jsx';
 import React, { useState, useEffect } from 'react';
@@ -228,7 +229,7 @@ const ParentProfilePage = () => {
                     <div className="space-y-6">
                         <div className="border text-black rounded-3xl p-6">
                             <h3 className="text-lg font-bold mb-1">Account Settings</h3>
-                            <p className="text-slate-400 text-sm mb-5 font-medium tracking-wide">Registered since {new Date(parent?.createdAt).toLocaleDateString()}</p>
+                            <p className="text-slate-400 text-sm mb-5 font-medium tracking-wide">Registered since {formatSchoolDate(parent?.createdAt)}</p>
 
                             <div className="flex justify-between items-center border-t border-white/10">
                                 <span className="text-[10px] uppercase font-bold text-slate-500">Parent Status</span>

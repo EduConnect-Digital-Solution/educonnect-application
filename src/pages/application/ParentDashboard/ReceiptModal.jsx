@@ -1,9 +1,10 @@
+import { formatMajor, formatSchoolDate } from '../../../utils/schoolLocale.js';
 import React, { useEffect, useState } from 'react';
 import { Printer, X } from 'lucide-react';
 import { getMyReceipt } from './services/parentFeeAPIs.js';
 
-const money = (n) => '₦' + Number(n || 0).toLocaleString('en-NG');
-const fmt = (iso) => (iso ? new Date(iso).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
+const money = (n) => formatMajor(n);
+const fmt = (iso) => (iso ? formatSchoolDate(iso) : '—');
 const label = (s) => String(s || '').replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase()) || '—';
 
 /** Printable receipt for one payment. Prints only the receipt (see the print styles). */

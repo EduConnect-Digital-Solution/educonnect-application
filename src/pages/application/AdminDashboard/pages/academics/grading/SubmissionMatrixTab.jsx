@@ -1,3 +1,4 @@
+import { formatSchoolDate } from '../../../../../../utils/schoolLocale.js';
 import React, { useState, useEffect, useCallback } from 'react';
 import { RefreshCw, CheckCircle2, AlertCircle, Clock, ChevronDown, ChevronsUpDown, LayoutList, BarChart3, FileText, Users, Eye, ExternalLink } from 'lucide-react';
 import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
@@ -159,7 +160,7 @@ function AuditDrawer({ cell, termId, onClose }) {
     const Icon      = meta.icon;
 
     const fmtDate = (iso) => iso
-        ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+        ? formatSchoolDate(iso)
         : '—';
 
     return (

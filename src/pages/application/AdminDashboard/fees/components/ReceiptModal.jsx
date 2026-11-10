@@ -1,3 +1,4 @@
+import { formatSchoolDateTime } from '../../../../../utils/schoolLocale.js';
 import React, { useState, useEffect } from 'react';
 import { getReceipt, sendReceipt, formatNaira } from '../../services/feeAPIs.js';
 import { X, Printer, Send, CheckCircle2 } from 'lucide-react';
@@ -72,7 +73,7 @@ export default function ReceiptModal({ paymentId, onClose, showToast }) {
                   <div className="flex justify-between"><span>Class</span><span className="text-gray-800">{receipt.student?.className}</span></div>
                   <div className="flex justify-between"><span>Method</span><span className="text-gray-800 capitalize">{receipt.method}</span></div>
                   <div className="flex justify-between"><span>Reference</span><span className="text-gray-800">{receipt.reference}</span></div>
-                  <div className="flex justify-between"><span>Date</span><span className="text-gray-800">{receipt.paidAt ? new Date(receipt.paidAt).toLocaleString() : '—'}</span></div>
+                  <div className="flex justify-between"><span>Date</span><span className="text-gray-800">{receipt.paidAt ? formatSchoolDateTime(receipt.paidAt) : '—'}</span></div>
                 </div>
                 <div className="border-t border-gray-100 mt-3 pt-3 space-y-1">
                   {(receipt.items || []).map((it, i) => (

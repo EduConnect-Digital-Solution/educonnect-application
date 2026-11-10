@@ -3,7 +3,8 @@ import { ClipboardCheck, RefreshCw } from 'lucide-react';
 import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import AdminLayout from '../components/layout/AdminLayout.jsx';
 import { EmptyState } from '../../../../components/patterns';
-import { getAttendanceOverview } from '../services/attendanceOverviewAPI.js';
+import { getAttendanceOverview, reopenRegister } from '../services/attendanceOverviewAPI.js';
+import { notify } from '@/components/patterns/toastBus.js';
 
 const today = () => new Date().toISOString().slice(0, 10);
 const inputClass = 'px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300';
@@ -117,6 +118,7 @@ export default function AttendanceOpsPage() {
                                             <th className="px-4 py-3 font-semibold">Late</th>
                                             <th className="px-4 py-3 font-semibold">Absent</th>
                                             <th className="px-4 py-3 font-semibold">Rate</th>
+                                            <th className="px-4 py-3 font-semibold"><span className="sr-only">Actions</span></th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -128,6 +130,18 @@ export default function AttendanceOpsPage() {
                                                 <td className="px-4 py-3 text-gray-700">{c.late}</td>
                                                 <td className="px-4 py-3 text-gray-700">{c.absent}</td>
                                                 <td className={`px-4 py-3 font-semibold ${rateTone(c.rate)}`}>{c.rate != null ? `${c.rate}%` : '—'}</td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <button
+                                                        className="text-xs font-semibold text-blue-600 hover:text-blue-800"
+                                                        title="Lets the teacher edit this register again"
+                                                        onClick={async () => {
+                                                            try {
+                                                                await Promise.all((c.sessionIds || []).map(reopenRegister));
+                                                                notify.success('Register reopened. The teacher can edit it again.');
+                                                            } catch (e) { notify.error(e?.message || 'Could not reopen the register.'); }
+                                                        }}
+                                                    >Reopen</button>
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>

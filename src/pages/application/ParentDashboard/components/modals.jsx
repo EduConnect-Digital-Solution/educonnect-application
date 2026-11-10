@@ -1,3 +1,4 @@
+import { formatSchoolDate } from '../../../../utils/schoolLocale.js';
 import React from 'react';
 import { X } from 'lucide-react';
 
@@ -106,7 +107,7 @@ export const StudentInfoModal = ({ child, onClose }) => {
                 {/* Footer - Metadata */}
                 <div className="px-10 py-6 bg-white border-t border-slate-100 flex justify-between items-center">
                     <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">
-                        System Entry: {new Date(child.createdAt).toLocaleDateString()}
+                        System Entry: {formatSchoolDate(child.createdAt)}
                     </p>
                     <button
                         onClick={onClose}

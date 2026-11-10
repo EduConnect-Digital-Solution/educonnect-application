@@ -1,3 +1,4 @@
+import { formatSchoolDate } from '../../../../../utils/schoolLocale.js';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { PencilLine, Power, Trash2, ClipboardCheck, ClipboardList, Wallet, Users, UserPlus, FilePlus2, RefreshCw } from 'lucide-react';
@@ -378,8 +379,8 @@ export default function StudentProfilePage() {
                         <div>
                             <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2.5">Record</p>
                             <div className="space-y-3">
-                                <BioRow label="Created" value={student?.createdAt ? new Date(student.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'} />
-                                <BioRow label="Last updated" value={student?.updatedAt ? new Date(student.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'} />
+                                <BioRow label="Created" value={student?.createdAt ? formatSchoolDate(student.createdAt) : '—'} />
+                                <BioRow label="Last updated" value={student?.updatedAt ? formatSchoolDate(student.updatedAt) : '—'} />
                             </div>
                         </div>
                         <div className="pt-4 border-t border-gray-100">

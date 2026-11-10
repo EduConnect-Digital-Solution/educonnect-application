@@ -1,3 +1,4 @@
+import { formatSchoolDate } from '../../../../../utils/schoolLocale.js';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Receipt, Send, CheckCircle2 } from 'lucide-react';
@@ -76,7 +77,7 @@ export default function PaymentDetailPage() {
                     { label: 'Balance', value: formatNaira(receipt?.balance), tone: receipt?.balance > 0 ? 'red' : 'green' },
                     { label: 'Method', value: receipt?.method ? String(receipt.method).replace('_', ' ') : '—' },
                     { label: 'Reference', value: receipt?.reference || '—' },
-                    { label: 'Paid', value: receipt?.paidAt ? new Date(receipt.paidAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—' },
+                    { label: 'Paid', value: receipt?.paidAt ? formatSchoolDate(receipt.paidAt) : '—' },
                 ]}
                 tabs={[
                     {

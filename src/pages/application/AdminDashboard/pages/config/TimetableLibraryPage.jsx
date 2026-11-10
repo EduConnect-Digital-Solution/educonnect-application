@@ -1,3 +1,4 @@
+import { formatSchoolDate } from '../../../../../utils/schoolLocale.js';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CalendarDays } from 'lucide-react';
@@ -132,7 +133,7 @@ export default function TimetableLibrary() {
           render: r => <span className="text-gray-500">{r.termName}</span> },
         { id: 'lessons', header: 'Lessons', accessor: r => r.lessons, sortable: true, align: 'right' },
         { id: 'updatedAt', header: 'Last updated', accessor: r => r.updatedAt,
-          render: r => <span className="text-gray-500">{r.updatedAt ? new Date(r.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</span> },
+          render: r => <span className="text-gray-500">{r.updatedAt ? formatSchoolDate(r.updatedAt) : '—'}</span> },
         { id: 'status', header: 'Status', accessor: r => r.status, sortable: true, render: r => <StatusChip status={r.status} /> },
     ], []);
 

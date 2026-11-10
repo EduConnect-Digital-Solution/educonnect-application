@@ -1,3 +1,4 @@
+import { formatMajor } from '../../../utils/schoolLocale.js';
 import { BrandLoader } from '@/components/brand/BrandLoader.jsx';
 import React, { useState, useEffect } from 'react';
 import ParentLayout from "./components/layout/ParentLayout.jsx";
@@ -98,8 +99,7 @@ function Card({ children, title, subtitle, action, padding = true, elevated = fa
 }
 
 /* ---------- Finance helpers + data derivation (real payload only) --------- */
-const NGN = "₦";
-const money = (n) => NGN + Number(n || 0).toLocaleString("en-NG");
+const money = (n) => formatMajor(n);
 
 const NOTICES = [
   { icon: Flag, text: "Fees must be paid before examination registration opens." },

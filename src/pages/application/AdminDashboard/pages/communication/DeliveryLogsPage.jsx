@@ -1,3 +1,4 @@
+import { formatSchoolDateTime } from '../../../../../utils/schoolLocale.js';
 import React, { useState, useEffect, useCallback } from 'react';
 import { MailCheck, RefreshCw } from 'lucide-react';
 import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
@@ -15,7 +16,7 @@ const STATUSES = [['', 'All statuses'], ['sent', 'Sent'], ['failed', 'Failed'], 
 
 const formatWhen = (value) => {
     if (!value) return '—';
-    return new Date(value).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    return formatSchoolDateTime(value);
 };
 
 const selectClass = 'px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300';

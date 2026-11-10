@@ -1,3 +1,4 @@
+import { currencySymbol } from '../../../../../utils/schoolLocale.js';
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../../../contexts/AuthContext.jsx';
 import {
@@ -287,7 +288,7 @@ export default function RecordPaymentModal({ invoice, onClose, onRecorded, showT
             {/* Amount Field */}
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-bold text-gray-600 uppercase block">Payment Amount (₦) *</label>
+                <label className="text-xs font-bold text-gray-600 uppercase block">Payment Amount ({currencySymbol()}) *</label>
                 {isGateway && gatewayRef && (
                   <button
                     type="button"

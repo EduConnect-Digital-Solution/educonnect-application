@@ -1,3 +1,4 @@
+import { formatSchoolDate } from '../../../../../utils/schoolLocale.js';
 import React, { useEffect, useRef, useState } from 'react';
 import { getStatusBadgeStyle } from '../../utils/styleHelpers.js';
 import { UserCircle2, X, Search, Plus } from 'lucide-react';
@@ -1255,7 +1256,7 @@ export const ParentInfoModal = ({ onClose, parentInfo }) => {
                                 </span>
                             </p>
                             <p className="text-sm"><span className="text-gray-500 inline-block w-24">Verified:</span> <span className="font-medium text-gray-900">{parentInfo.isVerified ? 'Yes' : 'No'}</span></p>
-                            <p className="text-sm"><span className="text-gray-500 inline-block w-24">Created At:</span> <span className="font-medium text-gray-900">{new Date(parentInfo.createdAt).toLocaleDateString()}</span></p>
+                            <p className="text-sm"><span className="text-gray-500 inline-block w-24">Created At:</span> <span className="font-medium text-gray-900">{formatSchoolDate(parentInfo.createdAt)}</span></p>
                             <p className="text-sm"><span className="text-gray-500 inline-block w-24">Invited By:</span> <span className="font-medium text-gray-900">{parentInfo.invitedBy?.name || 'N/A'}</span></p>
                         </div>
                     </div>
