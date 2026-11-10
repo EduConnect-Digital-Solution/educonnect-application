@@ -6,7 +6,7 @@ import {
     LogOut,
     Menu,
     X,
-    GraduationCap, User, CreditCard
+    GraduationCap, User, CreditCard,
     CalendarCheck,
 } from 'lucide-react';
 import { Header } from '../../../dashboardUtilities.jsx';
