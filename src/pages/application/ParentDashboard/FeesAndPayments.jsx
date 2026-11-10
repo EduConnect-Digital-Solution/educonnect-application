@@ -636,7 +636,7 @@ export default function FeesAndPayments() {
         return (
             <ParentLayout>
                 <div className="flex flex-col items-center justify-center h-[70vh]">
-                    <BrandLoader label="Loading fees information..." size={56} />
+                    <BrandLoader label="Loading fees information..." size={88} />
                 </div>
             </ParentLayout>
         );

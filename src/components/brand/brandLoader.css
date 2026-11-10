@@ -32,10 +32,10 @@
 }
 
 .ec-loader { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; }
-.ec-loader-label { font-size: 13px; color: #5B6482; }
+.ec-loader-label { font-size: 15px; font-weight: 500; color: #5B6482; }
 .dark .ec-loader-label { color: #9AA3C2; }
 .ec-lockup { display: flex; align-items: center; gap: 11px; }
-.ec-lockup img { height: 54px; width: auto; max-width: none; }
+.ec-lockup img { width: auto; max-width: none; }
 .ec-wm-dark { display: none; }
 .dark .ec-wm-light, [data-theme="dark"] .ec-wm-light { display: none; }
 .dark .ec-wm-dark, [data-theme="dark"] .ec-wm-dark { display: block; }

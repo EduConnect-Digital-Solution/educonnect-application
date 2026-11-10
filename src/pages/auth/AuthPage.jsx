@@ -212,7 +212,7 @@ export default function AuthPage() {
                     {/* ── Loading ── */}
                     {selectedRole && (isLoading && !checkedSession) && (
                         <div className="flex flex-col items-center justify-center gap-4 py-16">
-                            <BrandLoader label="Loading..." size={56} />
+                            <BrandLoader label="Loading..." size={88} />
                         </div>
                     )}
 

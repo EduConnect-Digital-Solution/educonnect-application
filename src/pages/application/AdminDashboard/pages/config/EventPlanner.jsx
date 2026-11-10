@@ -375,7 +375,7 @@ export default function EventPlanner() {
     if (activeProfile.isLoading) {
         return (
             <div className="flex flex-col items-center justify-center h-full min-h-[60vh] w-full">
-                <BrandLoader label="Loading Planner Data..." size={56} />
+                <BrandLoader label="Loading Planner Data..." size={88} />
             </div>
         );
     }

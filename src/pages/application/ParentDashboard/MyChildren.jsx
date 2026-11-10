@@ -51,7 +51,7 @@ const ChildSelectionPage = () => {
         return (
             <ParentLayout>
                 <div className="flex flex-col items-center justify-center h-screen bg-gray-50">
-                    <BrandLoader label="Syncing student records..." size={56} />
+                    <BrandLoader label="Syncing student records..." size={88} />
                 </div>
             </ParentLayout>
         );

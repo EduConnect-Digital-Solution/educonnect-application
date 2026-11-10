@@ -28,8 +28,8 @@ export function BrandLoader({ label = 'Loading', variant = 'open', size = 48, de
             {withWordmark ? (
                 <div className="ec-lockup">
                     <BrandMark size={size} variant={variant} />
-                    <img className="ec-wm-light" src={wordmark} alt="EduConnect" />
-                    <img className="ec-wm-dark" src={wordmarkLight} alt="" />
+                    <img className="ec-wm-light" src={wordmark} alt="EduConnect" style={{ height: size * 0.85 }} />
+                    <img className="ec-wm-dark" src={wordmarkLight} alt="" style={{ height: size * 0.85 }} />
                 </div>
             ) : (
                 <BrandMark size={size} variant={variant} />
@@ -44,13 +44,13 @@ export function BrandLoader({ label = 'Loading', variant = 'open', size = 48, de
 export function PageLoader({ label = 'Loading your workspace…', onRetry, delay = 0 }) {
     return (
         <div className="h-screen w-full flex items-center justify-center">
-            <BrandLoader label={label} size={64} wordmark delay={delay} onRetry={onRetry} />
+            <BrandLoader label={label} size={96} wordmark delay={delay} onRetry={onRetry} />
         </div>
     );
 }
 
 /** Inside a card, table or panel. */
-export function SectionLoader({ label = 'Loading…', size = 40, className = 'py-16', onRetry }) {
+export function SectionLoader({ label = 'Loading…', size = 72, className = 'py-16', onRetry }) {
     return (
         <div className={`flex items-center justify-center w-full ${className}`}>
             <BrandLoader label={label} size={size} onRetry={onRetry} />

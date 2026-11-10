@@ -16,9 +16,14 @@ export default function LoaderIcon({ size = 16, className = '', label }) {
         .split(/\s+/)
         .filter((c) => c && c !== 'animate-spin' && !/^(text|border)-/.test(c) && !/^(w|h)-/.test(c))
         .join(' ');
+    // Block-sized spinners (24px and up) stood in for whole loading states, so they
+    // render the full Open book mark at a legible size instead of a tiny icon.
+    const block = px >= 20;
+    const markSize = block ? 64 : px * 0.92;
+    const box = block ? { width: markSize, height: (markSize * 551) / 512 } : { width: px, height: px };
     return (
-        <span {...(label ? { role: 'status', 'aria-label': label } : { 'aria-hidden': true })} className={`inline-flex align-middle ${layout}`.trim()} style={{ width: px, height: px, alignItems: 'center', justifyContent: 'center' }}>
-            <BrandMark size={px * 0.92} variant="pulse" tone={onDark ? 'on-dark' : undefined} />
+        <span {...(label ? { role: 'status', 'aria-label': label } : { 'aria-hidden': true })} className={`inline-flex align-middle ${layout}`.trim()} style={{ ...box, alignItems: 'center', justifyContent: 'center' }}>
+            <BrandMark size={markSize} variant={block ? 'open' : 'pulse'} tone={onDark ? 'on-dark' : undefined} />
         </span>
     );
 }

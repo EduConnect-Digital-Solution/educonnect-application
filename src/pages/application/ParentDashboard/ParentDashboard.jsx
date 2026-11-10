@@ -68,7 +68,7 @@ export default function ParentDashboard() {
         return (
             <ParentLayout>
                 <div className="flex flex-col items-center justify-center h-screen bg-gray-50">
-                    <BrandLoader label="Loading Parent Dashboard..." size={56} />
+                    <BrandLoader label="Loading Parent Dashboard..." size={88} />
                 </div>
             </ParentLayout>
         );

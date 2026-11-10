@@ -97,7 +97,7 @@ const TeacherProfile = () => {
         return (
             <TeacherLayout>
                 <div className="flex flex-col items-center justify-center h-screen bg-gray-50">
-                    <BrandLoader label="Loading Teacher Profile..." size={56} />
+                    <BrandLoader label="Loading Teacher Profile..." size={88} />
                 </div>
             </TeacherLayout>
         );
@@ -192,7 +192,7 @@ const TeacherProfile = () => {
                                     <div className="mt-4">
                                         {loadingSubjects ? (
                                             <div className="flex justify-center">
-                                                <BrandLoader label="Loading subjects…" size={32} delay={0} />
+                                                <BrandLoader label="Loading subjects…" size={56} delay={0} />
                                             </div>
                                         ) : subjects.length > 0 ? (
                                             <div className="space-y-2">

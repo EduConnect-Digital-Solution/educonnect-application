@@ -145,7 +145,7 @@ const TeacherClasses = () => {
                                     <div className="mt-4">
                                         {loadingSubjects ? (
                                             <div className="flex justify-center">
-                                                <BrandLoader label="Loading subjects…" size={32} delay={0} />
+                                                <BrandLoader label="Loading subjects…" size={56} delay={0} />
                                             </div>
                                         ) : subjects.length > 0 ? (
                                             <div className="space-y-2">

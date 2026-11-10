@@ -59,7 +59,7 @@ export default function AttendanceRegisterPage() {
     return (
       <TeacherLayout>
         <div className="flex flex-col items-center justify-center h-screen bg-gray-50">
-          <BrandLoader label="Loading attendance register…" size={56} />
+          <BrandLoader label="Loading attendance register…" size={88} />
         </div>
       </TeacherLayout>
     );
