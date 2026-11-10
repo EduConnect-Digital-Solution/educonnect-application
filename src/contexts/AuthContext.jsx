@@ -26,6 +26,10 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const [tokenExpiry, setTokenExpiry] = useState(null);
     const refreshTimerRef = useRef(null);
+    // One refresh request at a time: load, timer, request interceptor and 401 handler all share it
+    const refreshInFlightRef = useRef(null);
+    // True only when the server itself rejected the session (401/403), not on network errors or 5xx
+    const sessionRejectedRef = useRef(false);
 
     // Idle tracking: when the user last did something, and what the server says the limits are
     const lastActivityRef = useRef(Date.now());
@@ -85,6 +89,15 @@ export const AuthProvider = ({ children }) => {
         };
     };
 
+    const postRefresh = () => {
+        if (!refreshInFlightRef.current) {
+            refreshInFlightRef.current = axios
+                .post(`${baseURL}/api/school/auth/refresh-token`, {}, { withCredentials: true })
+                .finally(() => { refreshInFlightRef.current = null; });
+        }
+        return refreshInFlightRef.current;
+    };
+
     // Check session via /auth/me — primary method on app load
     const checkAuthStatus = async () => {
         try {
@@ -102,11 +115,7 @@ export const AuthProvider = ({ children }) => {
                 // Try to get an access token, but DO NOT log out if this fails
                 // /me already confirmed the session is valid
                 try {
-                    const tokenResponse = await axios.post(
-                        `${baseURL}/api/school/auth/refresh-token`,
-                        {},
-                        { withCredentials: true }
-                    );
+                    const tokenResponse = await postRefresh();
 
                     if (tokenResponse.data.success) {
                         const newToken = tokenResponse.data.data.tokens.accessToken;
@@ -153,13 +162,10 @@ export const AuthProvider = ({ children }) => {
                 return accessToken;
             }
 
-            const response = await axios.post(
-                `${baseURL}/api/school/auth/refresh-token`,
-                {},
-                { withCredentials: true }
-            );
+            const response = await postRefresh();
 
             if (response.data.success) {
+                sessionRejectedRef.current = false;
                 const newToken = response.data.data.tokens.accessToken;
                 const userData = response.data.data.user;
                 const expiry = getTokenExpiry(newToken);
@@ -174,7 +180,9 @@ export const AuthProvider = ({ children }) => {
             return null;
         } catch (error) {
             console.error('Token refresh failed:', error);
-            if (error.response?.status === 401 || error.response?.status === 403) {
+            const rejected = error.response?.status === 401 || error.response?.status === 403;
+            sessionRejectedRef.current = rejected;
+            if (rejected) {
                 clearAuthState();
             }
             return null;
@@ -316,6 +324,7 @@ export const AuthProvider = ({ children }) => {
         login,
         logout,
         refreshAccessToken,
+        isSessionRejected: () => sessionRejectedRef.current,
         checkAuthStatus,
         getValidAccessToken,
         isAuthenticated: !!user && !!accessToken,

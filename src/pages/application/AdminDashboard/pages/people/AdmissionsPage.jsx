@@ -288,7 +288,24 @@ export default function AdmissionsPage() {
                 )}
 
                 {!error && applicants.length > 0 && (
-                    <div className="bg-white border border-gray-200 rounded-2xl overflow-x-auto">
+                    <>
+                    <ul className="md:hidden bg-white border border-gray-200 rounded-2xl divide-y divide-gray-100">
+                        {applicants.map(a => (
+                            <li key={a.id} className="p-4">
+                                <p className="font-semibold text-gray-900">{fullName(a)}</p>
+                                {a.previousSchool && <p className="text-xs text-gray-500">From {a.previousSchool}</p>}
+                                <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                                    <div><dt className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Applying for</dt><dd className="text-gray-700">{a.applyingClass?.name || '—'}</dd></div>
+                                    <div><dt className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Status</dt><dd><StatusChip status={a.status}>{STATUS_LABEL[a.status] || a.status}</StatusChip></dd></div>
+                                    <div className="col-span-2 min-w-0"><dt className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Guardian</dt>
+                                        <dd className="text-gray-700 break-words">{a.guardianName}<span className="block text-xs text-gray-500">{[a.guardianPhone, a.guardianEmail].filter(Boolean).join(' · ')}</span></dd></div>
+                                </dl>
+                                {a.decisionNote && <p className="text-xs text-gray-500 mt-2">{a.decisionNote}</p>}
+                                <div className="flex flex-wrap gap-1.5 mt-3">{actions(a)}</div>
+                            </li>
+                        ))}
+                    </ul>
+                    <div className="hidden md:block bg-white border border-gray-200 rounded-2xl overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="text-left text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
@@ -321,6 +338,7 @@ export default function AdmissionsPage() {
                             </tbody>
                         </table>
                     </div>
+                    </>
                 )}
             </div>
 

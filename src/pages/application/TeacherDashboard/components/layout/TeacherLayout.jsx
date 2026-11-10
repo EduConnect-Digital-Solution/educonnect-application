@@ -10,6 +10,7 @@ import { Images } from '../../../../../components/images.jsx';
 import { getMyPolicyPermission } from '../../services/teacherPoliciesAPIs.js';
 import { ToastHost } from '../../../../../components/patterns';
 
+import MobileBrandLogo from '../../../../../components/MobileBrandLogo.jsx';
 const OPEN_GROUPS_KEY = 'educonnect-teacher-nav-open';
 const COLLAPSED_KEY   = 'teacher-sidebar-collapsed';
 
@@ -185,6 +186,8 @@ const TeacherLayout = ({ children, className = '' }) => {
                      >
                          <Menu size={18} />
                      </button>
+                     <MobileBrandLogo />
+                     <span className="w-9" aria-hidden="true" />
                 </div>
                 <Header />
                 <main className={`flex-1 p-2 md:p-4 ${className}`}>

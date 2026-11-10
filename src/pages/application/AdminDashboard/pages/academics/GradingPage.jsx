@@ -19,7 +19,7 @@ function GradingContent() {
     return (
         <div className="flex flex-col gap-5 h-full">
             {/* Page header */}
-            <div className="flex items-start justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Grading & Results</h1>
                     <p className="text-sm text-gray-500 mt-1">

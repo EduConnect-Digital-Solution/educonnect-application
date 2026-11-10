@@ -107,7 +107,7 @@ export default function TimetableViewPage() {
                 </nav>
 
                 <div className="bg-white border border-gray-200 rounded-2xl p-5 flex flex-wrap items-center gap-4 print:border-0">
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-[14rem]">
                         <div className="flex flex-wrap items-center gap-2">
                             <h1 className="text-xl font-bold text-gray-900">{className}{armName ? ` — ${armName}` : ''}</h1>
                             <StatusChip status={status} />

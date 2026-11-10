@@ -106,7 +106,21 @@ export default function DeliveryLogsPage() {
                 )}
 
                 {!loading && !error && logs.length > 0 && (
-                    <div className="bg-white border border-gray-200 rounded-2xl overflow-x-auto">
+                    <>
+                    <ul className="md:hidden bg-white border border-gray-200 rounded-2xl divide-y divide-gray-100">
+                        {logs.map(l => (
+                            <li key={l.id} className="p-4">
+                                <div className="flex items-start justify-between gap-3">
+                                    <p className="font-semibold text-gray-900 min-w-0 break-words">{l.recipientName}</p>
+                                    <span className={`shrink-0 inline-block px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${STATUS_TONE[l.status] || 'bg-gray-100 text-gray-600'}`}>{l.status}</span>
+                                </div>
+                                <p className="text-sm text-gray-700 mt-1">{l.eventTitle || '—'}</p>
+                                <p className="text-xs text-gray-500 mt-1 capitalize">{String(l.channel).replace('_', '-')} · {formatWhen(l.sentAt || l.createdAt)}</p>
+                                {l.errorMessage && <p className="text-xs text-red-600 mt-1">{l.errorMessage}</p>}
+                            </li>
+                        ))}
+                    </ul>
+                    <div className="hidden md:block bg-white border border-gray-200 rounded-2xl overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="text-left text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
@@ -135,6 +149,7 @@ export default function DeliveryLogsPage() {
                             </tbody>
                         </table>
                     </div>
+                    </>
                 )}
             </div>
         </AdminLayout>
