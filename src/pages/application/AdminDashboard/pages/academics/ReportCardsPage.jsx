@@ -13,7 +13,7 @@ import { getSchoolClasses } from '../../services/classAPIs.js';
 import { getClassArms } from '../../services/armAPIs.js';
 import {
     getReportCardTemplate, saveReportCardTemplate,
-    getReportCardComments, saveReportCardComment, REPORT_CARD_TRAITS,
+    getReportCardComments, saveReportCardComment, REPORT_CARD_TRAITS, getPublishStatus,
     generateReportCards, getPdfJob, signOffReportCards, publishReportCardsToParents,
 } from '../../services/gradingAPIs.js';
 
@@ -583,12 +583,13 @@ function CommentsWorklistTab() {
 // TAB 3 — Generate & Release
 // ═════════════════════════════════════════════════════════════════════════════
 
-function PrereqRow({ passed, label }) {
+function PrereqRow({ passed, label, optional }) {
     const Icon = passed ? CheckCircle2 : XCircle;
     return (
         <div className="flex items-center gap-2.5 py-2">
             <Icon size={16} className={passed ? 'text-green-600' : 'text-gray-300'} />
             <span className={`text-sm ${passed ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>{label}</span>
+            {optional && !passed && <span className="text-[10px] font-bold uppercase text-amber-600">Recommended</span>}
         </div>
     );
 }
@@ -633,13 +634,43 @@ function GenerateReleaseTab() {
     useEffect(() => () => clearInterval(pollRef.current), []);
 
     const ready = armId && currentTerm?.id;
-    // Mock prerequisites — backend resolves these from publish + comment state.
+
+    // Real prerequisites, read from the server whenever the class, arm or term changes
+    const [checks, setChecks] = useState({ loading: false, published: false, pendingComments: null, totalStudents: 0, error: null });
+    useEffect(() => {
+        if (!armId || !classId || !currentTerm?.id) return undefined;
+        let cancelled = false;
+        setChecks(c => ({ ...c, loading: true, error: null }));
+        Promise.all([
+            getPublishStatus(currentTerm.id, classId),
+            getReportCardComments(armId, currentTerm.id),
+        ]).then(([publish, comments]) => {
+            if (cancelled) return;
+            const students = comments.data?.students ?? [];
+            setChecks({
+                loading: false, error: null,
+                published: Boolean(publish.data?.published),
+                pendingComments: students.filter(s => s.status !== 'completed').length,
+                totalStudents: students.length,
+            });
+        }).catch((e) => {
+            if (!cancelled) setChecks(c => ({ ...c, loading: false, error: e?.message || 'Could not check the prerequisites.' }));
+        });
+        return () => { cancelled = true; };
+    }, [armId, classId, currentTerm?.id]);
+
+    // Publishing results is required. Missing comments are flagged but do not block generation.
     const prereqs = [
-        { passed: true, label: 'Results published for this class' },
-        { passed: true, label: 'Class-teacher comments completed' },
-        { passed: true, label: 'Report-card template configured' },
+        { passed: checks.published, label: 'Results published for this class' },
+        {
+            passed: checks.pendingComments === 0 && checks.totalStudents > 0,
+            label: checks.pendingComments > 0
+                ? `Class-teacher comments: ${checks.pendingComments} of ${checks.totalStudents} still to do`
+                : 'Class-teacher comments completed',
+            optional: true,
+        },
     ];
-    const allPrereq = prereqs.every(p => p.passed);
+    const allPrereq = !checks.loading && !checks.error && prereqs.filter(p => !p.optional).every(p => p.passed);
 
     const handleGenerate = async () => {
         setBusy(true); setJob({ status: 'processing', progress: 0 });
@@ -729,11 +760,17 @@ function GenerateReleaseTab() {
                             <ShieldCheck size={16} className="text-gray-400" />
                             <h3 className="text-sm font-bold text-gray-900">Prerequisites</h3>
                         </div>
-                        <div className="divide-y divide-gray-50">
-                            {prereqs.map((p, i) => <PrereqRow key={i} {...p} />)}
-                        </div>
-                        {!allPrereq && (
-                            <p className="text-[11px] text-amber-600 mt-2">Resolve all prerequisites to enable generation.</p>
+                        {checks.loading ? (
+                            <p className="text-sm text-gray-400 py-2 flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> Checking…</p>
+                        ) : checks.error ? (
+                            <p role="alert" className="text-sm text-red-600 py-2">{checks.error}</p>
+                        ) : (
+                            <div className="divide-y divide-gray-50">
+                                {prereqs.map((p, i) => <PrereqRow key={i} {...p} />)}
+                            </div>
+                        )}
+                        {!allPrereq && !checks.loading && !checks.error && (
+                            <p className="text-[11px] text-amber-600 mt-2">Publish this class's results in Grading &amp; Results to enable generation.</p>
                         )}
                     </div>
 
