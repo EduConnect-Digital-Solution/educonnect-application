@@ -30,6 +30,8 @@ const validators = {
 
 const btnPrimary = 'flex-1 py-2.5 rounded-lg bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 inline-flex items-center justify-center gap-2';
 const btnGhost = 'flex-1 py-2.5 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50';
+// A send that has been 'sending' this long was interrupted and can be resumed (matches the server)
+const STALE_SENDING_MS = 15 * 60 * 1000;
 const rowBtn = 'px-2.5 py-1.5 text-xs font-semibold rounded-lg';
 
 const serverMessage = (e) => {
@@ -242,7 +244,10 @@ export default function AnnouncementsPage() {
                                         {a.status === 'sent' && (
                                             <Link to={ROUTES.deliveryLogs} className={`${rowBtn} text-blue-700 bg-blue-50 hover:bg-blue-100`}>View delivery</Link>
                                         )}
-                                        {a.status !== 'sending' && (
+                                        {a.status === 'sending' && Date.now() - new Date(a.updatedAt).getTime() > STALE_SENDING_MS && (
+                                            <button onClick={() => { setSendError(null); setSendFor(a); }} className={`${rowBtn} text-amber-700 bg-amber-50 hover:bg-amber-100`}>Resume sending</button>
+                                        )}
+                                        {a.status === 'draft' && (
                                             <button onClick={() => setDeleteTarget(a)} className={`${rowBtn} text-gray-500 hover:text-red-600`}>Delete</button>
                                         )}
                                     </div>
@@ -315,13 +320,13 @@ export default function AnnouncementsPage() {
             <Drawer
                 open={!!sendFor}
                 onClose={() => !sending && setSendFor(null)}
-                title="Send this announcement?"
+                title={sendFor?.status === 'sending' ? 'Resume sending?' : 'Send this announcement?'}
                 subtitle={sendFor?.title}
                 footer={(
                     <>
                         <button onClick={() => setSendFor(null)} disabled={sending} className={btnGhost}>Not yet</button>
                         <button onClick={confirmSend} disabled={sending || audience === 'loading' || !audience || !!audience?.error || noRecipients} className={btnPrimary}>
-                            {sending && <Loader2 size={14} className="animate-spin" />}{sending ? 'Sending…' : 'Send now'}
+                            {sending && <Loader2 size={14} className="animate-spin" />}{sending ? 'Sending…' : sendFor?.status === 'sending' ? 'Resume' : 'Send now'}
                         </button>
                     </>
                 )}
@@ -333,7 +338,11 @@ export default function AnnouncementsPage() {
                     <p>{reach(audience)}</p>
                     {noRecipients && <p className="text-amber-700">Nobody is in this audience yet, so there is nothing to send.</p>}
                 </div>
-                <p className="text-xs text-gray-500">Once sent, an announcement cannot be recalled. You can follow each email in Delivery Logs.</p>
+                <p className="text-xs text-gray-500">
+                    {sendFor?.status === 'sending'
+                        ? 'This send was interrupted. Resuming only emails the people who have not received it yet.'
+                        : 'Once sent, an announcement cannot be recalled. You can follow each email in Delivery Logs.'}
+                </p>
             </Drawer>
 
             <ConfirmDestructiveDialog
@@ -343,9 +352,7 @@ export default function AnnouncementsPage() {
                 noun="announcement"
                 recordName={deleteTarget?.title || ''}
                 requireReason={false}
-                consequence={deleteTarget?.status === 'sent'
-                    ? 'The announcement and its delivery records are removed. Messages already delivered stay in people\'s inboxes.'
-                    : 'The draft is removed.'}
+                consequence="The draft is removed. Sent announcements are kept as a record and cannot be deleted."
                 onConfirm={confirmDelete}
             />
         </AdminLayout>
