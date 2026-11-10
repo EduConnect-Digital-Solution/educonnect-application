@@ -379,6 +379,16 @@ export async function addPolicyAssignment(policyId, payload) {
  * Expected response shape:
  * { success: true, message: string }
  */
+// PUT /api/admin/assessment-policies/:id/class-assignments — the policy covers exactly these classes
+export async function setPolicyClassAssignments(policyId, classIds) {
+    try {
+        const { data } = await apiClient.put(`/api/admin/assessment-policies/${policyId}/class-assignments`, { classIds });
+        return data;
+    } catch (error) {
+        throw error?.response?.data || error;
+    }
+}
+
 export async function removePolicyAssignment(policyId, assignmentId) {
     // MOCK — replace with live call when backend is ready:
     try {
