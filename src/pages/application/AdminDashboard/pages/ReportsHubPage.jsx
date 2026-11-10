@@ -1,3 +1,4 @@
+import { formatMinor } from '../../../../../utils/schoolLocale.js';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart3, Printer, RefreshCw } from 'lucide-react';
@@ -19,7 +20,7 @@ const SECTION_DEFS = [
 ];
 const SECTION_TITLE = Object.fromEntries(SECTION_DEFS);
 
-const naira = (kobo) => new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format((kobo || 0) / 100);
+const naira = (kobo) => formatMinor(kobo);
 const num = (n) => (n == null ? '—' : new Intl.NumberFormat().format(n));
 const percent = (n) => (n == null ? '—' : `${n}%`);
 const when = (iso) => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });

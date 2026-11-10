@@ -38,14 +38,16 @@ const SECTIONS = [
     {
         icon: Globe2,
         title: 'Locale',
-        description: 'Currency, timezone, and date formats.',
-        live: false,
+        description: 'Currency, timezone, and date format for fees, receipts, reports, and the parent portal.',
+        to: ROUTES.settingsLocale,
+        live: true,
     },
     {
         icon: ClipboardCheck,
         title: 'Attendance Policy',
-        description: 'Per-period vs daily marking, late grace, edit windows, and parent alerts.',
-        live: false,
+        description: 'Late grace, how long teachers can edit a register, and the evening email to parents.',
+        to: ROUTES.settingsAttendance,
+        live: true,
     },
     {
         icon: Wallet,
@@ -83,14 +85,16 @@ const SECTIONS = [
     {
         icon: DatabaseZap,
         title: 'Data & Import',
-        description: 'Bulk CSV import for students, guardians, and staff; exports and backups.',
-        live: false,
+        description: 'Import students and teachers from a spreadsheet, and export your records.',
+        to: ROUTES.settingsData,
+        live: true,
     },
     {
         icon: ScrollText,
         title: 'Audit Log',
-        description: 'Who changed what, when — across the whole platform.',
-        live: false,
+        description: 'Who changed what in your school, and when.',
+        to: ROUTES.settingsAuditLog,
+        live: true,
     },
 ];
 

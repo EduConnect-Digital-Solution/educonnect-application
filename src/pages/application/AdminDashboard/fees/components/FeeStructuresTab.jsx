@@ -1,3 +1,4 @@
+import { currencySymbol } from '../../../../../utils/schoolLocale.js';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   getFeeStructureById,
@@ -513,7 +514,7 @@ function StructureBuilder({ initial, onClose, onSaved, showToast, classes = [], 
                       className="flex-1 min-w-32 px-2 py-1.5 border border-gray-200 rounded text-xs"
                     />
                     <div className="relative">
-                      <span className="absolute left-2 top-1.5 text-xs text-gray-400">₦</span>
+                      <span className="absolute left-2 top-1.5 text-xs text-gray-400">{currencySymbol()}</span>
                       <input
                         type="number"
                         value={it.amount}

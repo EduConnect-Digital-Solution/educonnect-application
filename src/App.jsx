@@ -1,3 +1,5 @@
+import { setSchoolLocale, clearSchoolLocale } from './utils/schoolLocale.js';
+import { getPublicSettings } from './pages/application/AdminDashboard/services/schoolSettingsAPIs.js';
 import { PageLoader } from '@/components/brand/BrandLoader.jsx';
 import ToastHost from '@/components/patterns/ToastHost.jsx';
 import React, { lazy, useEffect} from 'react';
@@ -53,6 +55,10 @@ const AnnouncementsPage   = lazy(() => import("./pages/application/AdminDashboar
 const DeliveryLogsPage    = lazy(() => import("./pages/application/AdminDashboard/pages/communication/DeliveryLogsPage.jsx"));
 const ReportsHubPage      = lazy(() => import("./pages/application/AdminDashboard/pages/ReportsHubPage.jsx"));
 const SettingsHubPage              = lazy(() => import("./pages/application/AdminDashboard/pages/settings/SettingsHubPage.jsx"));
+const LocaleSettingsPage            = lazy(() => import("./pages/application/AdminDashboard/pages/settings/LocaleSettingsPage.jsx"));
+const AttendancePolicyPage           = lazy(() => import("./pages/application/AdminDashboard/pages/settings/AttendancePolicyPage.jsx"));
+const AuditLogPage                   = lazy(() => import("./pages/application/AdminDashboard/pages/settings/AuditLogPage.jsx"));
+const DataImportPage                 = lazy(() => import("./pages/application/AdminDashboard/pages/settings/DataImportPage.jsx"));
 const GradingSetupSettingsPage = lazy(() => import("./pages/application/AdminDashboard/pages/settings/GradingSetupSettingsPage.jsx"));
 const ApprovalsPage       = lazy(() => import("./pages/application/AdminDashboard/pages/ApprovalsPage.jsx"));
 const StudentProfilePage  = lazy(() => import("./pages/application/AdminDashboard/pages/people/StudentProfilePage.jsx"));
@@ -97,6 +103,18 @@ const AuthContextBridge = ({ children }) => {
             delete window.authContext;
         };
     }, [auth]);
+
+    // Load the school's currency / timezone / date format once someone is signed in, so every
+    // screen formats money and dates the way the school chose. Cached for the next page load.
+    const signedIn = Boolean(auth.user);
+    useEffect(() => {
+        if (!signedIn) { clearSchoolLocale(); return undefined; }
+        let alive = true;
+        getPublicSettings()
+            .then((s) => { if (alive && s?.locale) setSchoolLocale(s.locale); })
+            .catch(() => { /* keep the cached or default locale */ });
+        return () => { alive = false; };
+    }, [signedIn]);
 
     return children;
 };
@@ -169,6 +187,10 @@ function AppRoutes() {
                 <Route path="/dashboard/admin/settings/identity"                 element={<ProtectedRoute requiredRole="admin"><SchoolProfilePage /></ProtectedRoute>} />
                 <Route path="/dashboard/admin/settings/academic"                 element={<ProtectedRoute requiredRole="admin"><CalendarPage /></ProtectedRoute>} />
                 <Route path="/dashboard/admin/settings/grading"                  element={<ProtectedRoute requiredRole="admin"><GradingSetupSettingsPage /></ProtectedRoute>} />
+                <Route path="/dashboard/admin/settings/locale"                   element={<ProtectedRoute requiredRole="admin"><LocaleSettingsPage /></ProtectedRoute>} />
+                <Route path="/dashboard/admin/settings/attendance"               element={<ProtectedRoute requiredRole="admin"><AttendancePolicyPage /></ProtectedRoute>} />
+                <Route path="/dashboard/admin/settings/audit-log"                element={<ProtectedRoute requiredRole="admin"><AuditLogPage /></ProtectedRoute>} />
+                <Route path="/dashboard/admin/settings/data"                     element={<ProtectedRoute requiredRole="admin"><DataImportPage /></ProtectedRoute>} />
 
                 {/* ── Admin — legacy redirects (old URLs keep working) ──────── */}
                 <Route path="/dashboard/admin/users"             element={<Navigate to="/dashboard/admin/people/students" replace />} />

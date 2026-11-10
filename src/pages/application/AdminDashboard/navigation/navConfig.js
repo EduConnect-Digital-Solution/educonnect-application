@@ -60,6 +60,10 @@ export const ROUTES = {
     settingsIdentity:           `${BASE}/settings/identity`,
     settingsAcademic:           `${BASE}/settings/academic`,
     settingsGradingSetup:       `${BASE}/settings/grading`,
+    settingsLocale:             `${BASE}/settings/locale`,
+    settingsAttendance:         `${BASE}/settings/attendance`,
+    settingsAuditLog:           `${BASE}/settings/audit-log`,
+    settingsData:               `${BASE}/settings/data`,
 
     adminProfile:    `${BASE}/profile`,
 };
@@ -173,6 +177,10 @@ export const PAGE_INDEX = [
     { label: 'Settings',                       group: 'Settings', route: ROUTES.settings,         keywords: 'configuration preferences' },
     { label: 'Settings · Identity & Branding',      group: 'Settings', route: ROUTES.settingsIdentity,           keywords: 'school profile logo name address contact deactivate' },
     { label: 'Settings · Academic Calendar',         group: 'Settings', route: ROUTES.settingsAcademic,           keywords: 'calendar years terms sessions config' },
+    { label: 'Settings · Locale',                    group: 'Settings', route: ROUTES.settingsLocale,   keywords: 'currency timezone date format naira language' },
+    { label: 'Settings · Attendance Policy',         group: 'Settings', route: ROUTES.settingsAttendance, keywords: 'attendance late grace edit window parent email absent' },
+    { label: 'Settings · Audit Log',                 group: 'Settings', route: ROUTES.settingsAuditLog, keywords: 'audit history who changed activity log security' },
+    { label: 'Settings · Data & Import',             group: 'Settings', route: ROUTES.settingsData,     keywords: 'import export csv upload students teachers spreadsheet' },
     { label: 'Settings · Grading & Assessment',      group: 'Settings', route: ROUTES.settingsGradingSetup, keywords: 'grading scheme scale bands grade points assessment policy ca exam marks breakdown continuous components setup' },
 ];
 

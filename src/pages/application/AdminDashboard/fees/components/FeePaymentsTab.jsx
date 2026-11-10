@@ -1,3 +1,4 @@
+import { currencySymbol } from '../../../../../utils/schoolLocale.js';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -54,7 +55,7 @@ function AdjustmentModal({ onClose, onApplied }) {
               </select>
             </div>
             <div>
-              <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Amount (₦)</label>
+              <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Amount ({currencySymbol()})</label>
               <input type="number" value={amount} onChange={e => setAmount(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none" />
             </div>
