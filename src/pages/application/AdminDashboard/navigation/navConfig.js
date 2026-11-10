@@ -33,6 +33,7 @@ export const ROUTES = {
 
     classes:         `${BASE}/academics/classes`,
     subjects:        `${BASE}/academics/subjects`,
+    subjectMapping:  `${BASE}/academics/subject-mapping`,
     grading:         `${BASE}/academics/grading`,
     reportCards:     `${BASE}/academics/report-cards`,
     timetables:      `${BASE}/academics/timetables`,
@@ -89,6 +90,7 @@ export const NAV_GROUPS = [
         children: [
             { name: 'Classes & Arms',    link: ROUTES.classes },
             { name: 'Subjects',          link: ROUTES.subjects },
+            { name: 'Subject mapping',   link: ROUTES.subjectMapping },
             { name: 'Grading & Results', link: ROUTES.grading },
             { name: 'Report Cards',      link: ROUTES.reportCards },
             { name: 'Timetables',        link: ROUTES.timetables },
@@ -148,6 +150,7 @@ export const PAGE_INDEX = [
     { label: 'Admissions',          group: 'Navigation', route: ROUTES.admissions,       keywords: 'applications enrol enroll intake' },
     { label: 'Classes & Arms',      group: 'Navigation', route: ROUTES.classes,          keywords: 'class setup sections streams config' },
     { label: 'Subjects',            group: 'Navigation', route: ROUTES.subjects,         keywords: 'subject setup curriculum config' },
+    { label: 'Subject mapping',     group: 'Navigation', route: ROUTES.subjectMapping,   keywords: 'subjects classes arms assign apply curriculum grid' },
     { label: 'Grading & Results',   group: 'Navigation', route: ROUTES.grading,          keywords: 'scores grades assessment exams marks schemes submission matrix broadsheet publish results positions average' },
     { label: 'Report Cards',        group: 'Navigation', route: ROUTES.reportCards,      keywords: 'results terminal report template builder comments traits sign off principal publish parents print' },
     { label: 'Timetables',          group: 'Navigation', route: ROUTES.timetables,       keywords: 'timetable library schedule periods' },
