@@ -1,3 +1,4 @@
+import '../../../dark-mode.css';
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { X, ChevronDown, ChevronLeft, ChevronRight, School } from 'lucide-react';
