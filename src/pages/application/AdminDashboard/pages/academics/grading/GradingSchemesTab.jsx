@@ -15,7 +15,9 @@ import {
     addGradeBand,
     updateGradeBand,
     deleteGradeBand,
+    assignGradingScaleClasses,
 } from '../../../services/gradingAPIs.js';
+import { getSchoolClasses } from '../../../services/classAPIs.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -87,9 +89,9 @@ function BandBuilderTable({ bands, onChange }) {
                         <input
                             value={band.label}
                             onChange={e => updateBand(band._key, 'label', e.target.value)}
-                            placeholder="A1"
-                            maxLength={4}
-                            className="px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 uppercase"
+                            placeholder="A1 or Excellent"
+                            maxLength={30}
+                            className="px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                         />
                         <input
                             type="number"
@@ -136,6 +138,44 @@ function BandBuilderTable({ bands, onChange }) {
     );
 }
 
+// ─── Class picker ──────────────────────────────────────────────────────────────
+
+// Loads the school's classes once and lets the admin tick which ones a scheme applies to.
+function useSchoolClasses(active) {
+    const [classes, setClasses] = useState([]);
+    useEffect(() => {
+        if (!active) return;
+        getSchoolClasses().then(res => setClasses(res.data?.classes ?? [])).catch(() => setClasses([]));
+    }, [active]);
+    return classes;
+}
+
+function ClassPicker({ classes, value, onChange, otherSchemeByClass = {} }) {
+    const allSelected = classes.length > 0 && value.length === classes.length;
+    const toggle = (id) => onChange(value.includes(id) ? value.filter(x => x !== id) : [...value, id]);
+    if (classes.length === 0) return <p className="text-xs text-gray-400">No classes yet. Create them in Classes &amp; Arms.</p>;
+    return (
+        <div>
+            <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-gray-500">{value.length} of {classes.length} classes selected</span>
+                <button type="button" onClick={() => onChange(allSelected ? [] : classes.map(c => c.id))}
+                    className="text-xs font-semibold text-blue-700 hover:underline">
+                    {allSelected ? 'Clear all' : 'Select all'}
+                </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+                {classes.map(c => (
+                    <label key={c.id} title={otherSchemeByClass[c.id] ? `Currently uses "${otherSchemeByClass[c.id]}"` : undefined}
+                        className={`px-3 py-1.5 text-sm rounded-lg border cursor-pointer ${value.includes(c.id) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}>
+                        <input type="checkbox" className="sr-only" checked={value.includes(c.id)} onChange={() => toggle(c.id)} />
+                        {c.name}
+                    </label>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 // ─── Create drawer ─────────────────────────────────────────────────────────────
 
 function CreateScaleDrawer({ open, onClose, onCreated }) {
@@ -144,11 +184,13 @@ function CreateScaleDrawer({ open, onClose, onCreated }) {
     const [bands, setBands]     = useState([EMPTY_BAND()]);
     const [saving, setSaving]   = useState(false);
     const [error, setError]     = useState(null);
+    const [classIds, setClassIds] = useState([]);
+    const classes = useSchoolClasses(open);
 
     // Reset form when drawer opens
     useEffect(() => {
         if (open) {
-            setName(''); setDesc('');
+            setName(''); setDesc(''); setClassIds([]);
             setBands([EMPTY_BAND()]);
             setSaving(false); setError(null);
         }
@@ -173,7 +215,7 @@ function CreateScaleDrawer({ open, onClose, onCreated }) {
             name: name.trim(),
             description: desc.trim() || undefined,
             bands: bands.map((b, i) => ({
-                label:       b.label.trim().toUpperCase(),
+                label:       b.label.trim(),
                 minPercent:  Number(b.minPercent),
                 maxPercent:  Number(b.maxPercent),
                 gradePoints: b.gradePoints !== '' ? Number(b.gradePoints) : 0,
@@ -185,8 +227,18 @@ function CreateScaleDrawer({ open, onClose, onCreated }) {
         try {
             const res = await createGradingScale(payload);
             if (res.success) {
-                const created = res.data?.gradingScale ?? res.data;
-                pushToast({ message: `"${name.trim()}" scheme created.`, type: 'success' });
+                let created = res.data?.gradingScale ?? res.data;
+                let message = `"${name.trim()}" scheme created.`;
+                if (classIds.length > 0) {
+                    try {
+                        const assigned = await assignGradingScaleClasses(created.id, classIds);
+                        created = assigned.data ?? created;
+                        message = `"${name.trim()}" created and applied to ${classIds.length} ${classIds.length === 1 ? 'class' : 'classes'}.`;
+                    } catch (e) {
+                        pushToast({ message: `The scheme was created, but it could not be applied to the classes: ${e?.message || 'unknown error'}. You can apply it from Manage.`, type: 'error' });
+                    }
+                }
+                pushToast({ message, type: 'success' });
                 onCreated(created);
                 onClose();
             }
@@ -252,13 +304,24 @@ function CreateScaleDrawer({ open, onClose, onCreated }) {
                 </div>
             </div>
 
+            {/* Which classes use it */}
+            <div className="space-y-3">
+                <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 pb-2">
+                    Applies to
+                </h3>
+                <p className="text-xs text-gray-400">
+                    Pick the classes that should be graded with this scheme. Classes you leave out keep using the school default. You can change this any time.
+                </p>
+                <ClassPicker classes={classes} value={classIds} onChange={setClassIds} />
+            </div>
+
             {/* Bands */}
             <div className="space-y-3">
                 <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 pb-2">
                     Grade Bands
                 </h3>
                 <p className="text-xs text-gray-400">
-                    Add one row per grade. Bands must not overlap.
+                    Add one row per grade. The label is free text, so use letters (A1, B2), words (Excellent, Very Good) or anything your school prefers. Bands must not overlap.
                 </p>
                 <BandBuilderTable bands={bands} onChange={setBands} />
             </div>
@@ -283,6 +346,9 @@ function ManageScaleDrawer({ scale, open, onClose, onUpdated }) {
     const [metaName, setMetaName]       = useState('');
     const [metaDesc, setMetaDesc]       = useState('');
     const [savingMeta, setSavingMeta]   = useState(false);
+    const classes                       = useSchoolClasses(open);
+    const [classIds, setClassIds]       = useState([]);
+    const [savingClasses, setSavingClasses] = useState(false);
 
     // Band in-place editing
     const [editingBandId, setEditingBandId] = useState(null);
@@ -309,10 +375,25 @@ function ManageScaleDrawer({ scale, open, onClose, onUpdated }) {
                 setFullScale(s);
                 setMetaName(s.name ?? '');
                 setMetaDesc(s.description ?? '');
+                setClassIds((s.classes ?? []).map(c => c.id));
             })
             .catch(() => pushToast({ message: 'Failed to load scheme details.', type: 'error' }))
             .finally(() => setFetching(false));
     }, [open, scale?.id]);
+
+    const handleSaveClasses = async () => {
+        setSavingClasses(true);
+        try {
+            const res = await assignGradingScaleClasses(fullScale.id, classIds);
+            setFullScale(prev => ({ ...prev, classes: res.data?.classes ?? [] }));
+            onUpdated({ id: fullScale.id, classes: res.data?.classes ?? [] });
+            pushToast({ message: classIds.length ? `Applied to ${classIds.length} ${classIds.length === 1 ? 'class' : 'classes'}.` : 'No classes use this scheme now.', type: 'success' });
+        } catch (e) {
+            pushToast({ message: e?.message || 'Failed to apply the scheme to those classes.', type: 'error' });
+        } finally {
+            setSavingClasses(false);
+        }
+    };
 
     // Save name / description
     const handleSaveMeta = async () => {
@@ -354,7 +435,7 @@ function ManageScaleDrawer({ scale, open, onClose, onUpdated }) {
         setSavingBandId(editingBandId);
         try {
             await updateGradeBand(fullScale.id, editingBandId, {
-                label:       editDraft.label.trim().toUpperCase(),
+                label:       editDraft.label.trim(),
                 minPercent:  Number(editDraft.minPercent),
                 maxPercent:  Number(editDraft.maxPercent),
                 gradePoints: Number(editDraft.gradePoints),
@@ -363,7 +444,7 @@ function ManageScaleDrawer({ scale, open, onClose, onUpdated }) {
                 ...prev,
                 bands: prev.bands.map(b =>
                     b.id === editingBandId
-                        ? { ...b, label: editDraft.label.trim().toUpperCase(), minPercent: Number(editDraft.minPercent), maxPercent: Number(editDraft.maxPercent), gradePoints: Number(editDraft.gradePoints) }
+                        ? { ...b, label: editDraft.label.trim(), minPercent: Number(editDraft.minPercent), maxPercent: Number(editDraft.maxPercent), gradePoints: Number(editDraft.gradePoints) }
                         : b,
                 ),
             }));
@@ -402,7 +483,7 @@ function ManageScaleDrawer({ scale, open, onClose, onUpdated }) {
         try {
             const nextSort = (fullScale.bands?.length ?? 0);
             const res = await addGradeBand(fullScale.id, {
-                label:       addDraft.label.trim().toUpperCase(),
+                label:       addDraft.label.trim(),
                 minPercent:  Number(addDraft.minPercent),
                 maxPercent:  Number(addDraft.maxPercent),
                 gradePoints: addDraft.gradePoints !== '' ? Number(addDraft.gradePoints) : 0,
@@ -472,6 +553,26 @@ function ManageScaleDrawer({ scale, open, onClose, onUpdated }) {
                         </button>
                     </div>
 
+                    {/* ── Classes ── */}
+                    <div className="space-y-3">
+                        <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 pb-2">
+                            Applies to
+                        </h3>
+                        <p className="text-xs text-gray-400">
+                            Classes ticked here are graded with this scheme. Any class left out uses the school default.
+                        </p>
+                        <ClassPicker classes={classes} value={classIds} onChange={setClassIds} />
+                        <button
+                            type="button"
+                            onClick={handleSaveClasses}
+                            disabled={savingClasses}
+                            className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white text-sm font-semibold rounded-lg hover:bg-black disabled:opacity-50 transition-colors"
+                        >
+                            {savingClasses && <Loader2 size={13} className="animate-spin" />}
+                            Save classes
+                        </button>
+                    </div>
+
                     {/* ── Bands ── */}
                     <div className="space-y-3">
                         <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 pb-2">
@@ -483,7 +584,7 @@ function ManageScaleDrawer({ scale, open, onClose, onUpdated }) {
                         ) : (
                             <div className="space-y-1">
                                 {/* Column labels */}
-                                <div className="grid grid-cols-[56px_1fr_1fr_1fr_68px] gap-2 px-2">
+                                <div className="grid grid-cols-[120px_1fr_1fr_1fr_68px] gap-2 px-2">
                                     {['Label', 'Min %', 'Max %', 'Points', ''].map(h => (
                                         <span key={h} className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
                                             {h}
@@ -499,11 +600,11 @@ function ManageScaleDrawer({ scale, open, onClose, onUpdated }) {
                                     return (
                                         <div
                                             key={band.id}
-                                            className={`grid grid-cols-[56px_1fr_1fr_1fr_68px] gap-2 items-center p-1.5 rounded-lg transition-colors ${isEditing ? 'bg-blue-50/60 border border-blue-100' : 'hover:bg-gray-50'}`}
+                                            className={`grid grid-cols-[120px_1fr_1fr_1fr_68px] gap-2 items-center p-1.5 rounded-lg transition-colors ${isEditing ? 'bg-blue-50/60 border border-blue-100' : 'hover:bg-gray-50'}`}
                                         >
                                             {isEditing ? (
                                                 <>
-                                                    <input value={editDraft.label} onChange={e => setEditDraft(d => ({ ...d, label: e.target.value }))} maxLength={4} className="px-2 py-1 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 uppercase" />
+                                                    <input value={editDraft.label} onChange={e => setEditDraft(d => ({ ...d, label: e.target.value }))} maxLength={30} className="px-2 py-1 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
                                                     <input type="number" value={editDraft.minPercent} onChange={e => setEditDraft(d => ({ ...d, minPercent: e.target.value }))} min={0} max={100} className="px-2 py-1 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
                                                     <input type="number" value={editDraft.maxPercent} onChange={e => setEditDraft(d => ({ ...d, maxPercent: e.target.value }))} min={0} max={100} className="px-2 py-1 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
                                                     <input type="number" value={editDraft.gradePoints} onChange={e => setEditDraft(d => ({ ...d, gradePoints: e.target.value }))} min={0} step="0.1" className="px-2 py-1 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
@@ -544,7 +645,7 @@ function ManageScaleDrawer({ scale, open, onClose, onUpdated }) {
                                 <div className="grid grid-cols-2 gap-2">
                                     <div>
                                         <label className="block text-xs font-medium text-gray-500 mb-1">Label *</label>
-                                        <input value={addDraft.label} onChange={e => setAddDraft(d => ({ ...d, label: e.target.value }))} placeholder="e.g. A1" maxLength={4} className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 uppercase" />
+                                        <input value={addDraft.label} onChange={e => setAddDraft(d => ({ ...d, label: e.target.value }))} placeholder="e.g. A1" maxLength={30} className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20" />
                                     </div>
                                     <div>
                                         <label className="block text-xs font-medium text-gray-500 mb-1">Grade Points</label>
@@ -673,6 +774,19 @@ export default function GradingSchemesTab() {
             ),
             sortable: true,
             width: '130px',
+        },
+        {
+            id: 'classes',
+            header: 'Applies to',
+            accessor: r => (r.classes ?? []).map(c => c.name).join(', '),
+            render: r => {
+                const names = (r.classes ?? []).map(c => c.name);
+                if (names.length > 0) return <span className="text-sm text-gray-700">{names.join(', ')}</span>;
+                return r.isDefault
+                    ? <span className="text-sm text-gray-500">Every class without its own scheme</span>
+                    : <span className="text-gray-300 text-sm">No classes yet</span>;
+            },
+            hideable: true,
         },
         {
             id: 'status',

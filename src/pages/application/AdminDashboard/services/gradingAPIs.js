@@ -115,6 +115,16 @@ export async function updateGradingScale(id, payload) {
  * Expected response shape:
  * { success, message }
  */
+// PUT /api/admin/grading-scales/:id/classes — the scale grades exactly these classes; others use the default
+export async function assignGradingScaleClasses(id, classIds) {
+    try {
+        const { data } = await apiClient.put(`/api/admin/grading-scales/${id}/classes`, { classIds });
+        return data;
+    } catch (error) {
+        throw error?.response?.data || error;
+    }
+}
+
 export async function deleteGradingScale(id) {
     try {
         const { data } = await apiClient.delete(`/api/admin/grading-scales/${id}`);
