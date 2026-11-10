@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ClipboardCheck, RefreshCw, Loader2 } from 'lucide-react';
 import AdminLayout from '../components/layout/AdminLayout.jsx';
 import { EmptyState } from '../../../../components/patterns';
@@ -30,20 +30,34 @@ export default function AttendanceOpsPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError]     = useState(null);
 
-    const load = useCallback(async () => {
+    // quiet = background refresh: no spinner, and a failed refresh keeps what is already on screen
+    const requestRef = useRef(0);
+    const load = useCallback(async (quiet = false) => {
         if (!date) return;
-        setLoading(true); setError(null);
+        // Only the latest request may update the screen, so a slow background refresh can't overwrite a newer date
+        const id = ++requestRef.current;
+        if (!quiet) { setLoading(true); setError(null); }
         try {
             const res = await getAttendanceOverview({ date });
-            setData(res.data);
+            if (id === requestRef.current) setData(res.data);
         } catch (e) {
-            setError(e?.message || 'Could not load attendance.');
+            if (!quiet && id === requestRef.current) setError(e?.message || 'Could not load attendance.');
         } finally {
-            setLoading(false);
+            if (!quiet && id === requestRef.current) setLoading(false);
         }
     }, [date]);
 
     useEffect(() => { load(); }, [load]);
+
+    // Teachers submit registers while this page is open: when viewing today, refresh when the tab regains focus and every minute
+    useEffect(() => {
+        if (date !== today()) return undefined;
+        const refresh = () => { if (document.visibilityState === 'visible') load(true); };
+        const timer = setInterval(refresh, 60_000);
+        document.addEventListener('visibilitychange', refresh);
+        window.addEventListener('focus', refresh);
+        return () => { clearInterval(timer); document.removeEventListener('visibilitychange', refresh); window.removeEventListener('focus', refresh); };
+    }, [date, load]);
 
     const day = data?.day;
 
@@ -62,7 +76,7 @@ export default function AttendanceOpsPage() {
                     <div className="flex items-center gap-2 self-start">
                         <label htmlFor="att-date" className="sr-only">Date</label>
                         <input id="att-date" type="date" value={date} max={today()} onChange={e => setDate(e.target.value)} className={inputClass} />
-                        <button type="button" onClick={load} disabled={loading}
+                        <button type="button" onClick={() => load()} disabled={loading}
                             className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50">
                             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
                         </button>
@@ -72,7 +86,7 @@ export default function AttendanceOpsPage() {
                 {loading && <div className="flex items-center justify-center py-16"><Loader2 size={24} className="animate-spin text-blue-500" /></div>}
 
                 {!loading && error && (
-                    <div className="bg-white border border-gray-200 rounded-2xl"><EmptyState variant="error" description={error} onRetry={load} /></div>
+                    <div className="bg-white border border-gray-200 rounded-2xl"><EmptyState variant="error" description={error} onRetry={() => load()} /></div>
                 )}
 
                 {!loading && !error && data && (

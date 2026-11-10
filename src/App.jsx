@@ -72,6 +72,7 @@ const ClassStudents          = lazy(() => import("./pages/application/TeacherDas
 const TeacherClasses         = lazy(() => import("./pages/application/TeacherDashboard/TeacherClasses.jsx"));
 const AttendancePage         = lazy(() => import("./pages/application/TeacherDashboard/AttendancePage.jsx"));
 const AttendanceRegisterPage = lazy(() => import("./pages/application/TeacherDashboard/AttendanceRegisterPage.jsx"));
+const MyTimetablePage                = lazy(() => import("./pages/application/TeacherDashboard/MyTimetablePage.jsx"));
 const ScoreEntryPage                 = lazy(() => import("./pages/application/TeacherDashboard/ScoreEntryPage.jsx"));
 const TeacherAssessmentPoliciesPage  = lazy(() => import("./pages/application/TeacherDashboard/TeacherAssessmentPoliciesPage.jsx"));
 
@@ -215,6 +216,7 @@ function AppRoutes() {
                 <Route path="/dashboard/teacher/students/:class/:subject" element={<ProtectedRoute requiredRole="teacher"><ClassStudents /></ProtectedRoute>} />
                 <Route path="/dashboard/teacher/attendance" element={<ProtectedRoute requiredRole="teacher"><AttendancePage /></ProtectedRoute>} />
                 <Route path="/dashboard/teacher/attendance/register/:scheduleId" element={<ProtectedRoute requiredRole="teacher"><AttendanceRegisterPage /></ProtectedRoute>} />
+                <Route path="/dashboard/teacher/timetable" element={<ProtectedRoute requiredRole="teacher"><MyTimetablePage /></ProtectedRoute>} />
                 <Route path="/dashboard/teacher/score-entry" element={<ProtectedRoute requiredRole="teacher"><ScoreEntryPage /></ProtectedRoute>} />
                 <Route path="/dashboard/teacher/assessment-policies" element={<ProtectedRoute requiredRole="teacher"><TeacherAssessmentPoliciesPage /></ProtectedRoute>} />
 
