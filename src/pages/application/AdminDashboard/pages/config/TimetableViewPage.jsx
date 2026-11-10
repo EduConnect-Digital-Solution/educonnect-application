@@ -1,3 +1,4 @@
+import { formatSchoolDate } from '../../../../../utils/schoolLocale.js';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronRight, Pencil, Trash2, Printer, BookOpen, User } from 'lucide-react';
@@ -114,7 +115,7 @@ export default function TimetableViewPage() {
                             <StatusChip status={status} />
                         </div>
                         <p className="text-[13px] text-gray-400 mt-0.5">
-                            {termName || 'Term'}{timetable?.publishedAt ? ` · Published ${new Date(timetable.publishedAt).toLocaleDateString()}` : ''}
+                            {termName || 'Term'}{timetable?.publishedAt ? ` · Published ${formatSchoolDate(timetable.publishedAt)}` : ''}
                         </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0 print:hidden">

@@ -1,3 +1,4 @@
+import { formatSchoolDate } from '../../../../../utils/schoolLocale.js';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Plus, Trash2, Users, BookOpen, Eye, ShieldCheck } from 'lucide-react';
 import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
@@ -330,7 +331,7 @@ export default function PolicyPermissionsTab() {
             sortable: true,
             render: r => (
                 <span className="text-xs text-gray-500">
-                    {new Date(r.grantedAt).toLocaleDateString()}
+                    {formatSchoolDate(r.grantedAt)}
                 </span>
             ),
             width: '120px',

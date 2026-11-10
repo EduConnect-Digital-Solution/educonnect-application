@@ -1,3 +1,4 @@
+import { formatSchoolDate } from '../../../utils/schoolLocale.js';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ClipboardList, BookOpen, AlertCircle, Plus, ChevronDown, Pencil, Trash2, Eye, X as XIcon, CheckCircle2, Clock, BarChart3, FileText, ChevronRight, Users, Calendar } from 'lucide-react';
@@ -23,7 +24,7 @@ import {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const fmtDate = (iso) => iso
-    ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    ? formatSchoolDate(iso)
     : '—';
 
 function calcContrib(rawScore, maxScore, contributionPoints) {

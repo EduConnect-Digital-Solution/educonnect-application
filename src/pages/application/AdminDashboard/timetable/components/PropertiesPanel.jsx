@@ -1,3 +1,4 @@
+import { formatSchoolTime } from '../../../../../utils/schoolLocale.js';
 import { notify } from '@/components/patterns/toastBus.js';
 import React, { useState } from 'react';
 import { useTimetable } from '../TimetableContext';
@@ -106,7 +107,7 @@ export default function PropertiesPanel({ resources }) {
               {isSaving ? (
                 <><RefreshCw size={10} className="animate-spin" /> Saving draft...</>
               ) : (
-                `Draft saved ${new Date(lastSavedAt).toLocaleTimeString()}`
+                `Draft saved ${formatSchoolTime(lastSavedAt)}`
               )}
             </p>
           )}

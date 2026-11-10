@@ -51,12 +51,16 @@ export const currencySymbol = () => {
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+// A value at exactly 00:00:00.000 UTC is a calendar date (a birth date, a due date), not a moment:
+// show that same day everywhere instead of shifting it with the timezone.
+const isDateOnly = (d) => d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0 && d.getUTCMilliseconds() === 0;
+
 /** A date in the school's timezone and chosen format, e.g. 10/11/2026. Empty string for bad input. */
 export const formatSchoolDate = (value) => {
     const d = value instanceof Date ? value : new Date(value);
     if (!value || Number.isNaN(d.getTime())) return '';
     const parts = new Intl.DateTimeFormat('en-GB', {
-        timeZone: current.timezone, year: 'numeric', month: '2-digit', day: '2-digit',
+        timeZone: isDateOnly(d) ? 'UTC' : current.timezone, year: 'numeric', month: '2-digit', day: '2-digit',
     }).formatToParts(d).reduce((acc, p) => ({ ...acc, [p.type]: p.value }), {});
     const { day, month, year } = parts;
     switch (current.dateFormat) {

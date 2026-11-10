@@ -1,3 +1,4 @@
+import { formatSchoolDate } from '../../../../utils/schoolLocale.js';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAcademic } from '../../../../contexts/AcademicContext.jsx';
 import { Plus, Edit2, Trash2, CheckCircle, AlertCircle, Calendar as CalendarIcon, Clock, Check, X, ShieldAlert, ArrowRight, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -21,7 +22,7 @@ const errMsg = (e) => {
 
 // API dates arrive as ISO timestamps; <input type="date"> needs YYYY-MM-DD
 const toDay = (v) => (v ? String(v).slice(0, 10) : '');
-const niceDate = (v) => (v ? new Date(`${toDay(v)}T00:00:00`).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }) : '');
+const niceDate = (v) => (v ? formatSchoolDate(`${toDay(v)}T00:00:00`) : '');
 
 export default function AcademicCalendarBuilder() {
   // Academic years + terms are this page's own data — fetched directly here.

@@ -1,4 +1,4 @@
-import { currencySymbol } from '../../../../../utils/schoolLocale.js';
+import { currencySymbol, formatSchoolDate } from '../../../../../utils/schoolLocale.js';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   getFeeStructureById,
@@ -27,11 +27,7 @@ function formatDate(dateStr) {
   try {
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) return '—';
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
+    return formatSchoolDate(date);
   } catch {
     return '—';
   }

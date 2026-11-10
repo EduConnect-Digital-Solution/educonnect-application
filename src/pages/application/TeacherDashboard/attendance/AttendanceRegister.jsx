@@ -1,3 +1,4 @@
+import { formatSchoolTime } from '../../../../utils/schoolLocale.js';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Search, Save, Send, Users, CheckCircle2, XCircle, Clock, AlertTriangle, ChevronDown, Filter, CheckSquare, Square, BookOpen, MapPin, CalendarDays, RefreshCw, LockKeyhole } from 'lucide-react';
@@ -455,7 +456,7 @@ export default function AttendanceRegister({
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700
               border border-emerald-200 rounded-full text-xs font-semibold">
               <CheckCircle2 className="w-3.5 h-3.5" />
-              {submittedAt ? `Submitted ${new Date(submittedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : 'Submitted'}
+              {submittedAt ? `Submitted ${formatSchoolTime(submittedAt)}` : 'Submitted'}
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700

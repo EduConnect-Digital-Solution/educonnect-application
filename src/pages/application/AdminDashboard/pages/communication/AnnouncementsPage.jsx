@@ -1,3 +1,4 @@
+import { formatSchoolDateTime } from '../../../../../utils/schoolLocale.js';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Megaphone, AlertCircle } from 'lucide-react';
@@ -39,7 +40,7 @@ const serverMessage = (e) => {
     const details = Array.isArray(e?.errors) ? e.errors.map(x => x.message || x.msg).filter(Boolean) : [];
     return details.length ? [...new Set(details)].join(' · ') : e?.message;
 };
-const when = (value) => (value ? new Date(value).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '');
+const when = (value) => (value ? formatSchoolDateTime(value) : '');
 
 export default function AnnouncementsPage() {
     const [data, setData]       = useState(null);

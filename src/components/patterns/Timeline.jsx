@@ -1,3 +1,4 @@
+import { formatSchoolDate, formatSchoolTime } from '../../utils/schoolLocale.js';
 import React from 'react';
 import { CircleDot } from 'lucide-react';
 import { CHIP_TONES } from './statusTokens.js';
@@ -19,8 +20,8 @@ function formatWhen(at) {
     if (!at) return '';
     const d = new Date(at);
     if (Number.isNaN(d.getTime())) return String(at);
-    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) +
-        ' · ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return formatSchoolDate(d) +
+        ' · ' + formatSchoolTime(d);
 }
 
 export default function Timeline({ items = [], emptyLabel = 'No activity recorded yet.' }) {

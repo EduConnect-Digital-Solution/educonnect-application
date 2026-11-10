@@ -1,3 +1,4 @@
+import { formatSchoolDate, formatSchoolDateTime } from '../../../../utils/schoolLocale.js';
 import React, {useState, useEffect} from 'react';
 import { Mail, BookOpen, Users, UserCheck, GraduationCap, Clock, UserPlus, ChevronRight, RefreshCw, XCircle, X, MailPlus, Trash2 } from 'lucide-react';
 import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
@@ -85,7 +86,7 @@ const RecentActivity = ({ activities = { users: [], students: [], invitations: [
                                 </p>
                                 <div className="flex items-center gap-2 mt-1">
                                     <Clock size={12} className="text-gray-400" />
-                                    <span className="text-xs text-gray-400">{new Date(item.createdAt).toLocaleDateString()}</span>
+                                    <span className="text-xs text-gray-400">{formatSchoolDate(item.createdAt)}</span>
                                     <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium uppercase ${item.isActive || item.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : item.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>
                                         {item.status || (item.isActive ? 'Active' : 'Inactive')}
                                     </span>
@@ -188,12 +189,7 @@ const InvitationItem = ({inv, onRemove}) => {
     // Basic date formatter for "invitedAt"
     const formatDate = (dateString) => {
         const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+        return formatSchoolDateTime(date);
     };
     const resendCount = inv.resendCount || 0;
     const isExpired = inv.status?.toLowerCase() === 'expired';

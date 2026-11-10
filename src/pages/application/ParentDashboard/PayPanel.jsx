@@ -1,4 +1,4 @@
-import { formatMajor, currencySymbol } from '../../../utils/schoolLocale.js';
+import { currencySymbol, formatMajor, formatSchoolDateTime } from '../../../utils/schoolLocale.js';
 import React, { useEffect, useState } from 'react';
 import { ArrowRight, Check, Copy, CreditCard, Landmark, Lock } from 'lucide-react';
 import { getMyGateways, startPaystackPayment, startBankTransfer, verifyPayment } from './services/parentFeeAPIs.js';
@@ -9,7 +9,7 @@ const GATEWAY_ICON = { paystack: CreditCard, nexapay: Landmark };
 
 const fmtExpiry = (iso) => {
     const d = iso ? new Date(iso) : null;
-    return d && !isNaN(d) ? d.toLocaleString('en-NG', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : null;
+    return d && !isNaN(d) ? formatSchoolDateTime(d) : null;
 };
 
 /**
