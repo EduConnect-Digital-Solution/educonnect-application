@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import StudentAttendanceRow from './StudentAttendanceRow';
 import { saveDraftAttendance, submitAttendance, updateAttendance } from './attendanceAPIs';
 import { useAuth } from '@/contexts/AuthContext';
+import { getPublicSettings } from '../../AdminDashboard/services/schoolSettingsAPIs.js';
 
 // ─── Helpers ────────────────────
 function formatDate(dateStr) {
@@ -198,6 +199,12 @@ export default function AttendanceRegister({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(isAlreadySubmitted);
   const [notification, setNotification] = useState(null);
+  const [policy, setPolicy] = useState(null); // school attendance policy: late grace and edit window
+  useEffect(() => {
+    let alive = true;
+    getPublicSettings().then((s) => { if (alive) setPolicy(s?.attendance || null); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
   const [attendanceId, setAttendanceId] = useState(schedule?.attendanceId || null);
   const hasUnsavedRef = useRef(false);
 
@@ -296,6 +303,13 @@ export default function AttendanceRegister({
     filteredStudents.length > 0 &&
     filteredStudents.every(s => selectedIds.has(s.studentId));
 
+  const toHHmm = (v) => {
+    if (!v) return undefined;
+    if (/^\d{2}:\d{2}$/.test(v)) return v;
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? undefined : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  };
+
   // ─── Build payload ──────────
   const buildPayload = (statusOverride) => ({
     // Academic context: prefer prop, fall back to schedule field, then empty stubs
@@ -307,6 +321,8 @@ export default function AttendanceRegister({
     classId: schedule.classId,
     subjectId: schedule.subjectId,
     periodId: schedule.periodId,
+    // Lets the server apply the school's late-grace rule (arrival within N minutes counts as present)
+    periodStartTime: toHHmm(schedule.timeSlot?.start),
     teacherId: user?.id || 'tch_current',
     date: new Date().toISOString().split('T')[0],
     attendanceId,
@@ -371,8 +387,9 @@ export default function AttendanceRegister({
           message: `Attendance ${action} — ${s?.present ?? '—'} present, ${s?.absent ?? '—'} absent, ${s?.late ?? '—'} late.`,
         });
       }
-    } catch {
-      setNotification({ type: 'error', message: 'Submission failed. Please try again.' });
+    } catch (err) {
+      // Show the server's reason, for example when the school's edit window has closed
+      setNotification({ type: 'error', message: err?.response?.data?.message || err?.message || 'Submission failed. Please try again.' });
     } finally {
       setIsSubmitting(false);
     }
@@ -413,6 +430,16 @@ export default function AttendanceRegister({
               <Clock className="w-3.5 h-3.5" />
               Period {schedule.periodNumber} · {formatTime(schedule.timeSlot?.start)} – {formatTime(schedule.timeSlot?.end)}
             </span>
+            {policy?.lateGraceMinutes > 0 && (
+              <span className="flex items-center gap-1 text-gray-400" title="School attendance policy">
+                Arriving within {policy.lateGraceMinutes} min of the start counts as present
+              </span>
+            )}
+            {policy?.editWindowHours && (
+              <span className="flex items-center gap-1 text-gray-400" title="School attendance policy">
+                Editable for {policy.editWindowHours} h after submitting
+              </span>
+            )}
             {schedule.room && (
               <span className="flex items-center gap-1">
                 <MapPin className="w-3.5 h-3.5" />
