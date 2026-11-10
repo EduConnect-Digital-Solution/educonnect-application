@@ -498,7 +498,7 @@ export default function SubmissionMatrixTab() {
     useEffect(() => { setFilterClass(''); setExpandAll(false); }, [currentTerm?.id]);
 
     const isLoading = scopeLoading || loading;
-    const { summary, matrix } = matrixData ?? {};
+    const { matrix } = matrixData ?? {};
     const hasData   = (matrix?.length ?? 0) > 0;
 
     const classOptions = hasData
@@ -508,18 +508,6 @@ export default function SubmissionMatrixTab() {
     const filteredMatrix = hasData && filterClass
         ? matrix.filter(r => r.className === filterClass)
         : matrix;
-
-    // Summary counts for attention strip — normalised
-    const totalActive = hasData
-        ? matrix.reduce((s, r) => s + r.subjects.filter(x => {
-            const n = normaliseLegacyStatus(x.status);
-            return n === 'in_progress';
-          }).length, 0)
-        : 0;
-
-    const totalCompleted = hasData
-        ? matrix.reduce((s, r) => s + r.subjects.filter(x => normaliseLegacyStatus(x.status) === 'completed').length, 0)
-        : 0;
 
     return (
         <div className="flex flex-col gap-5">

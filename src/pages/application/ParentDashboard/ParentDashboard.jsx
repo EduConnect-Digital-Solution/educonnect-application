@@ -16,7 +16,7 @@ export default function ParentDashboard() {
 
     const [children, setChildren] = useState();
     const [notifications, setNotifications] = useState();
-    const [parentInfo, setParentInfo] = useState();
+    const [, setParentInfo] = useState();
 
 
     const [error, setError] = useState(null);

@@ -81,23 +81,6 @@ function formatItemSummary(items = []) {
   );
 }
 
-// ─── Section Grouping Categorizer ───
-function getSectionCategory(className = '') {
-  const name = String(className).toUpperCase().trim();
-  if (name.includes('SSS') || name.includes('SENIOR') || /^SS\s*\d/.test(name)) return 'Senior Secondary';
-  if (name.includes('JSS') || name.includes('JUNIOR') || /^JS\s*\d/.test(name)) return 'Junior Secondary';
-  if (name.includes('PRIMARY') || name.includes('BASIC') || /^PR\s*\d/.test(name)) return 'Primary School';
-  if (
-    name.includes('NURSERY') ||
-    name.includes('KG') ||
-    name.includes('CRECHE') ||
-    name.includes('RECEPTION') ||
-    name.includes('KINDER')
-  )
-    return 'Nursery & Early Years';
-  return 'General / Uncategorized';
-}
-
 // ─── Fee Structure Detail View Modal ──────────────
 function FeeStructureDetailModal({ structure, onClose, formatNaira, onViewHistory, classes = [], currentTerm }) {
   if (!structure) return null;
@@ -648,9 +631,9 @@ function StructureBuilder({ initial, onClose, onSaved, showToast, classes = [], 
 
 // ─── Clone Structure Modal ──────────────
 function CloneStructureModal({ structure, classes, onClose, onConfirm, cloning }) {
-  if (!structure) return null;
-  const [cloneName, setCloneName] = useState(`${structure.name} (Draft)`);
-  const [targetClassId, setTargetClassId] = useState(structure.classId || '');
+  // Hooks first: returning early before them changes the hook order between renders
+  const [cloneName, setCloneName] = useState(`${structure?.name ?? ''} (Draft)`);
+  const [targetClassId, setTargetClassId] = useState(structure?.classId || '');
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -660,6 +643,8 @@ function CloneStructureModal({ structure, classes, onClose, onConfirm, cloning }
       classId: targetClassId,
     });
   };
+
+  if (!structure) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

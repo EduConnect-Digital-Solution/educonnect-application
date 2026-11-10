@@ -94,17 +94,16 @@ export const DeleteUserModal = ({ onClose, showToast, user, schoolId }) => {
         const userPayload = {reason: deleteReason, schoolId: schoolId, userId: user.id}
         const studentPayload = {reason: deleteReason, schoolId: schoolId, studentId: user.id}
 
-        let response;
 
         switch (user.role) {
             case 'teacher':
-                response = await deleteUser(userPayload);
+                await deleteUser(userPayload);
                 break;
             case 'parent':
-                response = await deleteUser(userPayload);
+                await deleteUser(userPayload);
                 break;
             case 'Student':
-                response = await deleteStudent(studentPayload);
+                await deleteStudent(studentPayload);
                 break;
             default:
                 throw new Error('Invalid user role');
@@ -167,8 +166,6 @@ export const StatusChangeModal = ({ onClose, showToast, user, schoolId }) => {
         }
 
         try {
-            let response;
-            const newStatus = selectedAction === 'activate';
 
             const teacherParentPayload = {
                 action: selectedAction,
@@ -186,13 +183,13 @@ export const StatusChangeModal = ({ onClose, showToast, user, schoolId }) => {
 
             switch (user.role) {
                 case 'teacher':
-                    response = await toggleStatus(teacherParentPayload);
+                    await toggleStatus(teacherParentPayload);
                     break;
                 case 'parent':
-                    response = await toggleStatus(teacherParentPayload);
+                    await toggleStatus(teacherParentPayload);
                     break;
                 case 'Student':
-                    response = await toggleStudentStatus(studentPayload);
+                    await toggleStudentStatus(studentPayload);
                     break;
                 default:
                     throw new Error('Invalid user role');
@@ -201,7 +198,7 @@ export const StatusChangeModal = ({ onClose, showToast, user, schoolId }) => {
             showToast('User status updated successfully!', 'success');
             onClose();
 
-        } catch (error) {
+        } catch {
             showToast('Failed to update user status.', 'error');
         }
     };

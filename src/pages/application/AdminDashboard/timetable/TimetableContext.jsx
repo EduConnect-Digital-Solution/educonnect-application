@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useReducer, useMemo } from 'react';
 import { detectConflicts, getConflictedEntryIds, getWarnedEntryIds, hasBlockingConflicts } from './conflictEngine';
 
 // Periods are now dynamic and configured per draft.

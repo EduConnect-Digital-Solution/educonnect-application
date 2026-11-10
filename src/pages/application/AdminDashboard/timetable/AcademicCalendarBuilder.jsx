@@ -32,8 +32,8 @@ export default function AcademicCalendarBuilder() {
   const [terms, setTerms] = useState([]);
   const [isYearsLoading, setIsYearsLoading] = useState(true);
   const [isTermsLoading, setIsTermsLoading] = useState(false);
-  const [yearsError, setYearsError] = useState(null);
-  const [termsError, setTermsError] = useState(null);
+  const [, setYearsError] = useState(null);
+  const [, setTermsError] = useState(null);
   const [savingYear, setSavingYear] = useState(false);
   const [savingTerm, setSavingTerm] = useState(false);
   const [yearServerError, setYearServerError] = useState(null);
@@ -63,10 +63,7 @@ export default function AcademicCalendarBuilder() {
   const [termForm, setTermForm] = useState({ name: '', startDate: '', endDate: '', term: '' });
 
   // Calendar State
-  const [selectedDateMsg, setSelectedDateMsg] = useState(null);
-  const [eventForm, setEventForm] = useState({ name: '', type: 'holiday' });
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedCalendarTermId, setSelectedCalendarTermId] = useState(null);
+  const [currentDate] = useState(new Date());
 
   // ── Validation (runs on blur and again on save) ──
   const selectedYear = academicYears.find(y => y.id === selectedViewYearId);
@@ -359,7 +356,6 @@ export default function AcademicCalendarBuilder() {
       : <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600"><Clock size={12} /> Inactive</span>
   );
 
-  const viewTerms = terms?.filter(t => t.academicYearId === selectedViewYearId);
 
 
 
@@ -538,7 +534,6 @@ export default function AcademicCalendarBuilder() {
                   <div className="overflow-y-auto flex-1 p-4">
                     <div className="grid grid-cols-1 gap-3">
                       {terms.map(t => {
-                        const isSystemActiveYear = activeProfile.currentYear?.id === selectedViewYearId;
                         const isSystemActiveTerm = activeProfile.currentTerm?.id === t.id;
 
                         return (

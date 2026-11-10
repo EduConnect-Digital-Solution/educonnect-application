@@ -1,5 +1,5 @@
-import React, {useEffect, useState} from "react";
-import {NavLink, useLocation, useNavigate} from "react-router-dom";
+import React, {useState} from "react";
+import {NavLink, useNavigate} from "react-router-dom";
 import {
     AlertCircle,
     AlertTriangle, BarChart3, Bell,
@@ -607,7 +607,7 @@ export const TeacherResponsibilities = ({classes, students}) => {
     );
 };
 
-export const Pagination = ({ currentPage, totalPages, getPageNumbers }) => {
+export const Pagination = ({ currentPage, totalPages, getPageNumbers, goToPage }) => {
     return (
         <div className="p-4 flex justify-center items-center gap-4 border-t border-gray-100 shrink-0">
             <button

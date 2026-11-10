@@ -155,7 +155,6 @@ function Notification({ notification, onDismiss }) {
 
 // ─── Bulk actions toolbar ───────
 function BulkActionsToolbar({ selectedCount, onBulkStatus, onClearSelection }) {
-  const [open, setOpen] = useState(false);
   if (selectedCount === 0) return null;
   return (
     <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
@@ -350,7 +349,7 @@ export default function AttendanceRegister({
         hasUnsavedRef.current = false;
         setNotification({ type: 'success', message: 'Draft saved successfully.' });
       }
-    } catch (err) {
+    } catch {
       setNotification({ type: 'error', message: 'Failed to save draft. Please try again.' });
     } finally {
       setIsSaving(false);
@@ -391,7 +390,7 @@ export default function AttendanceRegister({
           message: `Attendance ${action} — ${s?.present ?? '—'} present, ${s?.absent ?? '—'} absent, ${s?.late ?? '—'} late.`,
         });
       }
-    } catch (err) {
+    } catch {
       setNotification({ type: 'error', message: 'Submission failed. Please try again.' });
     } finally {
       setIsSubmitting(false);

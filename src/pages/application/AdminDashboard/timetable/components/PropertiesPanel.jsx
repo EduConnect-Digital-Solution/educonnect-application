@@ -14,7 +14,7 @@ import {deleteTimetableDraft} from "../timetableAPIs.js";
  * Shows context-sensitive details based on selection, plus global publish controls.
  */
 export default function PropertiesPanel({ resources }) {
-  const { state, dispatch, hasErrors, conflicts } = useTimetable();
+  const { state, dispatch, conflicts } = useTimetable();
   const { currentTerm } = useAcademic();
   const [showPublish, setShowPublish] = useState(false);
   const [showDuplicate, setShowDuplicate] = useState(false);
@@ -151,13 +151,6 @@ export default function PropertiesPanel({ resources }) {
 function SelectionEditor({ entry, dispatch, state, resources }) {
   const isReadOnly = state.isPublished;
   const { teachers = [], rooms = [] } = resources || {};
-
-  const handleChange = (field, value) => {
-    dispatch({
-      type: 'UPDATE_SCHEDULE_ENTRY',
-      payload: { id: entry.id, [field]: value }
-    });
-  };
 
   const handleTeacherChange = (e) => {
     const tid = e.target.value;

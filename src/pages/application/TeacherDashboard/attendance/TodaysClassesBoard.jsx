@@ -59,7 +59,6 @@ function BoardSummary({ classes }) {
     };
   }, [classes]);
 
-  const pct = Math.round((stats.completed / (stats.total || 1)) * 100);
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">

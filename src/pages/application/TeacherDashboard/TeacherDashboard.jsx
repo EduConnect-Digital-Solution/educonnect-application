@@ -22,8 +22,6 @@ export default function TeacherDashboard() {
     });
     const [recentActivity, setRecentActivity] = useState();
     const [students, setStudents] = useState([]);
-    const [subjects, setSubjects] = useState([]);
-    const [teacher, setTeacher] = useState(null);
 
     const [error, setError] = useState(null);
 
@@ -38,8 +36,6 @@ export default function TeacherDashboard() {
                 ]);
 
                 setStatistics(dashboardRes.data.statistics);
-                setTeacher(dashboardRes.data.teacher);
-                setSubjects(dashboardRes.data.teacher.subjects);
                 setClasses(classRes.data.classes);
                 setRecentActivity(dashboardRes.data.recentActivity.map(notification => ({
                     type: notification.type,

@@ -2,7 +2,7 @@ import React, {useState, useEffect} from 'react';
 import { Phone, BookOpen, GraduationCap, X, User, Hash, Info, Mail, Users } from 'lucide-react';
 import { StatRing } from "./parentUtils/p_utils.jsx";
 import ParentLayout from "./components/layout/ParentLayout.jsx";
-import {formatDate, getInitials} from "../AdminDashboard/utils/formatters.js";
+import {getInitials} from "../AdminDashboard/utils/formatters.js";
 import {StudentInfoModal} from "./components/modals.jsx";
 import {getParentDashboard, getStudentInfo} from "../../auth/authAPIs.js";
 // import { getParentDashboard } from './services/parentService';

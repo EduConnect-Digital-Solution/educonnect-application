@@ -27,7 +27,7 @@ export default function ClassStudents() {
     
     const [students, setStudents] = useState([]);
     const [policy, setPolicy] = useState(null);
-    const [stats, setStats] = useState(null);
+    const [, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 

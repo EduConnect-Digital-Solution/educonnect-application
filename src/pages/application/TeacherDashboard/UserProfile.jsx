@@ -16,7 +16,6 @@ import TeacherLayout from "./components/layout/TeacherLayout.jsx";
 import { Dialog, Transition } from '@headlessui/react';
 import {getSubjectsByClass, getTeacherClasses, getTeacherDashboard} from "../../auth/authAPIs.js";
 import {Link} from "react-router-dom";
-import {getInitials} from "../AdminDashboard/utils/formatters.js";
 import {useAuth} from "../../../contexts/AuthContext.jsx";
 // import {getTeacherDashboard, getTeacherClasses} from '../services/teacherService.jsx';
 
@@ -25,7 +24,7 @@ const TeacherProfile = () => {
     const [loading, setLoading] = useState(true);
     const [classes, setClasses] = useState([]);
     const [teacher, setTeacher] = useState(null);
-    const [teacherSubjects, setTeacherSubjects] = useState([]);
+    const [, setTeacherSubjects] = useState([]);
     const [error, setError] = useState(null);
 
     useEffect(() => {

@@ -42,7 +42,7 @@ export default function ClassSetupBuilder() {
   // Classes + arms are this page's own data — fetched directly from the API.
   const [classes, setClasses] = useState([]);
   const [arms, setArms] = useState([]);
-  const [armSubjectCounts, setArmSubjectCounts] = useState({}); // { [armId]: count }
+  const [, setArmSubjectCounts] = useState({}); // { [armId]: count }
   const [initialLoading, setInitialLoading] = useState(true);
 
   const [loading, setLoading] = useState(false);
@@ -431,8 +431,6 @@ export default function ClassSetupBuilder() {
                         </p>
                       )}
                       {arms.length > 0 && arms.map(arm => {
-                        const subjectCount = armSubjectCounts[arm.id] ?? 0;
-
                         return (
                           <div
                             key={arm.id}

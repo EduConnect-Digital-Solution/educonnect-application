@@ -11,7 +11,7 @@ import {Toast} from "../AdminDashboard/components/ui/Toast.jsx";
 const ParentProfilePage = () => {
     const [loading, setLoading] = useState(true);
     const [parentInfo, setParentInfo] = useState();
-    const [error, setError] = useState(null);
+    const [, setError] = useState(null);
 
     useEffect(() => {
         const fetchProfile = async () => {
