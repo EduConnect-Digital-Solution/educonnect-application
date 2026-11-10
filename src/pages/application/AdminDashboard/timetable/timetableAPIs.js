@@ -139,6 +139,12 @@ export async function checkConflicts(payload) {
   return data;
 }
 
+/** Copy one arm's saved timetable into other arms as drafts. */
+export async function copyTimetable(payload) {
+  const { data } = await apiClient.post('/api/admin/timetable/copy', payload);
+  return data?.data ?? { copied: [], skipped: [] };
+}
+
 export async function publishTimetable(payload) {
   const { data } = await apiClient.post('/api/admin/timetable/publish', payload);
   return data;

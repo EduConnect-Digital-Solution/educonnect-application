@@ -1,11 +1,12 @@
-import React, { useEffect, useRef } from 'react';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Loader2, ArrowLeft, Copy } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import AdminLayout from '../../components/layout/AdminLayout.jsx';
 import { TimetableProvider, useTimetable } from '../../timetable/TimetableContext.jsx';
 import { useAcademic } from '../../../../../contexts/AcademicContext.jsx';
 import TimetableBuilder from '../../timetable/TimetableBuilder.jsx';
 import { useGlobalTimetableData } from '../../timetable/useGlobalTimetableData.js';
+import CopyToArmsDrawer from '../../timetable/components/CopyToArmsDrawer.jsx';
 
 /**
  * TimetablePage
@@ -20,6 +21,8 @@ function TimetableContent() {
     const { initialLoad, resources } = useGlobalTimetableData();
     const [searchParams] = useSearchParams();
     const preselectedRef = useRef(false);
+    const [copyOpen, setCopyOpen] = useState(false);
+    const canCopy = Boolean(state.selectedClass && state.selectedArm && currentTerm?.id && state.schedules.length > 0);
 
     // ── Edit prefill: when arriving from "Edit timetable" with ?classId&armId&termId,
     // preselect class / arm / term once resources are loaded. useGlobalTimetableData
@@ -142,12 +145,24 @@ function TimetableContent() {
                     </select>
                 </div>
 
+                {canCopy && (
+                    <button type="button" onClick={() => setCopyOpen(true)}
+                        className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-blue-700 bg-blue-50 border border-blue-100 rounded hover:bg-blue-100">
+                        <Copy size={14} /> Copy to other arms
+                    </button>
+                )}
+
                 {state.loading.draft && (
                     <div className="ml-auto flex items-center gap-2 text-xs font-semibold text-gray-400">
                         <Loader2 size={12} className="animate-spin" /> Fetching data...
                     </div>
                 )}
             </div>
+
+            {canCopy && (
+                <CopyToArmsDrawer open={copyOpen} onClose={() => setCopyOpen(false)} arms={resources.arms} classes={resources.classes} termId={currentTerm.id}
+                    source={{ classId: state.selectedClass.id, armId: state.selectedArm.id, label: `${state.selectedClass.name} ${state.selectedArm.name}` }} />
+            )}
 
             {/* Builder */}
             <div className="flex-1 overflow-hidden">
