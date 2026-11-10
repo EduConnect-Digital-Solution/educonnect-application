@@ -103,12 +103,6 @@ const AuthContextBridge = ({ children }) => {
 
 
 function AppRoutes() {
-    const { isLoading } = useAuth();
-
-    if (isLoading) {
-        return <LoadingFallback />;
-    }
-
     return (
         <div className={`font-[Inter]`}>
             <React.Suspense fallback={<LoadingFallback />}>

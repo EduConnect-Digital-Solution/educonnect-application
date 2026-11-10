@@ -2,7 +2,7 @@ import { notify } from '@/components/patterns/toastBus.js';
 import LoaderIcon from '@/components/brand/LoaderIcon.jsx';
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, NavLink } from 'react-router-dom';
-import { Check, ArrowLeft, Home } from 'lucide-react';
+import { Check, Home } from 'lucide-react';
 
 import {
     InputOTP,

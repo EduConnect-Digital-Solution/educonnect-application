@@ -2,8 +2,8 @@ import { notify } from '@/components/patterns/toastBus.js';
 import { BrandLoader } from '@/components/brand/BrandLoader.jsx';
 import React, { useState, useEffect } from 'react';
 import {
-    User, MapPin, ShieldCheck, Key,
-    Edit3, Smartphone, Briefcase, Save, X, Info
+    MapPin,
+    Edit3, Briefcase, Save, X
 } from 'lucide-react';
 import ParentLayout from "./components/layout/ParentLayout.jsx";
 import {getParentProfile, updateParentProfile} from "../../auth/authAPIs.js";
