@@ -5,6 +5,19 @@ import ScopePill, { ReadOnlyScopeBanner } from './ScopePill.jsx';
 import MobileBrandLogo from '../../../../../components/MobileBrandLogo.jsx';
 import { NotificationBell, ApprovalsChip, SetupProgressChip, ProfileMenu } from './TopbarMenus.jsx';
 
+// Mount each chip once: in the bar from md up, in a wrapping second row below
+function useIsMd() {
+    const query = '(min-width: 768px)';
+    const [matches, setMatches] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches);
+    useEffect(() => {
+        const mq = window.matchMedia(query);
+        const on = (e) => setMatches(e.matches);
+        mq.addEventListener('change', on);
+        return () => mq.removeEventListener('change', on);
+    }, []);
+    return matches;
+}
+
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 
 /**
@@ -13,6 +26,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigat
  */
 export default function Topbar({ onOpenMobileNav }) {
     const [paletteOpen, setPaletteOpen] = useState(false);
+    const isMd = useIsMd();
 
     const openPalette = useCallback(() => setPaletteOpen(true), []);
 
@@ -61,23 +75,27 @@ export default function Topbar({ onOpenMobileNav }) {
 
                     {/* Right cluster */}
                     <div className="flex items-center gap-2">
-                        <div className="hidden md:flex items-center gap-2">
-                            <SetupProgressChip />
-                            <ScopePill />
-                            <ApprovalsChip />
-                        </div>
+                        {isMd && (
+                            <>
+                                <SetupProgressChip />
+                                <ScopePill />
+                                <ApprovalsChip />
+                            </>
+                        )}
                         <NotificationBell />
                         <div className="w-px h-6 bg-gray-200 mx-0.5 hidden sm:block" />
                         <ProfileMenu />
                     </div>
                 </div>
 
-                {/* Phones and small tablets: the chips that don't fit above scroll in a second row */}
-                <div className="md:hidden flex items-center gap-2 overflow-x-auto px-4 pb-2 [&>*]:shrink-0">
-                    <SetupProgressChip />
-                    <ScopePill />
-                    <ApprovalsChip />
-                </div>
+                {/* Phones: the chips that don't fit above wrap into a second row (no scroll, so dropdowns aren't clipped) */}
+                {!isMd && (
+                    <div className="flex flex-wrap items-center gap-2 px-4 pb-2">
+                        <SetupProgressChip />
+                        <ScopePill />
+                        <ApprovalsChip />
+                    </div>
+                )}
             </header>
 
             <ReadOnlyScopeBanner />
