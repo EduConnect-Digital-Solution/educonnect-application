@@ -5,7 +5,8 @@ import {
   PAYMENT_METHODS, ADJUSTMENT_TYPES,
 } from '../../services/feeAPIs.js';
 import StudentLedgerModal from './StudentLedgerModal.jsx';
-import { Search, Loader2, Wallet, BookText, SlidersHorizontal, X } from 'lucide-react';
+import { Search, Wallet, BookText, SlidersHorizontal, X } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import { WorkbenchTable, pushToast } from '../../../../../components/patterns';
 import { ROUTES } from '../../navigation/navConfig.js';
 

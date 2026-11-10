@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2, BookOpen, Check } from 'lucide-react';
+import { BookOpen, Check } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import { Drawer, EmptyState, pushToast } from '../../../../../components/patterns';
 import { assignSubjects } from '../../../../auth/authAPIs.js';
 import { getSchoolSubjects } from '../../services/subjectAPIs.js';

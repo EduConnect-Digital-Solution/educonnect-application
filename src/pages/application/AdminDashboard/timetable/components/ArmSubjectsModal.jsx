@@ -7,18 +7,8 @@ import {
 } from '../../services/armAPIs';
 import { addSubjectsToClass } from '../../services/classAPIs';
 import { getSchoolSubjects, CATEGORY_STYLES, CATEGORY_LABELS } from '../../services/subjectAPIs';
-import {
-  X,
-  BookOpen,
-  Plus,
-  Trash2,
-  Copy,
-  RefreshCw,
-  Search,
-  CheckCircle2,
-  Loader2,
-  AlertTriangle,
-} from 'lucide-react';
+import { X, BookOpen, Plus, Trash2, Copy, RefreshCw, Search, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 
 // ─── Tab IDs ────────────────────
 const TABS = [

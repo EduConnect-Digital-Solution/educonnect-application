@@ -10,16 +10,8 @@ const errMsg = (e) => {
   if (!e?.response && e?.message === 'Network Error') return 'Could not reach the server. Check your connection and try again.';
   return data?.message || e?.message || 'Something went wrong. Please try again.';
 };
-import {
-  Import,
-  Search,
-  CheckCircle2,
-  Loader2,
-  Plus,
-  Trash2,
-  Pencil,
-  Wand2,
-} from 'lucide-react';
+import { Import, Search, CheckCircle2, Plus, Trash2, Pencil, Wand2 } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import {
   getSchoolSubjects,
   bulkCreateSubjects,

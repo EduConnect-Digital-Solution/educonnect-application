@@ -13,19 +13,8 @@ import {
   sumItems,
   FEE_TYPES,
 } from '../../services/feeAPIs.js';
-import {
-  Plus,
-  Trash2,
-  Pencil,
-  Copy,
-  CheckCircle2,
-  AlertTriangle,
-  X,
-  Loader2,
-  FileStack,
-  Eye,
-  History,
-} from 'lucide-react';
+import { Plus, Trash2, Pencil, Copy, CheckCircle2, AlertTriangle, X, FileStack, Eye, History } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import { WorkbenchTable, StatusChip } from '../../../../../components/patterns';
 
 // ─── Status pill ────────────────

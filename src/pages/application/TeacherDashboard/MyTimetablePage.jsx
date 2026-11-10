@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { CalendarDays, Loader2, MapPin } from 'lucide-react';
+import { CalendarDays, MapPin } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import TeacherLayout from './components/layout/TeacherLayout.jsx';
 import { EmptyState } from '../../../components/patterns';
 import { getMyWeekSchedule } from './services/teacherTimetableAPI.js';

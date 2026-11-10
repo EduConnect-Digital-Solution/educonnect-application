@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Grid3x3, Loader2, AlertCircle } from 'lucide-react';
+import { Grid3x3, AlertCircle } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import AdminLayout from '../../components/layout/AdminLayout.jsx';
 import { pushToast, EmptyState } from '../../../../../components/patterns';
 import { getSubjectMapping, saveSubjectMapping } from '../../services/subjectMappingAPI.js';

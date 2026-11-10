@@ -1,3 +1,4 @@
+import { BrandLoader } from '@/components/brand/BrandLoader.jsx';
 import React, {Fragment, useState, useEffect} from 'react';
 import TeacherLayout from './components/layout/TeacherLayout.jsx';
 import { Link } from 'react-router-dom';
@@ -144,7 +145,7 @@ const TeacherClasses = () => {
                                     <div className="mt-4">
                                         {loadingSubjects ? (
                                             <div className="flex justify-center">
-                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                                                <BrandLoader label="Loading subjects…" size={32} delay={0} />
                                             </div>
                                         ) : subjects.length > 0 ? (
                                             <div className="space-y-2">

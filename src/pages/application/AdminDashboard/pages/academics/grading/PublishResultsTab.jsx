@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
-    Loader2, CheckCircle2, XCircle, Lock, Send, FileDown, ShieldCheck,
-} from 'lucide-react';
+import { CheckCircle2, XCircle, Lock, Send, FileDown, ShieldCheck } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import { StatusChip, EmptyState, ConfirmDestructiveDialog, pushToast } from '../../../../../../components/patterns';
 import { useAcademic } from '../../../../../../contexts/AcademicContext.jsx';
 import { getSchoolClasses } from '../../../services/classAPIs.js';

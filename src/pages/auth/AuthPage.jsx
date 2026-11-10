@@ -1,3 +1,4 @@
+import { BrandLoader } from '@/components/brand/BrandLoader.jsx';
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, ArrowLeft, CheckCircle } from 'lucide-react';
@@ -211,11 +212,7 @@ export default function AuthPage() {
                     {/* ── Loading ── */}
                     {selectedRole && (isLoading && !checkedSession) && (
                         <div className="flex flex-col items-center justify-center gap-4 py-16">
-                            <div className="relative w-14 h-14">
-                                <div className="absolute inset-0 border-4 border-blue-100 rounded-full" />
-                                <div className="absolute inset-0 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                            </div>
-                            <p className="text-gray-400 text-sm animate-pulse">Loading...</p>
+                            <BrandLoader label="Loading..." size={56} />
                         </div>
                     )}
 

@@ -6,14 +6,8 @@ import {
   formatNaira,
 } from '../../services/feeAPIs.js';
 import StudentLedgerModal from './StudentLedgerModal.jsx';
-import {
-  AlertTriangle,
-  Loader2,
-  Download,
-  BookText,
-  TrendingUp,
-  CalendarClock,
-} from 'lucide-react';
+import { AlertTriangle, Download, BookText, TrendingUp, CalendarClock } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 
 // ── CSV export helper (client-side, works in DEMO + live) ────────────────────
 function exportCsv(filename, rows) {

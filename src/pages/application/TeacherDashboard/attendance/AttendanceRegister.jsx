@@ -1,26 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import {
-  ArrowLeft,
-  Search,
-  Save,
-  Send,
-  Users,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  AlertTriangle,
-  ChevronDown,
-  Filter,
-  CheckSquare,
-  Square,
-  Loader2,
-  BookOpen,
-  MapPin,
-  CalendarDays,
-  RefreshCw,
-  LockKeyhole,
-} from 'lucide-react';
+import { ArrowLeft, Search, Save, Send, Users, CheckCircle2, XCircle, Clock, AlertTriangle, ChevronDown, Filter, CheckSquare, Square, BookOpen, MapPin, CalendarDays, RefreshCw, LockKeyhole } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import { cn } from '@/lib/utils';
 import StudentAttendanceRow from './StudentAttendanceRow';
 import { saveDraftAttendance, submitAttendance, updateAttendance } from './attendanceAPIs';

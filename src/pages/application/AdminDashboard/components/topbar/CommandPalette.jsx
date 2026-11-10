@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import {
-    Search, CornerDownLeft, GraduationCap, Users, BookOpen, Layers,
-    ReceiptText, Compass, Settings, Clock, Loader2, UserCircle2,
-} from 'lucide-react';
+import { Search, CornerDownLeft, GraduationCap, Users, BookOpen, Layers, ReceiptText, Compass, Settings, Clock, UserCircle2 } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import { PAGE_INDEX, ROUTES } from '../../navigation/navConfig.js';
 import { getAllStudents, getAllParents, getDashboardUsers } from '../../../../auth/authAPIs.js';
 import { getSchoolClasses } from '../../services/classAPIs.js';

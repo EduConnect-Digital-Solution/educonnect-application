@@ -1,3 +1,4 @@
+import { PageLoader } from '@/components/brand/BrandLoader.jsx';
 import React, { lazy, useEffect} from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
@@ -78,11 +79,7 @@ const TeacherAssessmentPoliciesPage  = lazy(() => import("./pages/application/Te
 
 
 
-const LoadingFallback = () => (
-    <div className="h-screen w-full flex items-center justify-center font-[Outfit]">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-    </div>
-);
+const LoadingFallback = () => <PageLoader />;
 
 /**
  * AuthContextBridge

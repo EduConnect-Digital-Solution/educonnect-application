@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { MailCheck, RefreshCw, Loader2 } from 'lucide-react';
+import { MailCheck, RefreshCw } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import AdminLayout from '../../components/layout/AdminLayout.jsx';
 import { EmptyState } from '../../../../../components/patterns';
 import { getNotificationLogs } from '../../timetable/timetableAPIs.js';

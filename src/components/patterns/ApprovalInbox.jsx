@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ChevronDown, Check, CornerUpLeft, ClipboardCheck, Loader2 } from 'lucide-react';
+import { ChevronDown, Check, CornerUpLeft, ClipboardCheck } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import StatusChip from './StatusChip.jsx';
 import Timeline from './Timeline.jsx';
 import EmptyState from './EmptyState.jsx';

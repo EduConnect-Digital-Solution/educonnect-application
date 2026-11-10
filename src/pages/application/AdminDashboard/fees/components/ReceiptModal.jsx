@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getReceipt, sendReceipt, formatNaira } from '../../services/feeAPIs.js';
-import { X, Loader2, Printer, Send, CheckCircle2 } from 'lucide-react';
+import { X, Printer, Send, CheckCircle2 } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 
 /**
  * ReceiptModal — render-ready digital receipt with print + email/SMS dispatch.

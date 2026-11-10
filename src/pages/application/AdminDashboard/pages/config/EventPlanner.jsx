@@ -1,3 +1,4 @@
+import { BrandLoader } from '@/components/brand/BrandLoader.jsx';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
     Trash2, ChevronLeft, ChevronRight, Bell, Calendar as CalendarIcon,
@@ -374,11 +375,7 @@ export default function EventPlanner() {
     if (activeProfile.isLoading) {
         return (
             <div className="flex flex-col items-center justify-center h-full min-h-[60vh] w-full">
-                <div className="relative w-10 h-10">
-                    <div className="absolute inset-0 border-4 border-blue-100 rounded-full" />
-                    <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin" />
-                </div>
-                <p className="mt-4 text-gray-500">Loading Planner Data...</p>
+                <BrandLoader label="Loading Planner Data..." size={56} />
             </div>
         );
     }

@@ -13,21 +13,8 @@ const errMsg = (e) => {
   if (!e?.response && e?.message === 'Network Error') return 'Could not reach the server. Check your connection and try again.';
   return data?.message || e?.message || 'Something went wrong. Please try again.';
 };
-import {
-  Layers,
-  Search,
-  CheckCircle2,
-  Loader2,
-  Plus,
-  Link,
-  Trash2,
-  ArrowRight,
-  ChevronDown,
-  ChevronRight,
-  BookOpen,
-  Users,
-  Pencil,
-} from 'lucide-react';
+import { Layers, Search, CheckCircle2, Plus, Link, Trash2, ArrowRight, ChevronDown, ChevronRight, BookOpen, Users, Pencil } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 
 // ─── Small helper ───────────────
 const badge = (count, label) => (

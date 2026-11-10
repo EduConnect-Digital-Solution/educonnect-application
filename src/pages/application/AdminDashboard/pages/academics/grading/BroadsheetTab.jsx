@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import {
-    RefreshCw, Loader2, Download, AlertTriangle, Table2, Trophy,
-} from 'lucide-react';
+import { RefreshCw, Download, AlertTriangle, Table2, Trophy } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import { StatusChip, EmptyState, pushToast } from '../../../../../../components/patterns';
 import { useAcademic } from '../../../../../../contexts/AcademicContext.jsx';
 import { getSchoolClasses } from '../../../services/classAPIs.js';

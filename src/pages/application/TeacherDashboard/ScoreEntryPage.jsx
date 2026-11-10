@@ -1,11 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import {
-    ClipboardList, BookOpen, AlertCircle, Loader2, Plus,
-    ChevronDown, Pencil, Trash2, Eye, X as XIcon,
-    CheckCircle2, Clock, BarChart3, FileText, ChevronRight,
-    Users, Calendar,
-} from 'lucide-react';
+import { ClipboardList, BookOpen, AlertCircle, Plus, ChevronDown, Pencil, Trash2, Eye, X as XIcon, CheckCircle2, Clock, BarChart3, FileText, ChevronRight, Users, Calendar } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import TeacherLayout from './components/layout/TeacherLayout.jsx';
 import { Drawer, pushToast } from '../../../components/patterns';
 import { useAcademic } from '../../../contexts/AcademicContext.jsx';

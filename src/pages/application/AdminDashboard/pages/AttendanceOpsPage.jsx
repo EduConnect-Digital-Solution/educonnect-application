@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ClipboardCheck, RefreshCw, Loader2 } from 'lucide-react';
+import { ClipboardCheck, RefreshCw } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import AdminLayout from '../components/layout/AdminLayout.jsx';
 import { EmptyState } from '../../../../components/patterns';
 import { getAttendanceOverview } from '../services/attendanceOverviewAPI.js';
@@ -83,7 +84,7 @@ export default function AttendanceOpsPage() {
                     </div>
                 </div>
 
-                {loading && <div className="flex items-center justify-center py-16"><Loader2 size={24} className="animate-spin text-blue-500" /></div>}
+                {loading && <div className="flex items-center justify-center py-16"><Loader2 size={24} label="Loading attendance" className="animate-spin text-blue-500" /></div>}
 
                 {!loading && error && (
                     <div className="bg-white border border-gray-200 rounded-2xl"><EmptyState variant="error" description={error} onRetry={() => load()} /></div>

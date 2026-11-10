@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-    RefreshCw, Loader2, CheckCircle2, AlertCircle, Clock,
-    ChevronDown, ChevronsUpDown, LayoutList, BarChart3,
-    FileText, Users, Eye, ExternalLink,
-} from 'lucide-react';
+import { RefreshCw, CheckCircle2, AlertCircle, Clock, ChevronDown, ChevronsUpDown, LayoutList, BarChart3, FileText, Users, Eye, ExternalLink } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import { Link } from 'react-router-dom';
 import { Drawer, EmptyState } from '../../../../../../components/patterns';
 import { useAcademic } from '../../../../../../contexts/AcademicContext.jsx';

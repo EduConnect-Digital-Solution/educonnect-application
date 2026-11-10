@@ -1,3 +1,4 @@
+import { BrandLoader } from '@/components/brand/BrandLoader.jsx';
 import React, { useState, Fragment, useEffect } from 'react';
 import {
     User,
@@ -96,11 +97,7 @@ const TeacherProfile = () => {
         return (
             <TeacherLayout>
                 <div className="flex flex-col items-center justify-center h-screen bg-gray-50">
-                    <div className="relative w-20 h-20">
-                        <div className="absolute inset-0 border-4 border-blue-100 rounded-full"></div>
-                        <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
-                    </div>
-                    <p className="mt-4 text-gray-500 font-medium animate-pulse">Loading Teacher Profile...</p>
+                    <BrandLoader label="Loading Teacher Profile..." size={56} />
                 </div>
             </TeacherLayout>
         );
@@ -195,7 +192,7 @@ const TeacherProfile = () => {
                                     <div className="mt-4">
                                         {loadingSubjects ? (
                                             <div className="flex justify-center">
-                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                                                <BrandLoader label="Loading subjects…" size={32} delay={0} />
                                             </div>
                                         ) : subjects.length > 0 ? (
                                             <div className="space-y-2">

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Megaphone, Loader2, AlertCircle } from 'lucide-react';
+import { Megaphone, AlertCircle } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import AdminLayout from '../../components/layout/AdminLayout.jsx';
 import {
     pushToast, Field, Drawer, ConfirmDestructiveDialog, EmptyState, StatusChip, inputClass, useFieldErrors,

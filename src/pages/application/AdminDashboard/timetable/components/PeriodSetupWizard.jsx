@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useTimetable, uid } from '../TimetableContext';
 import { useAcademic } from '../../../../../contexts/AcademicContext.jsx';
 import { saveTimetableDraft } from '../timetableAPIs';
-import { Clock, Plus, Trash2, Settings2, Loader2, ArrowRight, AlertCircle, BookOpen, ExternalLink } from 'lucide-react';
+import { Clock, Plus, Trash2, Settings2, ArrowRight, AlertCircle, BookOpen, ExternalLink } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import { useNavigate } from 'react-router-dom';
 
 /**

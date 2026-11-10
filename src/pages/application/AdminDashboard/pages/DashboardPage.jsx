@@ -1,8 +1,6 @@
 import React, {useState, useEffect} from 'react';
-import {
-    Mail, BookOpen, Users, UserCheck, GraduationCap, Clock, UserPlus, ChevronRight, RefreshCw, XCircle, X,
-    MailPlus, Trash2, Loader2
-} from 'lucide-react';
+import { Mail, BookOpen, Users, UserCheck, GraduationCap, Clock, UserPlus, ChevronRight, RefreshCw, XCircle, X, MailPlus, Trash2 } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import AdminLayout from '../components/layout/AdminLayout';
 import AnalyticsComponent from '../AnalyticsComponent';
 import {useAuth} from "../../../../contexts/AuthContext.jsx";

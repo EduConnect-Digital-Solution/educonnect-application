@@ -1,9 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAcademic } from '../../../../contexts/AcademicContext.jsx';
-import {
-  Plus, Edit2, Trash2, CheckCircle, AlertCircle, Calendar as CalendarIcon,
-  Clock, Check, X, ShieldAlert, ArrowRight, Settings, ChevronLeft, ChevronRight, Loader2
-} from 'lucide-react';
+import { Plus, Edit2, Trash2, CheckCircle, AlertCircle, Calendar as CalendarIcon, Clock, Check, X, ShieldAlert, ArrowRight, Settings, ChevronLeft, ChevronRight } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import {
   createAcademicYear, updateAcademicYear, deleteAcademicYear,
   createTerm, updateTerm, deleteTerm, setAcademicContext, getAcademicProfile,

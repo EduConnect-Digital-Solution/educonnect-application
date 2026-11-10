@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
-    LayoutTemplate, MessageSquareText, Send, GripVertical, Eye, EyeOff,
-    ArrowUp, ArrowDown, Loader2, Save, CheckCircle2, XCircle, Lock,
-    FileText, ShieldCheck, Printer, Users, Star,
-} from 'lucide-react';
+import { LayoutTemplate, MessageSquareText, Send, GripVertical, Eye, EyeOff, ArrowUp, ArrowDown, Save, CheckCircle2, XCircle, Lock, FileText, ShieldCheck, Printer, Users, Star } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import AdminLayout from '../../components/layout/AdminLayout.jsx';
 import {
     StatusChip, EmptyState, Drawer, pushToast,

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, Loader2, Users, BookOpen, Eye, ShieldCheck } from 'lucide-react';
+import { Plus, Trash2, Users, BookOpen, Eye, ShieldCheck } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import {
     WorkbenchTable, ConfirmDestructiveDialog, Drawer, pushToast, EmptyState, HelpCards,
 } from '../../../../../components/patterns';

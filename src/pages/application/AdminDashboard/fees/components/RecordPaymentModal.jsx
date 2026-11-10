@@ -8,7 +8,8 @@ import {
   toKobo,
   PAYMENT_METHODS,
 } from '../../services/feeAPIs.js';
-import { X, Loader2, CreditCard, Banknote, ShieldCheck, Mail, ExternalLink, CheckCircle2, AlertCircle, RotateCcw, AlertTriangle } from 'lucide-react';
+import { X, CreditCard, Banknote, ShieldCheck, Mail, ExternalLink, CheckCircle2, AlertCircle, RotateCcw, AlertTriangle } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 
 /**
  * RecordPaymentModal

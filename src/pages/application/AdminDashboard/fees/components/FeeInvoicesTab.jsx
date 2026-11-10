@@ -1,17 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  ReceiptText,
-  Plus,
-  Ban,
-  Wallet,
-  Eye,
-  Loader2,
-  X,
-  Search,
-  UserCheck,
-  Check,
-} from 'lucide-react';
+import { ReceiptText, Plus, Ban, Wallet, Eye, X, Search, UserCheck, Check } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import {
   formatNaira,
   INVOICE_STATUS,

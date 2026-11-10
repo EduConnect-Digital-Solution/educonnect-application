@@ -1,3 +1,4 @@
+import { BrandLoader } from '@/components/brand/BrandLoader.jsx';
 import React, { useState, useEffect } from 'react';
 import ParentLayout from "./components/layout/ParentLayout.jsx";
 import { getMyInvoices, verifyPayment } from "./services/parentFeeAPIs.js";
@@ -635,11 +636,7 @@ export default function FeesAndPayments() {
         return (
             <ParentLayout>
                 <div className="flex flex-col items-center justify-center h-[70vh]">
-                    <div className="relative w-20 h-20">
-                        <div className="absolute inset-0 border-4 border-blue-100 rounded-full"></div>
-                        <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
-                    </div>
-                    <p className="mt-4 text-gray-500 font-medium animate-pulse">Loading fees information...</p>
+                    <BrandLoader label="Loading fees information..." size={56} />
                 </div>
             </ParentLayout>
         );
