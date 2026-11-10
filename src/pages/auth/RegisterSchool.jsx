@@ -1,10 +1,10 @@
 // src/pages/auth/RegisterSchool.jsx
+import { notify } from '@/components/patterns/toastBus.js';
 import LoaderIcon from '@/components/brand/LoaderIcon.jsx';
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {Eye, EyeOff, ArrowLeft, ArrowRight, Check, Home, ImagePlus, X} from 'lucide-react';
 import { RegSchool } from './authAPIs.js';
-import { Toast } from '../application/AdminDashboard/components/ui/Toast.jsx';
 import { setPendingLogo } from '../application/AdminDashboard/services/onboardingAPIs.js';
 
 // ─── Shared styles ──────────────
@@ -60,7 +60,6 @@ export function RegisterSchool() {
     const [animating, setAnimating] = useState(false);
     const [loading, setLoading]     = useState(false);
     const [showPw, setShowPw]       = useState(false);
-    const [toast, setToast]         = useState({ show: false, message: '', type: 'error' });
 
     const [schoolData, setSchoolData]     = useState({ schoolName: '', website: '', phone: '', description: '' });
     const [logoData, setLogoData]         = useState(null); // optional school crest (data URL)
@@ -76,10 +75,7 @@ export function RegisterSchool() {
     const [locationData, setLocationData] = useState({ address: '', city: '', state: '' });
     const [adminData, setAdminData]       = useState({ adminFirstName: '', adminLastName: '', adminEmail: '', password: '' });
 
-    const showToast = (msg, type = 'error', ms = 3000, cb = null) => {
-        setToast({ show: true, message: msg, type });
-        setTimeout(() => { setToast(p => ({ ...p, show: false })); cb?.(); }, ms);
-    };
+    const showToast = (message, type = 'error', duration, onClose = null) => notify(message, type, duration, onClose);
 
     // ── Validation ──────────────
     const validate = (s) => {
@@ -164,9 +160,6 @@ export function RegisterSchool() {
 
     return (
         <>
-            {toast.show && (
-                <Toast message={toast.message} type={toast.type} onClose={() => setToast(p => ({ ...p, show: false }))} />
-            )}
 
             <div className="mb-6">
                 <NavLink

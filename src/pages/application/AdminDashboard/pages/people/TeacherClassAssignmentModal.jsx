@@ -33,7 +33,7 @@ export default function TeacherClassAssignmentModal({ teacher, schoolId, onClose
                 const res = await getSchoolClasses();
                 setClasses(res.data?.classes ?? []);
             } catch {
-                pushToast({ message: 'Could not load classes.' });
+                pushToast({ message: 'Could not load classes.', type: 'error' });
             } finally {
                 setLoadingClasses(false);
             }

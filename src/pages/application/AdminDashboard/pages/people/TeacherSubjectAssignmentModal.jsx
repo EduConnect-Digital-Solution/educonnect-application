@@ -32,7 +32,7 @@ export default function TeacherSubjectAssignmentModal({ teacher, onClose, onAssi
                 const pre = new Set(list.filter(s => alreadyAssigned.has(String(s.name).toLowerCase())).map(s => s.id));
                 setSelected(pre);
             } catch {
-                pushToast({ message: 'Could not load subjects.' });
+                pushToast({ message: 'Could not load subjects.', type: 'error' });
             } finally {
                 setLoading(false);
             }

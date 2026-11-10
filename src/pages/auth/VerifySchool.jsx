@@ -1,3 +1,4 @@
+import { notify } from '@/components/patterns/toastBus.js';
 import LoaderIcon from '@/components/brand/LoaderIcon.jsx';
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, NavLink } from 'react-router-dom';
@@ -10,7 +11,6 @@ import {
 } from "../../components/ui/input-otp.jsx";
 import { Images } from "../../components/images.jsx";
 import { resendOTP, verifyOTP } from "./authAPIs.js";
-import { Toast } from '../application/AdminDashboard/components/ui/Toast.jsx';
 
 export function VerifySchool() {
     const navigate = useNavigate();
@@ -19,7 +19,6 @@ export function VerifySchool() {
     
     const [verificationCode, setVerificationCode] = useState('');
     const [cooldown, setCooldown] = useState(0);
-    const [toast, setToast] = useState({ show: false, message: '', type: 'error' });
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -38,13 +37,7 @@ export function VerifySchool() {
         return () => clearInterval(timer);
     }, [cooldown]);
 
-    const showToast = (message, type = 'error', duration = 3000, onClose = null) => {
-        setToast({ show: true, message, type });
-        setTimeout(() => {
-            setToast(p => ({ ...p, show: false }));
-            if (onClose) onClose();
-        }, duration);
-    };
+    const showToast = (message, type = 'error', duration, onClose = null) => notify(message, type, duration, onClose);
 
     const handleResend = async () => {
         if (cooldown > 0) return;
@@ -79,9 +72,6 @@ export function VerifySchool() {
 
     return (
         <>
-            {toast.show && (
-                <Toast message={toast.message} type={toast.type} onClose={() => setToast(p => ({ ...p, show: false }))} />
-            )}
 
             <div className="mb-6">
                 <NavLink

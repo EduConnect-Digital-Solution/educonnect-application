@@ -1,3 +1,4 @@
+import { notify } from '@/components/patterns/toastBus.js';
 import React, { useState } from 'react';
 import { useTimetable } from '../TimetableContext';
 import { useAcademic } from '../../../../../contexts/AcademicContext.jsx';
@@ -31,7 +32,7 @@ export default function PropertiesPanel({ resources }) {
       dispatch({ type: 'CLEAR_PERIODS_AND_SCHEDULES' });
     } catch (err) {
       console.error(err);
-      alert('Failed to delete draft.');
+      notify.error('Failed to delete draft.');
     } finally {
       setIsDeleting(false);
     }

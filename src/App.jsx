@@ -1,4 +1,5 @@
 import { PageLoader } from '@/components/brand/BrandLoader.jsx';
+import ToastHost from '@/components/patterns/ToastHost.jsx';
 import React, { lazy, useEffect} from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
@@ -226,6 +227,7 @@ function AppRoutes() {
             <PWAInstallPrompt />
             <OfflineBanner />
             <PWAInstalledToast />
+            <ToastHost />
         </div>
     );
 }

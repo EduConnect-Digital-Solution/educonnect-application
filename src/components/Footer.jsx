@@ -1,3 +1,4 @@
+import { notify } from '@/components/patterns/toastBus.js';
 import React, {useCallback, useState} from 'react';
 import { MapPin, Mail, Phone, Send } from 'lucide-react';
 import {Images} from "./images.jsx";
@@ -11,7 +12,7 @@ export default function Footer() {
 
     const handleNewsletterSubmit = () => {
         // Add your newsletter subscription logic here
-        alert('Successfully subscribed to our newsletter!');
+        notify.success('Successfully subscribed to our newsletter.');
         setNewsletterEmail('');
     };
     const mapNavKeytoID = useCallback((key) => {

@@ -1,3 +1,4 @@
+import { notify } from '@/components/patterns/toastBus.js';
 import React, { useState } from 'react';
 import { useTimetable, uid } from '../TimetableContext';
 import { useAcademic } from '../../../../../contexts/AcademicContext.jsx';
@@ -157,7 +158,7 @@ export default function PeriodSetupWizard({ onContinue, resources }) {
       }
     } catch (err) {
       console.error('Failed to save generated periods:', err);
-      alert('Failed to save periods. Please try again.');
+      notify.error('Failed to save periods. Please try again.');
       // Revert so the wizard stays visible and the user can retry
       dispatch({ type: 'SET_PERIODS', payload: [] });
     } finally {

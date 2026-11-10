@@ -54,7 +54,7 @@ export default function SetupChecklistPage() {
         try {
             await markGoLive();
         } catch (err) {
-            pushToast({ message: err.message || 'Could not mark the school live. Please try again.' });
+            pushToast({ message: err.message || 'Could not mark the school live. Please try again.', type: 'error' });
             return;
         }
         setShowCelebration(true);

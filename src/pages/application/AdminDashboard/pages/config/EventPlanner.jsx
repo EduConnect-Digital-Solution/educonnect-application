@@ -1,3 +1,4 @@
+import { notify } from '@/components/patterns/toastBus.js';
 import { BrandLoader } from '@/components/brand/BrandLoader.jsx';
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
@@ -299,7 +300,7 @@ export default function EventPlanner() {
                 eventForm.notificationTargets.everyone ||
                 eventForm.notificationTargets.roles.length > 0 ||
                 eventForm.notificationTargets.userIds.length > 0;
-            if (!hasTargets) return alert('Please select at least one target audience.');
+            if (!hasTargets) return notify.error('Please select at least one target audience.');
         }
 
         let scheduleForPayload = { ...eventForm.notificationSchedule };
@@ -315,7 +316,7 @@ export default function EventPlanner() {
         const timeStr = eventForm.time || '00:00';
         const finalIsoDate = new Date(`${dateStr}T${timeStr}:00`).toISOString();
 
-        if (endDateMsg && endDateMsg < dateStr) return alert('The end date cannot be before the start date.');
+        if (endDateMsg && endDateMsg < dateStr) return notify.error('The end date cannot be before the start date.');
         // A multi-day event runs through the end of its last day; null clears a previous range
         const finalEndIso = endDateMsg && endDateMsg > dateStr ? new Date(`${endDateMsg}T23:59:00`).toISOString() : null;
 

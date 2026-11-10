@@ -1,10 +1,10 @@
+import { notify } from '@/components/patterns/toastBus.js';
 import { BrandLoader } from '@/components/brand/BrandLoader.jsx';
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, ArrowLeft, CheckCircle } from 'lucide-react';
 import { Images } from '../../components/images';
 import { LoginSchool, LoginUser, ForgotPassword, ResetPassword, ForgotUserPassword, ResetUserPassword } from './authAPIs';
-import { Toast } from '../application/AdminDashboard/components/ui/Toast';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 
 // ─── Role Selection Card ───────
@@ -57,20 +57,13 @@ export default function AuthPage() {
     const [forgotData, setForgotData] = useState({ schoolId: '', email: '' });
     const [resetIsAdmin, setResetIsAdmin] = useState(false); // locks the reset endpoint to the role used in the forgot step
     const [resetData, setResetData] = useState({ otp: '', email: '', schoolId: '', newPassword: '', confirmPassword: '' });
-    const [toast, setToast] = useState({ show: false, message: '', type: 'error' });
     const [isLoading, setIsLoading] = useState(false);
     const [checkedSession, setCheckedSession] = useState(false);
     const [showLoggedIn, setShowLoggedIn] = useState(false);
     const navigate = useNavigate();
     const { user, login, logout, checkAuthStatus } = useAuth();
 
-    const showToast = (message, type = 'error', duration = 3000, onClose = null) => {
-        setToast({ show: true, message, type });
-        setTimeout(() => {
-            setToast(p => ({ ...p, show: false }));
-            if (onClose) onClose();
-        }, duration);
-    };
+    const showToast = (message, type = 'error', duration, onClose = null) => notify(message, type, duration, onClose);
 
     const handleRoleSelection = async (role) => {
         setSelectedRole(role);
@@ -176,10 +169,6 @@ export default function AuthPage() {
                 {/*</NavLink>*/}
             </div>
 
-            {/* Toast */}
-            {toast.show && (
-                <Toast message={toast.message} type={toast.type} onClose={() => setToast(p => ({ ...p, show: false }))} />
-            )}
 
             {/* Background */}
             <div className="min-h-screen flex items-center justify-center p-4 bg-[#F0F2F8]">

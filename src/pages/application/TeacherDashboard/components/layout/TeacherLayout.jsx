@@ -9,7 +9,6 @@ import { Header } from '../../../dashboardUtilities.jsx';
 import { useAuth } from '../../../../../contexts/AuthContext.jsx';
 import { Images } from '../../../../../components/images.jsx';
 import { getMyPolicyPermission } from '../../services/teacherPoliciesAPIs.js';
-import { ToastHost } from '../../../../../components/patterns';
 
 import MobileBrandLogo from '../../../../../components/MobileBrandLogo.jsx';
 const OPEN_GROUPS_KEY = 'educonnect-teacher-nav-open';
@@ -197,7 +196,6 @@ const TeacherLayout = ({ children, className = '' }) => {
                 </main>
             </div>
 
-            <ToastHost />
         </div>
     );
 };
