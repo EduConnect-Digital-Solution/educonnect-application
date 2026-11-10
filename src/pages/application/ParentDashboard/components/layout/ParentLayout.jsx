@@ -1,3 +1,4 @@
+import MobileBrandLogo from '../../../../../components/MobileBrandLogo.jsx';
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
@@ -42,12 +43,16 @@ export const Sidebar = () => {
         <>
             {/* Mobile Toggle Button */}
             {!isOpen && (
-                <button
-                    onClick={() => setIsOpen(true)}
-                    className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-white border border-gray-200 rounded-lg shadow-md"
-                >
-                    <Menu className="w-6 h-6 text-gray-600" />
-                </button>
+                <div className="lg:hidden fixed top-0 inset-x-0 z-30 h-14 flex items-center gap-3 px-4 bg-white border-b border-gray-200">
+                    <button
+                        onClick={() => setIsOpen(true)}
+                        aria-label="Open menu"
+                        className="p-2 -ml-2 rounded-lg text-gray-600 hover:bg-gray-100"
+                    >
+                        <Menu className="w-5 h-5" />
+                    </button>
+                    <MobileBrandLogo />
+                </div>
             )}
 
             {/* Backdrop Overlay */}
@@ -145,9 +150,9 @@ const ParentLayout = ({ children }) => {
     return (
         <div className="flex min-h-screen bg-gray-50">
             <Sidebar />
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex flex-col min-w-0 pt-14 lg:pt-0">
                 <Header handleLogout={handleLogout} />
-                <main className="flex-1 p-6">
+                <main className="flex-1 p-4 md:p-6">
                     {children}
                 </main>
             </div>
