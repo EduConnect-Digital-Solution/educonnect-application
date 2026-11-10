@@ -66,8 +66,9 @@ const SECTIONS = [
     {
         icon: BellRing,
         title: 'Notifications',
-        description: 'Which events notify whom, on which channels, by default.',
-        live: false,
+        description: 'Default channels (email, in-app, push) and which messages the school sends.',
+        to: ROUTES.settingsNotifications,
+        live: true,
     },
     {
         icon: ShieldCheck,

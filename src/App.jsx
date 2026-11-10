@@ -58,6 +58,7 @@ const SettingsHubPage              = lazy(() => import("./pages/application/Admi
 const LocaleSettingsPage            = lazy(() => import("./pages/application/AdminDashboard/pages/settings/LocaleSettingsPage.jsx"));
 const AttendancePolicyPage           = lazy(() => import("./pages/application/AdminDashboard/pages/settings/AttendancePolicyPage.jsx"));
 const AuditLogPage                   = lazy(() => import("./pages/application/AdminDashboard/pages/settings/AuditLogPage.jsx"));
+const NotificationDefaultsPage       = lazy(() => import("./pages/application/AdminDashboard/pages/settings/NotificationDefaultsPage.jsx"));
 const DataImportPage                 = lazy(() => import("./pages/application/AdminDashboard/pages/settings/DataImportPage.jsx"));
 const ParentAttendancePage            = lazy(() => import("./pages/application/ParentDashboard/AttendancePage.jsx"));
 const GradingSetupSettingsPage = lazy(() => import("./pages/application/AdminDashboard/pages/settings/GradingSetupSettingsPage.jsx"));
@@ -191,6 +192,7 @@ function AppRoutes() {
                 <Route path="/dashboard/admin/settings/locale"                   element={<ProtectedRoute requiredRole="admin"><LocaleSettingsPage /></ProtectedRoute>} />
                 <Route path="/dashboard/admin/settings/attendance"               element={<ProtectedRoute requiredRole="admin"><AttendancePolicyPage /></ProtectedRoute>} />
                 <Route path="/dashboard/admin/settings/audit-log"                element={<ProtectedRoute requiredRole="admin"><AuditLogPage /></ProtectedRoute>} />
+                <Route path="/dashboard/admin/settings/notifications"            element={<ProtectedRoute requiredRole="admin"><NotificationDefaultsPage /></ProtectedRoute>} />
                 <Route path="/dashboard/admin/settings/data"                     element={<ProtectedRoute requiredRole="admin"><DataImportPage /></ProtectedRoute>} />
 
                 {/* ── Admin — legacy redirects (old URLs keep working) ──────── */}

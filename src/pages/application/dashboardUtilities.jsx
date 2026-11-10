@@ -1,4 +1,5 @@
 // javascript
+import PushToggle from '../../components/pwa/PushToggle.jsx';
 import React, { useState, useRef, useEffect } from 'react';
 import { Bell, User, ChevronDown, LogOut, Settings, UserCircle, Moon, Sun } from 'lucide-react';
 import { NavLink } from "react-router-dom";
@@ -120,6 +121,7 @@ export const Header = () => {
 
                 <div className="flex h-16 px-4 sm:px-6 lg:px-8 items-center justify-end">
                     <div className="flex items-center space-x-3 relative" ref={dropdownRef}>
+                        <PushToggle compact />
                         {/* Dark Mode Toggle */}
                         <button
                             onClick={handleThemeToggle}
