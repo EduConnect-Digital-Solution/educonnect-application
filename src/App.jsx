@@ -59,6 +59,7 @@ const LocaleSettingsPage            = lazy(() => import("./pages/application/Adm
 const AttendancePolicyPage           = lazy(() => import("./pages/application/AdminDashboard/pages/settings/AttendancePolicyPage.jsx"));
 const AuditLogPage                   = lazy(() => import("./pages/application/AdminDashboard/pages/settings/AuditLogPage.jsx"));
 const DataImportPage                 = lazy(() => import("./pages/application/AdminDashboard/pages/settings/DataImportPage.jsx"));
+const ParentAttendancePage            = lazy(() => import("./pages/application/ParentDashboard/AttendancePage.jsx"));
 const GradingSetupSettingsPage = lazy(() => import("./pages/application/AdminDashboard/pages/settings/GradingSetupSettingsPage.jsx"));
 const ApprovalsPage       = lazy(() => import("./pages/application/AdminDashboard/pages/ApprovalsPage.jsx"));
 const StudentProfilePage  = lazy(() => import("./pages/application/AdminDashboard/pages/people/StudentProfilePage.jsx"));
@@ -220,6 +221,7 @@ function AppRoutes() {
                 {/* Parent Protected Routes */}
                 <Route path="/dashboard/parent" element={<ProtectedRoute requiredRole="parent"><ParentDashboard /></ProtectedRoute>}/>
                 <Route path="/dashboard/parent/children" element={<ProtectedRoute requiredRole="parent"><ChildSelectionPage /></ProtectedRoute>} />
+                <Route path="/dashboard/parent/attendance" element={<ProtectedRoute requiredRole="parent"><ParentAttendancePage /></ProtectedRoute>} />
                 <Route path="/dashboard/parent/fees" element={<ProtectedRoute requiredRole="parent"><ParentFeesPage /></ProtectedRoute>} />
                 <Route path="/dashboard/parent/profile" element={<ProtectedRoute requiredRole="parent"><ParentProfilePage /></ProtectedRoute>} />
 
