@@ -42,6 +42,11 @@ apiClient.interceptors.request.use(
             return config;
         }
 
+        // A request retried after a refresh already carries the fresh token; the context here may still hold the old one
+        if (config._retry && config.headers?.Authorization) {
+            return config;
+        }
+
         // For all other endpoints, ensure we have a valid access token
         if (authContext && authContext.getValidAccessToken) {
             try {
@@ -111,22 +116,30 @@ apiClient.interceptors.response.use(
             try {
                 const authContext = window.authContext;
 
-                if (authContext && authContext.refreshAccessToken) {
-                    const newToken = await authContext.refreshAccessToken(true);
-
-                    if (newToken && newToken !== 'session-valid') {
-                        processQueue(null, newToken);
-                        originalRequest.headers.Authorization = `Bearer ${newToken}`;
-                        return apiClient(originalRequest);
-                    } else {
-                        throw new Error('Failed to refresh token');
-                    }
+                if (!authContext || !authContext.refreshAccessToken) {
+                    throw new Error('Auth context unavailable');
                 }
+
+                let newToken = await authContext.refreshAccessToken(true);
+                // A network blip or server hiccup is not a rejected session: retry once before giving up
+                if (!newToken && !authContext.isSessionRejected?.()) {
+                    await new Promise(r => setTimeout(r, 1000));
+                    newToken = await authContext.refreshAccessToken(true);
+                }
+
+                if (newToken && newToken !== 'session-valid') {
+                    processQueue(null, newToken);
+                    originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                    return apiClient(originalRequest);
+                }
+                const failure = new Error('Failed to refresh token');
+                failure.sessionRejected = Boolean(authContext.isSessionRejected?.());
+                throw failure;
             } catch (refreshError) {
                 processQueue(refreshError, null);
 
-                // Only logout if online; if offline, allow continued use with cached auth
-                if (navigator.onLine) {
+                // Sign out only when the server rejected the session. A transient failure just fails this request.
+                if (refreshError.sessionRejected && navigator.onLine) {
                     const authContext = window.authContext;
                     if (authContext && authContext.logout) {
                         await authContext.logout();
