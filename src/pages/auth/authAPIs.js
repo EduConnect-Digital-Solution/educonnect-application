@@ -218,14 +218,10 @@ export async function viewGrade(studentId) {
 
 export async function getDashboardUsers(role = '', status = '') {
     try {
-        const { data } = await apiClient.get('/api/admin/dashboard/users', {
-            params: {
-
-                role: role || undefined,
-                status: status || undefined
-            }
-        });
-        return data;
+        return await fetchAllPages('/api/admin/dashboard/users', {
+            role: role || undefined,
+            status: status || undefined
+        }, 'users');
     } catch (error) {
         throw error?.response?.data || error;
     }
@@ -286,10 +282,27 @@ export async function deletePermanentInvitation(invitationId) {
 }
 
 
+/**
+ * The list endpoints return one page at a time (20 by default), but the admin screens work on the
+ * whole list. Fetches every page and returns the first response with the full list merged in, so
+ * callers get everyone instead of silently losing everything past the first page.
+ */
+const PAGE_SIZE = 50;
+const MAX_PAGES = 100;
+async function fetchAllPages(url, params, listKey) {
+    const get = (page) => apiClient.get(url, { params: { ...params, page, limit: PAGE_SIZE } });
+    const { data } = await get(1);
+    const pages = Math.min(data?.data?.pagination?.pages ?? 1, MAX_PAGES);
+    for (let page = 2; page <= pages; page++) {
+        const next = await get(page);
+        data.data[listKey] = [...(data.data[listKey] || []), ...(next.data?.data?.[listKey] || [])];
+    }
+    return data;
+}
+
 export async function getAllStudents() {
     try {
-        const { data } = await apiClient.get('/api/students');
-        return data;
+        return await fetchAllPages('/api/students', {}, 'students');
     } catch (error) {
         throw error?.response?.data || error;
     }
@@ -297,8 +310,7 @@ export async function getAllStudents() {
 
 export async function getAllParents() {
     try {
-        const { data } = await apiClient.get('/api/parent-management/parents');
-        return data;
+        return await fetchAllPages('/api/parent-management/parents', {}, 'parents');
     } catch (error) {
         throw error?.response?.data || error;
     }
