@@ -3,7 +3,7 @@ import { Info, Lock } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout.jsx';
 import SettingsBreadcrumb from '../../components/ui/SettingsBreadcrumb.jsx';
 import { getSettings, getLocaleLock, saveSettingsSection } from '../../services/schoolSettingsAPIs.js';
-import { setSchoolLocale, formatMinor, formatSchoolDate } from '../../../../../utils/schoolLocale.js';
+import { setSchoolLocale, formatSchoolDate } from '../../../../../utils/schoolLocale.js';
 import { notify } from '@/components/patterns/toastBus.js';
 import { DetailSkeleton } from '../../../../../components/patterns';
 

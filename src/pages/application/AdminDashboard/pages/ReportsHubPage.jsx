@@ -1,4 +1,4 @@
-import { formatMinor } from '../../../../../utils/schoolLocale.js';
+import { formatMinor } from '../../../../utils/schoolLocale.js';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { BarChart3, Printer, RefreshCw } from 'lucide-react';

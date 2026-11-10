@@ -95,7 +95,7 @@ const ACTION_WORDS = {
     'data.export': 'Exported data',
     'audit.export': 'Exported the audit log',
 };
-export const describeAction = (a) => ACTION_WORDS[a] || a.replace(/[.-]/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
+const describeAction = (a) => ACTION_WORDS[a] || a.replace(/[.-]/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
 
 function Row({ log }) {
     const [open, setOpen] = useState(false);
