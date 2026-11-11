@@ -42,6 +42,7 @@ const StudentManagement = () => {
             const studentList = response.data.students.map(u => ({
                 id: u.id,
                 name: `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || '—',
+                admissionNumber: u.studentId || '—',
                 email: u?.email || '—',
                 class: classMap[u.classId] || '—',
                 section: armMap[u.armId] || '—',
@@ -84,6 +85,7 @@ const StudentManagement = () => {
                 </div>
             ),
         },
+        { id: 'admissionNumber', header: 'Admission no.', accessor: r => r.admissionNumber, sortable: true, render: r => <span className="text-xs font-mono text-gray-500">{r.admissionNumber}</span> },
         { id: 'email', header: 'Email', accessor: r => r.email, sortable: true, render: r => <span className="text-gray-500">{r.email}</span> },
         { id: 'class', header: 'Class', accessor: r => r.class, sortable: true },
         { id: 'section', header: 'Arm', accessor: r => r.section, sortable: true },
@@ -138,7 +140,7 @@ const StudentManagement = () => {
                     columns={columns}
                     filters={filters}
                     searchPlaceholder="Search students by name or email…"
-                    searchKeys={['name', 'email']}
+                    searchKeys={['name', 'email', 'admissionNumber']}
                     onRowClick={(r) => navigate(`${ROUTES.students}/${r.id}`)}
                     primaryAction={{ label: 'Add Student', icon: Plus, onClick: () => setCreateStudent(true) }}
                     emptyState={{

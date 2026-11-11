@@ -22,7 +22,7 @@ import { formatStatus, getInitials } from '../../utils/formatters.js';
 import { getSchoolClasses } from '../../services/classAPIs.js';
 import { getClassArms } from '../../services/armAPIs.js';
 import { getSchoolSubjects } from '../../services/subjectAPIs.js';
-import { ImageUploadField } from '../../../../../components/patterns';
+import { Field, ImageUploadField, inputClass, useFieldErrors } from '../../../../../components/patterns';
 
 export const UnassignClassesModal = ({ onClose, showToast, teacher, schoolId }) => {
     const [selectedClasses, setSelectedClasses] = useState([]);
@@ -752,28 +752,115 @@ export const InviteParentModal = ({ onClose, showToast }) => {
     );
 };
 
-export const CreateStudentModal = ({ onClose, showToast }) => {
-    // ── form fields ─────────────
-    const [formData, setFormData] = useState({
-        firstName: '',
-        lastName: '',
-        email: '',
-        phone: '',
-        class: '',       // classId of the selected class
-        className: '',   // display name kept for payload
-        armId: '',       // selected arm/section id
-        armName: '',     // arm name for display
-        dateOfBirth: '',
-        gender: '',
-        address: '',
-        profileImage: null,
-    });
+const STUDENT_NAME_RE = /^[A-Za-z\s\-']+$/;
+const STUDENT_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const STUDENT_PHONE_RE = /^\+?[0-9][0-9\s\-().]{6,19}$/;
+const EMPTY_STUDENT_FORM = {
+    firstName: '',
+    lastName: '',
+    admissionNumber: '',
+    email: '',
+    phone: '',
+    dateOfBirth: '',
+    gender: '',
+    classId: '',
+    armId: '',
+    rollNumber: '',
+    address: '',
+    profileImage: null,
+};
+
+const studentServerMessage = (error) => {
+    const details = Array.isArray(error?.errors)
+        ? error.errors.map((e) => e?.message || e?.msg).filter(Boolean)
+        : [];
+    return details.length
+        ? [...new Set(details)].join(' · ')
+        : (error?.message || 'Registry Error: Submission failed.');
+};
+
+const todayISODate = () => new Date().toISOString().slice(0, 10);
+
+/**
+ * CreateStudentModal — the admin "Add Student" form.
+ *
+ * Fields mirror the POST /api/students contract. Only first/last name are required by the
+ * backend; this form additionally requires a class (and an arm when the class has arms) so a
+ * student is never created without a placement. Everything else is optional but validated
+ * against the same rules the backend applies (email, phone, date, lengths).
+ */
+export const CreateStudentModal = ({ onClose, showToast, onStudentAdded }) => {
+    const [formData, setFormData] = useState(EMPTY_STUDENT_FORM);
 
     // ── backend data ────────────
-    const [classes, setClasses]     = useState([]);  // [{id, name}]
-    const [arms, setArms]           = useState([]);  // [{id, name, classId}]
+    const [classes, setClasses]       = useState([]);  // [{id, name}]
+    const [arms, setArms]             = useState([]);  // [{id, name, classId}]
     const [loadingInit, setLoadingInit] = useState(true); // initial classes fetch
     const [loadingArms, setLoadingArms] = useState(false); // arms fetch per class
+    const [saving, setSaving]         = useState(false);
+    const [formError, setFormError]   = useState(null);
+    const armsRequest = useRef(0); // ignore stale arm responses when classes change quickly
+
+    const validators = {
+        firstName: (value) => {
+            const v = (value || '').trim();
+            if (!v) return "Enter the student's first name";
+            if (v.length > 50) return 'First name must be 50 characters or fewer';
+            if (!STUDENT_NAME_RE.test(v)) return 'Use letters, spaces, hyphens and apostrophes only';
+            return null;
+        },
+        lastName: (value) => {
+            const v = (value || '').trim();
+            if (!v) return "Enter the student's last name";
+            if (v.length > 50) return 'Last name must be 50 characters or fewer';
+            if (!STUDENT_NAME_RE.test(v)) return 'Use letters, spaces, hyphens and apostrophes only';
+            return null;
+        },
+        admissionNumber: (value) => {
+            const v = (value || '').trim();
+            if (v.length > 50) return 'Admission number must be 50 characters or fewer';
+            return null;
+        },
+        email: (value) => {
+            const v = (value || '').trim();
+            if (!v) return null;
+            if (v.length > 254) return 'Email address is too long';
+            if (!STUDENT_EMAIL_RE.test(v)) return "That email address doesn't look right";
+            return null;
+        },
+        phone: (value) => {
+            const v = (value || '').trim();
+            if (!v) return null;
+            const digits = v.replace(/\D/g, '');
+            if (!STUDENT_PHONE_RE.test(v) || digits.length < 7 || digits.length > 15) {
+                return 'Enter a valid phone number (7–15 digits)';
+            }
+            return null;
+        },
+        dateOfBirth: (value) => {
+            if (!value) return null;
+            const date = new Date(`${value}T00:00:00`);
+            if (Number.isNaN(date.getTime())) return 'Enter a valid date of birth';
+            if (value > todayISODate()) return 'Date of birth cannot be in the future';
+            if (date.getFullYear() < 1900) return 'Date of birth looks too far in the past';
+            return null;
+        },
+        gender: (value) => (value && !['male', 'female', 'other'].includes(value)
+            ? 'Choose male, female or other'
+            : null),
+        classId: (value) => (!value && classes.length > 0 ? 'Choose the class this student belongs to' : null),
+        armId: (value) => (arms.length > 0 && !value ? 'Choose an arm for this class' : null),
+        rollNumber: (value) => ((value || '').trim().length > 20
+            ? 'Roll number must be 20 characters or fewer'
+            : null),
+        address: (value) => ((value || '').trim().length > 500
+            ? 'Address must be 500 characters or fewer'
+            : null),
+        profileImage: (value) => (value && !/^https?:\/\//i.test(value)
+            ? 'Upload a valid image'
+            : null),
+    };
+    const v = useFieldErrors(validators);
 
     // ── fetch classes on mount ──
     useEffect(() => {
@@ -792,62 +879,87 @@ export const CreateStudentModal = ({ onClose, showToast }) => {
         fetchClasses();
     }, []);
 
+    const setField = (name, value) => {
+        setFormData((prev) => ({ ...prev, [name]: value }));
+        // Re-check a field only after it has already shown an error, so we don't nag while typing.
+        if (v.errors[name]) v.validateField(name, value, { ...formData, [name]: value });
+    };
+
     // ── fetch arms when a class is selected ───────────────────────────────────
     const handleClassChange = async (classId) => {
-        const cls = classes.find(c => c.id === classId);
-        setFormData(prev => ({ ...prev, class: classId, className: cls?.name ?? '', armId: '', armName: '' }));
+        setFormData((prev) => ({ ...prev, classId, armId: '' }));
         setArms([]);
+        setFormError(null);
+        if (v.errors.classId) v.validateField('classId', classId, { ...formData, classId });
+        if (v.errors.armId) v.validateField('armId', '', { ...formData, classId, armId: '' });
+
+        const request = ++armsRequest.current;
         if (!classId) return;
         try {
             setLoadingArms(true);
             const res = await getClassArms(classId);
-            setArms(res.data?.arms ?? []);
+            if (request === armsRequest.current) setArms(res.data?.arms ?? []);
         } catch (err) {
             console.error('[CreateStudentModal] Failed to load arms:', err);
-            showToast('Could not load class arms.', 'error');
+            if (request === armsRequest.current) {
+                setArms([]);
+                showToast('Could not load class arms.', 'error');
+            }
         } finally {
-            setLoadingArms(false);
+            if (request === armsRequest.current) setLoadingArms(false);
         }
     };
 
     // ── submit ──────────────────
     const handleCreate = async () => {
-        const requiredFields = ['firstName', 'lastName', 'email', 'phone', 'class', 'dateOfBirth', 'gender', 'address'];
-        // Arm (section) is required only when the class has configured arms
-        if (arms.length > 0) requiredFields.push('armId');
+        setFormError(null);
 
-        const isFormIncomplete = requiredFields.some(field => !formData[field]?.trim());
-        if (isFormIncomplete) {
-            showToast('All fields are required.', 'error');
+        if (classes.length === 0) {
+            setFormError('Set up at least one class before adding students.');
             return;
         }
+        if (!v.validateAll(formData)) return;
+
+        setSaving(true);
         try {
-            // Build payload using backend-expected keys. The backend requires classId and armId
-            // (or null) rather than repeating display names. Only include the selected ids;
-            // if none selected, send null values as requested.
+            // Send only fields that have a value. The API validates classId/armId as UUIDs and
+            // profileImage as a URL, so sending `null` for an empty field would fail.
             const payload = {
-                firstName:   (formData.firstName || '').trim(),
-                lastName:    (formData.lastName || '').trim(),
-                email:       (formData.email || '').trim(),
-                phone:       (formData.phone || '').trim(),
-                classId:     formData.class ? formData.class : null,
-                armId:       formData.armId ? formData.armId : null,
-                dateOfBirth: formData.dateOfBirth,
-                gender:      formData.gender,
-                address:     (formData.address || '').trim(),
-                profileImage: formData.profileImage ?? null,
+                firstName:   formData.firstName.trim(),
+                lastName:    formData.lastName.trim(),
+                studentId:   formData.admissionNumber.trim() || undefined,
+                email:       formData.email.trim() || undefined,
+                phone:       formData.phone.trim().replace(/[\s\-().]/g, '') || undefined,
+                classId:     formData.classId || undefined,
+                armId:       formData.armId || undefined,
+                rollNumber:  formData.rollNumber.trim() || undefined,
+                dateOfBirth: formData.dateOfBirth || undefined,
+                gender:      formData.gender || undefined,
+                address:     formData.address.trim() || undefined,
+                profileImage: formData.profileImage || undefined,
             };
 
             await createStudent(payload);
-            showToast('Student profile successfully initialized.', 'success');
+            showToast(`${payload.firstName} ${payload.lastName} was added to the student register.`, 'success');
+            onStudentAdded?.();
             onClose();
         } catch (error) {
-            showToast(error.message || 'Registry Error: Submission failed.', 'error');
+            const message = studentServerMessage(error);
+            setFormError(message);
+            showToast(message, 'error');
+        } finally {
+            setSaving(false);
         }
     };
 
     return (
-        <Modal title="Initialize Student Record" onClose={onClose} onSubmit={handleCreate}>
+        <Modal
+            title="Initialize Student Record"
+            onClose={onClose}
+            onSubmit={handleCreate}
+            submitText={saving ? 'Creating…' : 'Create Student'}
+            submitDisabled={loadingInit || loadingArms || saving || classes.length === 0}
+        >
             {loadingInit ? (
                 // ── Loading skeleton while classes are fetched ───────────────
                 <div className="flex flex-col items-center justify-center py-12 gap-3">
@@ -857,6 +969,12 @@ export const CreateStudentModal = ({ onClose, showToast }) => {
             ) : (
                 <div className="space-y-8 py-4">
 
+                    {formError && (
+                        <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+                            {formError}
+                        </div>
+                    )}
+
                     {/* Section 1: Personal Identification */}
                     <div className="space-y-4">
                         <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] border-b border-slate-50 pb-2">
@@ -865,42 +983,128 @@ export const CreateStudentModal = ({ onClose, showToast }) => {
                         <ImageUploadField
                             name={`${formData.firstName} ${formData.lastName}`.trim()}
                             value={formData.profileImage}
-                            onChange={(url) => setFormData({ ...formData, profileImage: url })}
+                            onChange={(url) => setField('profileImage', url)}
                             label="Student photo"
                         />
                         <div className="grid grid-cols-2 gap-6">
-                            <Input label="First Name" type="text" value={formData.firstName}
-                                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} />
-                            <Input label="Last Name" type="text" value={formData.lastName}
-                                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} />
+                            <Field label="First name" required htmlFor="student-first-name" error={v.errors.firstName}>
+                                <input
+                                    id="student-first-name"
+                                    type="text"
+                                    autoComplete="given-name"
+                                    value={formData.firstName}
+                                    onChange={(e) => setField('firstName', e.target.value)}
+                                    onBlur={() => v.validateField('firstName', formData.firstName, formData)}
+                                    className={inputClass(!!v.errors.firstName)}
+                                />
+                            </Field>
+                            <Field label="Last name" required htmlFor="student-last-name" error={v.errors.lastName}>
+                                <input
+                                    id="student-last-name"
+                                    type="text"
+                                    autoComplete="family-name"
+                                    value={formData.lastName}
+                                    onChange={(e) => setField('lastName', e.target.value)}
+                                    onBlur={() => v.validateField('lastName', formData.lastName, formData)}
+                                    className={inputClass(!!v.errors.lastName)}
+                                />
+                            </Field>
+                        </div>
+                        <div className="grid grid-cols-2 gap-6">
+                            <Field
+                                label="Admission number"
+                                hint="optional"
+                                htmlFor="student-admission-number"
+                                error={v.errors.admissionNumber}
+                            >
+                                <input
+                                    id="student-admission-number"
+                                    type="text"
+                                    value={formData.admissionNumber}
+                                    onChange={(e) => setField('admissionNumber', e.target.value)}
+                                    onBlur={() => v.validateField('admissionNumber', formData.admissionNumber, formData)}
+                                    placeholder="e.g. ADM/2026/001"
+                                    className={inputClass(!!v.errors.admissionNumber)}
+                                />
+                            </Field>
+                            <Field label="Date of birth" hint="optional" htmlFor="student-dob" error={v.errors.dateOfBirth}>
+                                <input
+                                    id="student-dob"
+                                    type="date"
+                                    max={todayISODate()}
+                                    value={formData.dateOfBirth}
+                                    onChange={(e) => setField('dateOfBirth', e.target.value)}
+                                    onBlur={() => v.validateField('dateOfBirth', formData.dateOfBirth, formData)}
+                                    className={inputClass(!!v.errors.dateOfBirth)}
+                                />
+                            </Field>
+                        </div>
+                        <div className="grid grid-cols-2 gap-6">
+                            <Field label="Gender" hint="optional" htmlFor="student-gender" error={v.errors.gender}>
+                                <select
+                                    id="student-gender"
+                                    value={formData.gender}
+                                    onChange={(e) => setField('gender', e.target.value)}
+                                    onBlur={() => v.validateField('gender', formData.gender, formData)}
+                                    className={inputClass(!!v.errors.gender)}
+                                >
+                                    <option value="">Select gender…</option>
+                                    <option value="male">Male</option>
+                                    <option value="female">Female</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </Field>
                         </div>
                     </div>
 
                     {/* Section 2: Contact */}
-                    <div className="grid grid-cols-2 gap-6">
-                        <Input label="Communication Email" type="email" value={formData.email}
-                            onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
-                        <Input label="Contact Number" type="tel" value={formData.phone}
-                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
-                    </div>
-
-                    {/* Section 3: Bio Data */}
-                    <div className="grid grid-cols-2 gap-6">
-                        <Input label="Date of Birth" type="date" value={formData.dateOfBirth}
-                            onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })} />
-                        <div className="space-y-1.5">
-                            <label className="block text-xs font-medium text-gray-500 mb-1">Gender</label>
-                            <select value={formData.gender}
-                                onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                <option value="">Select Gender</option>
-                                <option value="male">Male</option>
-                                <option value="female">Female</option>
-                            </select>
+                    <div className="space-y-4">
+                        <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] border-b border-slate-50 pb-2">
+                            Contact
+                        </h3>
+                        <div className="grid grid-cols-2 gap-6">
+                            <Field label="Communication email" hint="optional" htmlFor="student-email" error={v.errors.email}>
+                                <input
+                                    id="student-email"
+                                    type="email"
+                                    autoComplete="email"
+                                    value={formData.email}
+                                    onChange={(e) => setField('email', e.target.value)}
+                                    onBlur={() => v.validateField('email', formData.email, formData)}
+                                    className={inputClass(!!v.errors.email)}
+                                />
+                            </Field>
+                            <Field label="Contact number" hint="optional" htmlFor="student-phone" error={v.errors.phone}>
+                                <input
+                                    id="student-phone"
+                                    type="tel"
+                                    autoComplete="tel"
+                                    value={formData.phone}
+                                    onChange={(e) => setField('phone', e.target.value)}
+                                    onBlur={() => v.validateField('phone', formData.phone, formData)}
+                                    placeholder="e.g. 08031234567"
+                                    className={inputClass(!!v.errors.phone)}
+                                />
+                            </Field>
                         </div>
+                        <Field
+                            label="Full residential address"
+                            hint="optional"
+                            htmlFor="student-address"
+                            error={v.errors.address}
+                        >
+                            <textarea
+                                id="student-address"
+                                rows={2}
+                                value={formData.address}
+                                onChange={(e) => setField('address', e.target.value)}
+                                onBlur={() => v.validateField('address', formData.address, formData)}
+                                className={inputClass(!!v.errors.address)}
+                            />
+                        </Field>
                     </div>
 
-                    {/* Section 4: Academic Placement — classes & arms from backend */}
+                    {/* Section 3: Academic Placement — classes & arms from backend */}
                     <div className="space-y-4">
                         <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] border-b border-slate-50 pb-2">
                             Academic Placement
@@ -911,59 +1115,77 @@ export const CreateStudentModal = ({ onClose, showToast }) => {
                                 No classes have been configured for this school yet. Please set them up in the school configuration first.
                             </p>
                         ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {/* Class selector */}
-                                <div className="space-y-1.5">
-                                    <label className="block text-xs font-medium text-gray-500 mb-1">Class</label>
-                                    <select
-                                        value={formData.class}
-                                        onChange={(e) => handleClassChange(e.target.value)}
-                                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    >
-                                        <option value="">Select class…</option>
-                                        {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                    </select>
-                                </div>
+                            <>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <Field label="Class" required htmlFor="student-class" error={v.errors.classId}>
+                                        <select
+                                            id="student-class"
+                                            value={formData.classId}
+                                            onChange={(e) => handleClassChange(e.target.value)}
+                                            onBlur={() => v.validateField('classId', formData.classId, formData)}
+                                            className={inputClass(!!v.errors.classId)}
+                                        >
+                                            <option value="">Select class…</option>
+                                            {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                        </select>
+                                    </Field>
 
-                                {/* Arm selector — appears once a class is chosen */}
-                                {formData.class && (
-                                    <div className="space-y-1.5">
-                                        <label className="block text-xs font-medium text-gray-500 mb-1">
-                                            Arm / Section
-                                            {loadingArms && <Loader2 size={12} className="inline ml-2 animate-spin text-blue-400" />}
-                                        </label>
-                                        {loadingArms ? (
-                                            <div className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-400">Loading arms…</div>
-                                        ) : arms.length === 0 ? (
-                                            <div className="w-full px-3 py-2 text-sm border border-dashed border-gray-200 rounded-lg text-gray-400 italic">
-                                                No arms configured for this class
-                                            </div>
-                                        ) : (
-                                            <select
-                                                value={formData.armId}
-                                                onChange={(e) => {
-                                                    const arm = arms.find(a => a.id === e.target.value);
-                                                    setFormData(prev => ({ ...prev, armId: e.target.value, armName: arm?.name ?? '' }));
-                                                }}
-                                                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            >
-                                                <option value="">Select arm…</option>
-                                                {arms.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                                            </select>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
+                                    {/* Arm selector — appears once a class is chosen */}
+                                    {formData.classId && (
+                                        <Field
+                                            label="Arm / Section"
+                                            required={arms.length > 0}
+                                            hint={loadingArms ? 'loading…' : (arms.length === 0 ? 'none configured' : undefined)}
+                                            htmlFor="student-arm"
+                                            error={v.errors.armId}
+                                        >
+                                            {loadingArms ? (
+                                                <div className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-400">
+                                                    Loading arms…
+                                                </div>
+                                            ) : arms.length === 0 ? (
+                                                <div className="w-full px-3 py-2.5 text-sm border border-dashed border-gray-200 rounded-lg text-gray-400 italic">
+                                                    No arms configured for this class
+                                                </div>
+                                            ) : (
+                                                <select
+                                                    id="student-arm"
+                                                    value={formData.armId}
+                                                    onChange={(e) => setField('armId', e.target.value)}
+                                                    onBlur={() => v.validateField('armId', formData.armId, formData)}
+                                                    className={inputClass(!!v.errors.armId)}
+                                                >
+                                                    <option value="">Select arm…</option>
+                                                    {arms.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                                                </select>
+                                            )}
+                                        </Field>
+                                    )}
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <Field
+                                        label="Roll number"
+                                        hint="optional"
+                                        htmlFor="student-roll-number"
+                                        error={v.errors.rollNumber}
+                                    >
+                                        <input
+                                            id="student-roll-number"
+                                            type="text"
+                                            value={formData.rollNumber}
+                                            onChange={(e) => setField('rollNumber', e.target.value)}
+                                            onBlur={() => v.validateField('rollNumber', formData.rollNumber, formData)}
+                                            className={inputClass(!!v.errors.rollNumber)}
+                                        />
+                                    </Field>
+                                </div>
+                            </>
                         )}
                     </div>
 
-                    {/* Address */}
-                    <div className="space-y-1.5">
-                        <label className="block text-xs font-medium text-gray-500 mb-1">Full Residential Address</label>
-                        <textarea rows={2} value={formData.address}
-                            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    </div>
+                    <p className="text-[11px] text-gray-400">
+                        Guardians can be linked to this student after the record is created from the student's profile page.
+                    </p>
                 </div>
             )}
         </Modal>
