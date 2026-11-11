@@ -27,7 +27,7 @@ const QuickActions = () => {
     const [viewParent, setViewParent] = useState(false);
     const [viewStudent, setViewStudent] = useState(false);
 
-    const showToast = (message) => pushToast({ message });
+    const showToast = (message, type) => pushToast({ message, type });
 
     return (
         <>
