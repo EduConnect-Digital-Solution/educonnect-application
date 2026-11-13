@@ -14,6 +14,7 @@ import {
     setPolicyClassAssignments,
 } from '../../services/gradingAPIs.js';
 import { getSchoolClasses } from '../../services/classAPIs.js';
+import { getClassArms } from '../../services/armAPIs.js';
 import { getSchoolSubjects } from '../../services/subjectAPIs.js';
 
 // ─── Scope config ──────────────────────────────────────────────────────────────
@@ -173,6 +174,11 @@ function AddAssignmentForm({ onAdd, onCancel }) {
     // Primary selector state (class/subject/arm)
     const [selectedClassId, setSelectedClassId]     = useState('');
     const [selectedSubjectId, setSelectedSubjectId] = useState('');
+    const [arms, setArms] = useState([]);
+    const [selectedArmId, setSelectedArmId] = useState('');
+    const [loadingArms, setLoadingArms] = useState(false);
+    const [armsRetry, setArmsRetry] = useState(0);
+    const [armsError, setArmsError] = useState(false);
 
     // Secondary selector state (for subject_class)
     const [secondaryClassId, setSecondaryClassId] = useState('');
@@ -198,28 +204,45 @@ function AddAssignmentForm({ onAdd, onCancel }) {
     useEffect(() => {
         setSelectedClassId('');
         setSelectedSubjectId('');
+        setSelectedArmId('');
         setSecondaryClassId('');
         setError(null);
     }, [scope]);
 
+    useEffect(() => {
+        setSelectedArmId('');
+        setArms([]);
+        setArmsError(false);
+        if (scope !== 'arm' || !selectedClassId) { setLoadingArms(false); return undefined; }
+        let active = true;
+        setLoadingArms(true);
+        getClassArms(selectedClassId)
+            .then(res => { if (active) setArms(res.data?.arms ?? []); })
+            .catch(() => { if (active) setArmsError(true); })
+            .finally(() => { if (active) setLoadingArms(false); });
+        return () => { active = false; };
+    }, [scope, selectedClassId, armsRetry]);
+
     const handleAdd = async () => {
+        if (scope === 'arm' && (!selectedClassId || !selectedArmId || loadingArms)) { setError('Select a class and arm.'); return; }
         if (scopeMeta.needsPrimary === 'class'   && !selectedClassId)   { setError('Select a class.'); return; }
         if (scopeMeta.needsPrimary === 'subject' && !selectedSubjectId) { setError('Select a subject.'); return; }
         if (scopeMeta.needsSecondary === 'class' && !secondaryClassId)  { setError('Select a class.'); return; }
 
         const selectedClass   = classes.find(c => c.id === selectedClassId);
+        const selectedArm = arms.find(a => a.id === selectedArmId);
         const selectedSubject = subjects.find(s => s.id === selectedSubjectId);
         const secondaryClass  = classes.find(c => c.id === secondaryClassId);
 
         const payload = {
             scope,
             scopeId:             scope === 'class'         ? selectedClassId
-                               : scope === 'arm'           ? selectedClassId
+                               : scope === 'arm'           ? selectedArmId
                                : scope === 'subject'       ? selectedSubjectId
                                : scope === 'subject_class' ? selectedSubjectId
                                : null,
             scopeName:           scope === 'class'         ? selectedClass?.name
-                               : scope === 'arm'           ? selectedClass?.name
+                               : scope === 'arm'           ? `${selectedClass?.name} ${selectedArm?.name}`
                                : scope === 'subject'       ? selectedSubject?.name
                                : scope === 'subject_class' ? selectedSubject?.name
                                : null,
@@ -283,7 +306,7 @@ function AddAssignmentForm({ onAdd, onCancel }) {
                 </div>
             ) : (
                 <>
-                    {(scopeMeta.needsPrimary === 'class' || scopeMeta.needsSecondary === 'class') && scope !== 'subject_class' && (
+                    {(scopeMeta.needsPrimary === 'class' || scopeMeta.needsPrimary === 'arm') && scope !== 'subject_class' && (
                         <div>
                             <label className="block text-xs font-medium text-gray-500 mb-1">
                                 Select class <span className="text-red-400">*</span>
@@ -298,6 +321,17 @@ function AddAssignmentForm({ onAdd, onCancel }) {
                                     <option key={c.id} value={c.id}>{c.name}</option>
                                 ))}
                             </select>
+                        </div>
+                    )}
+
+                    {scope === 'arm' && selectedClassId && (
+                        <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">Select arm <span className="text-red-400">*</span></label>
+                            <select value={selectedArmId} onChange={e => setSelectedArmId(e.target.value)} disabled={loadingArms} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white">
+                                <option value="">{loadingArms ? 'Loading arms…' : '— choose an arm —'}</option>
+                                {arms.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                            </select>
+                            {armsError && <button type="button" className="text-xs text-red-700 underline mt-1" onClick={() => setArmsRetry(n => n + 1)}>Could not load arms. Try again</button>}
                         </div>
                     )}
 
@@ -1013,3 +1047,4 @@ export default function AssessmentPoliciesTab() {
         </div>
     );
 }
+

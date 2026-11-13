@@ -8,22 +8,20 @@
 const KEY = 'educonnect-school-locale';
 export const DEFAULT_LOCALE = { currency: 'NGN', locale: 'en-NG', timezone: 'Africa/Lagos', dateFormat: 'DD/MM/YYYY' };
 
-const read = () => {
-    try {
-        const raw = localStorage.getItem(KEY);
-        return raw ? { ...DEFAULT_LOCALE, ...JSON.parse(raw) } : DEFAULT_LOCALE;
-    } catch {
-        return DEFAULT_LOCALE;
-    }
-};
-
-let current = read();
+let current = DEFAULT_LOCALE;
 
 export const getSchoolLocale = () => current;
 
+/** Calendar date in the school's timezone, suitable for API date keys. */
+export const schoolDateKey = (date = new Date()) => {
+    const parts = new Intl.DateTimeFormat('en-GB', { timeZone: current.timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date);
+    const values = Object.fromEntries(parts.map(p => [p.type, p.value]));
+    return `${values.year}-${values.month}-${values.day}`;
+};
+
 export const setSchoolLocale = (next) => {
     current = { ...DEFAULT_LOCALE, ...(next || {}) };
-    try { localStorage.setItem(KEY, JSON.stringify(current)); } catch { /* storage unavailable */ }
+    try { localStorage.removeItem(KEY); } catch { /* storage unavailable */ }
 };
 
 export const clearSchoolLocale = () => {
@@ -39,10 +37,10 @@ const moneyFormatter = (decimals) => new Intl.NumberFormat(current.locale, {
 });
 
 /** Minor units (kobo, pesewas, cents) to a currency string. */
-export const formatMinor = (minor = 0, decimals = 0) => moneyFormatter(decimals).format((Number(minor) || 0) / 100);
+export const formatMinor = (minor = 0, decimals = 2) => moneyFormatter(decimals).format((Number(minor) || 0) / 100);
 
 /** A whole-currency amount (already in naira, cedis, ...) to a currency string. */
-export const formatMajor = (amount = 0, decimals = 0) => moneyFormatter(decimals).format(Number(amount) || 0);
+export const formatMajor = (amount = 0, decimals = 2) => moneyFormatter(decimals).format(Number(amount) || 0);
 
 export const currencySymbol = () => {
     const part = moneyFormatter(0).formatToParts(0).find((p) => p.type === 'currency');
@@ -82,3 +80,4 @@ export const formatSchoolDateTime = (value) => {
     const date = formatSchoolDate(value);
     return date ? `${date}, ${formatSchoolTime(value)}` : '';
 };
+

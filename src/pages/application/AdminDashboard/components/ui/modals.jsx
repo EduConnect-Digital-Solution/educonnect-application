@@ -796,7 +796,8 @@ export const CreateStudentModal = ({ onClose, showToast, onStudentAdded }) => {
     const [classes, setClasses]       = useState([]);  // [{id, name}]
     const [arms, setArms]             = useState([]);  // [{id, name, classId}]
     const [loadingInit, setLoadingInit] = useState(true); // initial classes fetch
-    const [loadingArms, setLoadingArms] = useState(false); // arms fetch per class
+    const [loadingArms, setLoadingArms] = useState(false);
+    const [armsError, setArmsError] = useState(false); // arms fetch per class
     const [saving, setSaving]         = useState(false);
     const [formError, setFormError]   = useState(null);
     const armsRequest = useRef(0); // ignore stale arm responses when classes change quickly
@@ -889,12 +890,13 @@ export const CreateStudentModal = ({ onClose, showToast, onStudentAdded }) => {
     const handleClassChange = async (classId) => {
         setFormData((prev) => ({ ...prev, classId, armId: '' }));
         setArms([]);
+        setArmsError(false);
         setFormError(null);
         if (v.errors.classId) v.validateField('classId', classId, { ...formData, classId });
         if (v.errors.armId) v.validateField('armId', '', { ...formData, classId, armId: '' });
 
         const request = ++armsRequest.current;
-        if (!classId) return;
+        if (!classId) { setLoadingArms(false); return; }
         try {
             setLoadingArms(true);
             const res = await getClassArms(classId);
@@ -903,6 +905,7 @@ export const CreateStudentModal = ({ onClose, showToast, onStudentAdded }) => {
             console.error('[CreateStudentModal] Failed to load arms:', err);
             if (request === armsRequest.current) {
                 setArms([]);
+                setArmsError(true);
                 showToast('Could not load class arms.', 'error');
             }
         } finally {
@@ -914,6 +917,10 @@ export const CreateStudentModal = ({ onClose, showToast, onStudentAdded }) => {
     const handleCreate = async () => {
         setFormError(null);
 
+        if (loadingArms || armsError) {
+            setFormError('Load the class arms before adding this student.');
+            return;
+        }
         if (classes.length === 0) {
             setFormError('Set up at least one class before adding students.');
             return;
@@ -958,7 +965,7 @@ export const CreateStudentModal = ({ onClose, showToast, onStudentAdded }) => {
             onClose={onClose}
             onSubmit={handleCreate}
             submitText={saving ? 'Creating…' : 'Create Student'}
-            submitDisabled={loadingInit || loadingArms || saving || classes.length === 0}
+            submitDisabled={loadingInit || loadingArms || armsError || saving || classes.length === 0}
         >
             {loadingInit ? (
                 // ── Loading skeleton while classes are fetched ───────────────
@@ -1139,7 +1146,9 @@ export const CreateStudentModal = ({ onClose, showToast, onStudentAdded }) => {
                                             htmlFor="student-arm"
                                             error={v.errors.armId}
                                         >
-                                            {loadingArms ? (
+                                            {armsError ? (
+                                                <button type="button" className="text-sm text-red-700 underline" onClick={() => handleClassChange(formData.classId)}>Could not load arms. Try again</button>
+                                            ) : loadingArms ? (
                                                 <div className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-lg bg-gray-50 text-gray-400">
                                                     Loading arms…
                                                 </div>

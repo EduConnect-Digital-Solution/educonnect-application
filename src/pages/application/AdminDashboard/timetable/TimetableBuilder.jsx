@@ -44,7 +44,9 @@ export default function TimetableBuilder({ resources }) {
     // Only auto-save when we have a valid selection and we are in draft mode.
     // When the class has arms, arm must also be selected before saving.
     const classArms = resources.arms.filter(a => a.classId === state.selectedClass?.id);
-    if (!state.selectedClass || !currentTerm || state.isPublished) return;
+    if (!state.selectedClass || !currentTerm || !currentYear || state.isPublished || state.loading.draft) return;
+    const scope = `${state.selectedClass.id}:${state.selectedArm?.id ?? ''}:${currentTerm.id}`;
+    if (state.loadedScope !== scope) return;
     if (classArms.length > 0 && !state.selectedArm) return;
     // Nothing to save yet if the grid hasn't been configured
     if (state.periods.length === 0) return;
@@ -59,19 +61,20 @@ export default function TimetableBuilder({ resources }) {
           termId: currentTerm.id,
           academicYearId: currentYear.id,
           armId: state.selectedArm?.id ?? null,
+          periods: state.periods,
           schedules: state.schedules,
         };
         const res = await saveTimetableDraft(payload);
-        if (res.success) {
-          dispatch({ type: 'SET_SAVED', at: res.data.savedAt, draftId: res.data.draftId });
-        }
+        if (!res.success) throw new Error('Save rejected');
+        dispatch({ type: 'SET_SAVED', at: res.data.savedAt, draftId: res.data.draftId });
       } catch (err) {
         console.error('Auto-save failed:', err);
+        dispatch({ type: 'SAVE_FAILED' });
       }
     }, 4000); // 4-second debounce
 
     return () => clearTimeout(saveTimeoutRef.current);
-  }, [state.schedules, state.selectedClass, state.selectedArm, currentTerm, currentYear, state.isPublished, state.periods.length, resources.arms, dispatch]);
+  }, [state.schedules, state.selectedClass, state.selectedArm, currentTerm, currentYear, state.isPublished, state.periods, state.periodConfig, state.loading.draft, state.loadedScope, state.saveRetry, resources.arms, dispatch]);
 
   // ── DnD handlers ──────────────
 
@@ -173,7 +176,7 @@ export default function TimetableBuilder({ resources }) {
       >
         <div className="flex h-full w-full overflow-hidden ">
           {showWizard ? (
-              <PeriodSetupWizard onContinue={() => setOverrideShowGrid(true)} resources={resources} />
+              <PeriodSetupWizard onContinue={() => { dispatch({ type: 'SET_DRAFT', schedules: state.schedules, periods: state.periods, draftId: null }); setOverrideShowGrid(true); }} resources={resources} />
           ) : (
               <>
                 <PalettePanel resources={resources} />

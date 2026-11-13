@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { LayoutTemplate, MessageSquareText, Send, GripVertical, Eye, EyeOff, ArrowUp, ArrowDown, Save, CheckCircle2, XCircle, Lock, FileText, ShieldCheck, Printer, Users, Star } from 'lucide-react';
+import { LayoutTemplate, MessageSquareText, Send, GripVertical, Eye, EyeOff, ArrowUp, ArrowDown, Save, CheckCircle2, XCircle, Lock, FileText, ShieldCheck, Users, Star } from 'lucide-react';
 import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import AdminLayout from '../../components/layout/AdminLayout.jsx';
 import {
@@ -621,14 +621,16 @@ function GenerateReleaseTab() {
     const [job, setJob]       = useState(null);
     const [busy, setBusy]     = useState(false);
     const pollRef = useRef(null);
+    const generationRef = useRef(0);
 
     // Reset the pipeline whenever the target changes
     useEffect(() => {
+        generationRef.current++;
         setStage('idle'); setJob(null); setBusy(false);
-        clearInterval(pollRef.current);
-    }, [armId, currentTerm?.id]);
+        clearTimeout(pollRef.current);
+    }, [classId, armId, currentTerm?.id]);
 
-    useEffect(() => () => clearInterval(pollRef.current), []);
+    useEffect(() => () => { generationRef.current++; clearTimeout(pollRef.current); }, []);
 
     const ready = armId && currentTerm?.id;
 
@@ -669,61 +671,66 @@ function GenerateReleaseTab() {
     ];
     const allPrereq = !checks.loading && !checks.error && prereqs.filter(p => !p.optional).every(p => p.passed);
 
+    const pollJob = (jobId, generation) => {
+        const poll = async () => {
+            try {
+                const jr = await getPdfJob(jobId);
+                if (generation !== generationRef.current) return;
+                setJob(jr.data);
+                if (jr.data.status === 'completed') {
+                    setBusy(false); setStage('generated');
+                    pushToast({ message: 'Report cards generated.', type: 'success' });
+                } else if (jr.data.status === 'failed') {
+                    setBusy(false); pushToast({ message: jr.data.error || 'Report card generation failed.', type: 'error' });
+                } else pollRef.current = setTimeout(poll, 600);
+            } catch {
+                if (generation === generationRef.current) { setBusy(false); pushToast({ message: 'Could not check report-card generation.', type: 'error' }); }
+            }
+        };
+        clearTimeout(pollRef.current);
+        pollRef.current = setTimeout(poll, 600);
+    };
+
     const handleGenerate = async () => {
+        const generation = ++generationRef.current;
         setBusy(true); setJob({ status: 'processing', progress: 0 });
         try {
             const res = await generateReportCards({ armId, termId: currentTerm.id });
-            const jobId = res.data.jobId;
-            clearInterval(pollRef.current);
-            pollRef.current = setInterval(async () => {
-                try {
-                    const jr = await getPdfJob(jobId);
-                    setJob(jr.data);
-                    if (jr.data.status === 'completed') {
-                        clearInterval(pollRef.current);
-                        setBusy(false);
-                        setStage('generated');
-                        pushToast({ message: 'Report cards generated.', type: 'success' });
-                    }
-                } catch {
-                    clearInterval(pollRef.current);
-                    setBusy(false);
-                }
-            }, 600);
+            if (generation === generationRef.current) pollJob(res.data.jobId, generation);
         } catch (e) {
-            pushToast({ message: e?.message || 'Generation failed.', type: 'error' });
-            setBusy(false); setJob(null);
+            if (generation === generationRef.current) { pushToast({ message: e?.message || 'Generation failed.', type: 'error' }); setBusy(false); setJob(null); }
         }
     };
 
     const handleSignOff = async () => {
+        const generation = generationRef.current;
         setBusy(true);
         try {
             await signOffReportCards({ armId, termId: currentTerm.id });
+            if (generation !== generationRef.current) return;
             setStage('signed');
             pushToast({ message: 'Cards signed off by principal.', type: 'success' });
         } catch (e) {
-            pushToast({ message: e?.message || 'Sign-off failed.', type: 'error' });
-        } finally { setBusy(false); }
+            if (generation === generationRef.current) pushToast({ message: e?.message || 'Sign-off failed.', type: 'error' });
+        } finally { if (generation === generationRef.current) setBusy(false); }
     };
 
     const handlePublish = async () => {
+        const generation = generationRef.current;
         setBusy(true);
         try {
             const res = await publishReportCardsToParents({ armId, termId: currentTerm.id });
+            if (generation !== generationRef.current) return;
             setStage('published');
             pushToast({ message: `${res.data.publishedCount} cards released to parents.`, type: 'success' });
         } catch (e) {
-            pushToast({ message: e?.message || 'Publishing failed.', type: 'error' });
-        } finally { setBusy(false); }
-    };
-
-    const handlePrint = () => {
-        pushToast({ message: 'Batch sent to the print queue.', type: 'success' });
+            if (generation === generationRef.current) pushToast({ message: e?.message || 'Publishing failed.', type: 'error' });
+        } finally { if (generation === generationRef.current) setBusy(false); }
     };
 
     return (
         <div className="flex flex-col gap-5">
+            {ready && <p role="status" className="text-sm text-amber-800 bg-amber-50 p-3 rounded-lg">This page cannot restore report-card release progress after a refresh. Confirm the existing status before continuing.</p>}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-base font-bold text-gray-900">Generate & Release</h2>
@@ -812,7 +819,7 @@ function GenerateReleaseTab() {
                         </StageStep>
 
                         <StageStep index={3} title="Release to parents"
-                            description="Publish signed cards to the parent portal and optionally send to the print queue."
+                            description="Publish signed cards to the parent portal."
                             done={stage === 'published'} current={stage === 'signed'}>
                             {stage === 'signed' && (
                                 <button type="button" onClick={handlePublish} disabled={busy}
@@ -825,10 +832,6 @@ function GenerateReleaseTab() {
                                     <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-green-700">
                                         <Lock size={14} /> Released to parents
                                     </span>
-                                    <button type="button" onClick={handlePrint}
-                                        className="px-3 py-1.5 bg-white border border-gray-200 text-xs font-semibold text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1.5">
-                                        <Printer size={13} /> Batch print
-                                    </button>
                                 </div>
                             )}
                         </StageStep>
@@ -895,3 +898,4 @@ export default function ReportCardsPage() {
         </AdminLayout>
     );
 }
+

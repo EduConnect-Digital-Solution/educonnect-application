@@ -1,5 +1,5 @@
 import { formatSchoolDateTime } from '../../../../../../utils/schoolLocale.js';
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CheckCircle2, XCircle, Lock, Send, FileDown, ShieldCheck } from 'lucide-react';
 import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import { StatusChip, EmptyState, ConfirmDestructiveDialog, pushToast } from '../../../../../../components/patterns';
@@ -41,6 +41,9 @@ export default function PublishResultsTab() {
     const [loading, setLoading]   = useState(false);
     const [error, setError]       = useState(null);
     const [status, setStatus]     = useState(null);
+    const [statusScope, setStatusScope] = useState(null);
+    const [retry, setRetry] = useState(0);
+    const targetScope = `${classId}:${currentTerm?.id ?? ''}`;
 
     const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -48,6 +51,8 @@ export default function PublishResultsTab() {
     const [pdfJob, setPdfJob]     = useState(null); // { jobId, status, progress, downloadUrl }
     const [generating, setGenerating] = useState(false);
     const pollRef = useRef(null);
+    const requestRef = useRef(0);
+    const generationRef = useRef(0);
 
     useEffect(() => {
         setLoadingClasses(true);
@@ -57,65 +62,59 @@ export default function PublishResultsTab() {
             .finally(() => setLoadingClasses(false));
     }, []);
 
-    const load = useCallback(async () => {
-        if (!classId || !currentTerm?.id) { setStatus(null); return; }
-        setLoading(true); setError(null);
-        try {
-            const res = await getPublishStatus(currentTerm.id, classId);
-            setStatus(res.data);
-        } catch (e) {
-            setError(e?.message || 'Failed to load publish status.');
-        } finally {
-            setLoading(false);
-        }
-    }, [classId, currentTerm?.id]);
-
-    useEffect(() => { load(); }, [load]);
-
-    // Cleanup poll on unmount
-    useEffect(() => () => clearInterval(pollRef.current), []);
+    useEffect(() => {
+        const request = ++requestRef.current;
+        generationRef.current++;
+        clearTimeout(pollRef.current);
+        setPdfJob(null); setGenerating(false); setStatus(null); setError(null); setConfirmOpen(false);
+        if (!classId || !currentTerm?.id) { setLoading(false); return undefined; }
+        setLoading(true);
+        getPublishStatus(currentTerm.id, classId)
+            .then(res => { if (requestRef.current === request) setStatus(res.data); })
+            .catch(e => { if (requestRef.current === request) setError(e?.message || 'Failed to load publish status.'); })
+            .finally(() => { if (requestRef.current === request) { setStatusScope(targetScope); setLoading(false); } });
+        return () => { requestRef.current++; generationRef.current++; clearTimeout(pollRef.current); };
+    }, [classId, currentTerm?.id, retry]);
 
     const checklist = status?.checklist;
     const allPass   = checklist && Object.values(checklist).every(c => c.passed);
     const published = status?.published;
     const className = classes.find(c => c.id === classId)?.name ?? '';
-    const isLoading = scopeLoading || loading;
+    const isLoading = scopeLoading || loading || Boolean(classId && currentTerm?.id && statusScope !== targetScope);
 
     // Thrown errors surface inline inside the dialog; success auto-closes it.
     const handlePublish = async () => {
+        const request = requestRef.current;
         const res = await publishResults({ termId: currentTerm.id, classId });
+        if (request !== requestRef.current) return;
         setStatus(prev => ({ ...prev, published: true, publishedAt: res.data.publishedAt }));
         pushToast({ message: `Results published for ${className} · ${currentTerm.name}.`, type: 'success' });
     };
 
     const startPdfGeneration = async () => {
-        setGenerating(true);
-        setPdfJob(null);
+        const generation = ++generationRef.current;
+        setGenerating(true); setPdfJob(null);
         try {
             const res = await generateResultPdfs({ termId: currentTerm.id, classId });
+            if (generation !== generationRef.current) return;
             const jobId = res.data.jobId;
             setPdfJob({ jobId, status: 'processing', progress: 0, downloadUrl: null });
-
-            clearInterval(pollRef.current);
-            pollRef.current = setInterval(async () => {
+            const poll = async () => {
                 try {
                     const jobRes = await getPdfJob(jobId);
+                    if (generation !== generationRef.current) return;
                     setPdfJob(jobRes.data);
-                    if (jobRes.data.status === 'completed' || jobRes.data.status === 'failed') {
-                        clearInterval(pollRef.current);
+                    if (['completed', 'failed'].includes(jobRes.data.status)) {
                         setGenerating(false);
-                        if (jobRes.data.status === 'completed') {
-                            pushToast({ message: 'Result PDFs generated.', type: 'success' });
-                        }
-                    }
+                        if (jobRes.data.status === 'completed') pushToast({ message: 'Result PDFs generated.', type: 'success' });
+                    } else pollRef.current = setTimeout(poll, 600);
                 } catch {
-                    clearInterval(pollRef.current);
-                    setGenerating(false);
+                    if (generation === generationRef.current) { setGenerating(false); pushToast({ message: 'Could not check PDF generation.', type: 'error' }); }
                 }
-            }, 600);
+            };
+            pollRef.current = setTimeout(poll, 600);
         } catch (e) {
-            pushToast({ message: e?.message || 'Could not start PDF generation.', type: 'error' });
-            setGenerating(false);
+            if (generation === generationRef.current) { pushToast({ message: e?.message || 'Could not start PDF generation.', type: 'error' }); setGenerating(false); }
         }
     };
 
@@ -165,7 +164,7 @@ export default function PublishResultsTab() {
             {/* Error */}
             {!isLoading && error && (
                 <div className="bg-white border border-gray-200 rounded-2xl">
-                    <EmptyState variant="error" description={error} onRetry={load} />
+                    <EmptyState variant="error" description={error} onRetry={() => setRetry(n => n + 1)} />
                 </div>
             )}
 
@@ -302,3 +301,4 @@ export default function PublishResultsTab() {
         </div>
     );
 }
+

@@ -8,7 +8,7 @@
  * - Navigation: Network-First with offline fallback page
  */
 
-const SW_VERSION = '1.0.1'; // bumped for the new brand assets
+const SW_VERSION = '1.0.2'; // removes previously cached API responses
 const CACHE_STATIC = `educonnect-static-v${SW_VERSION}`;
 const CACHE_PAGES  = `educonnect-pages-v${SW_VERSION}`;
 
@@ -17,24 +17,6 @@ const APP_SHELL = [
     '/',
     '/offline.html',
     '/manifest.json',
-];
-
-// Routes that should NEVER be cached (sensitive auth/data endpoints)
-const NEVER_CACHE_PATTERNS = [
-    /\/api\/school\/auth/,
-    /\/api\/user\/auth/,
-    /\/api\/admin\/dashboard\/users/,
-    /\/api\/students/,
-    /\/api\/parent\/profile/,
-    /\/api\/teacher\/grades/,
-];
-
-// API routes that are safe to cache briefly (analytics, read-only data)
-const SAFE_CACHE_PATTERNS = [
-    /\/api\/admin\/dashboard\/analytics/,
-    /\/api\/teacher\/classes/,
-    /\/api\/teacher\/dashboard/,
-    /\/api\/parent\/dashboard/,
 ];
 
 // ─── Install ──────────────────
@@ -88,19 +70,7 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Never cache sensitive auth/user endpoints
-    if (NEVER_CACHE_PATTERNS.some((p) => p.test(url.pathname))) {
-        event.respondWith(fetch(request));
-        return;
-    }
-
-    // Safe API routes: Network-First, short-lived cache (5 min)
-    if (SAFE_CACHE_PATTERNS.some((p) => p.test(url.pathname))) {
-        event.respondWith(networkFirstWithCache(request, CACHE_PAGES, 300));
-        return;
-    }
-
-    // API routes (non-matched): Network-Only
+    // API routes: Network-Only
     if (url.pathname.startsWith('/api/')) {
         event.respondWith(fetch(request).catch(() => new Response(
             JSON.stringify({ error: 'Offline', message: 'No network connection available.' }),
@@ -230,3 +200,4 @@ self.addEventListener('notificationclick', (event) => {
         })
     );
 });
+

@@ -22,7 +22,7 @@ export default function PropertiesPanel({ resources }) {
   const [showDuplicate, setShowDuplicate] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   
-  const { selectedEntry, isPublished, lastSavedAt, isSaving } = state;
+  const { selectedEntry, isPublished, lastSavedAt, isSaving, saveError } = state;
 
   const handleStartAfresh = async () => {
     if (!confirm('Are you sure you want to delete this draft and start entirely from scratch? This will destroy all scheduled blocks and reset the grid structure.')) return;
@@ -101,6 +101,7 @@ export default function PropertiesPanel({ resources }) {
             </button>
           )}
 
+          {saveError && <p role="alert" className="text-xs text-red-700">Draft was not saved. <button type="button" className="underline" onClick={() => dispatch({ type: 'RETRY_SAVE' })}>Retry</button></p>}
           {/* Sync indicator */}
           {!isPublished && (lastSavedAt || isSaving) && (
             <p className="text-[10px] text-gray-400 text-center font-medium mt-1 flex justify-center items-center gap-1">
@@ -240,3 +241,4 @@ function SelectionEditor({ entry, dispatch, state, resources }) {
     </div>
   );
 }
+

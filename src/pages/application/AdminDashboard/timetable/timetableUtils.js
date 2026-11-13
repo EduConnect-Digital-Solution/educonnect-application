@@ -78,10 +78,35 @@ export function expandPeriods(timetable) {
 
 /** The period config metadata the builder's wizard expects, from any stored timetable. */
 export function extractPeriodConfig(timetable) {
-    if (timetable?.periodConfig) return timetable.periodConfig; // drafts carry it explicitly
-    const cfg = timetable?.periods?.[0];
-    if (cfg && cfg.totalPeriods) return cfg;                    // published config shape
-    return null;
+    if (timetable?.periodConfig) return timetable.periodConfig;
+    const periods = timetable?.periods ?? [];
+    const cfg = periods[0];
+    if (cfg && cfg.totalPeriods) return cfg;
+
+    // Drafts store the expanded rows. Reconstruct the configuration needed
+    // for publishing after a reload, including empty periods and breaks.
+    const lessons = periods.filter(p => p && !p.isBreak);
+    const first = lessons[0];
+    if (!first?.id || !first.start || !first.end) return null;
+    const minutes = time => {
+        const match = /^(\d{1,2}):(\d{2})$/.exec(time || '');
+        return match ? Number(match[1]) * 60 + Number(match[2]) : NaN;
+    };
+    const duration = minutes(first.end) - minutes(first.start);
+    if (!Number.isFinite(duration) || duration <= 0) return null;
+    const breaks = periods.filter(p => p?.isBreak).map(p => ({
+        breakAfter: p.number,
+        breakDuration: minutes(p.end) - minutes(p.start),
+        label: p.label || 'Break',
+    }));
+    if (breaks.some(b => !b.breakAfter || !Number.isFinite(b.breakDuration) || b.breakDuration <= 0)) return null;
+    return {
+        periodConfigId: `pc_${first.id}`,
+        schoolStart: first.start,
+        periodDuration: duration,
+        totalPeriods: lessons.length,
+        breaks,
+    };
 }
 
 /** Build a `${day}__${periodId}` → entry[] lookup for grid rendering. */
@@ -93,3 +118,4 @@ export function buildScheduleMap(schedules = []) {
     }
     return map;
 }
+

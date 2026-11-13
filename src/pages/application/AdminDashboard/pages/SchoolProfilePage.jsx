@@ -113,6 +113,7 @@ const SchoolProfilePage = () => {
             await updateSchool(formData);
             showToast('School profile updated successfully!', 'success');
             setIsEditing(false);
+            window.dispatchEvent(new Event('school-brand-changed'));
             fetchSchoolProfile(); // Refresh school data
         } catch (error) {
             console.error(error);
@@ -282,3 +283,4 @@ const SchoolProfilePage = () => {
 };
 
 export default SchoolProfilePage;
+

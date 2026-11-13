@@ -42,7 +42,6 @@ const TeacherManagement = () => {
         }
     }, []);
 
-    console.log("teachers", teachers);
 
     useEffect(() => { fetchTeachers(); }, [fetchTeachers]);
 
@@ -134,3 +133,4 @@ const TeacherManagement = () => {
 };
 
 export default TeacherManagement;
+

@@ -19,11 +19,11 @@ import CopyToArmsDrawer from '../../timetable/components/CopyToArmsDrawer.jsx';
 function TimetableContent() {
     const { state, dispatch } = useTimetable();
     const { academicYears, currentYear, terms, currentTerm, selectYear, selectTerm, loading: academicLoading } = useAcademic();
-    const { initialLoad, resources } = useGlobalTimetableData();
+    const { initialLoad, resources, scope, draftError, retryDraft } = useGlobalTimetableData();
     const [searchParams] = useSearchParams();
     const preselectedRef = useRef(false);
     const [copyOpen, setCopyOpen] = useState(false);
-    const canCopy = Boolean(state.selectedClass && state.selectedArm && currentTerm?.id && state.schedules.length > 0);
+    const canCopy = Boolean(state.loadedScope === scope && state.selectedClass && state.selectedArm && currentTerm?.id && state.schedules.length > 0);
 
     // ── Edit prefill: when arriving from "Edit timetable" with ?classId&armId&termId,
     // preselect class / arm / term once resources are loaded. useGlobalTimetableData
@@ -167,7 +167,11 @@ function TimetableContent() {
 
             {/* Builder */}
             <div className="flex-1 overflow-hidden">
-                <TimetableBuilder resources={resources} />
+                {scope && state.loadedScope !== scope ? (
+                    <div className="p-6 text-sm text-gray-600" role="status">
+                        {draftError ? <>Could not load this timetable. <button type="button" onClick={retryDraft} className="text-blue-700 underline">Try again</button></> : 'Loading timetable…'}
+                    </div>
+                ) : <TimetableBuilder resources={resources} />}
             </div>
         </div>
     );

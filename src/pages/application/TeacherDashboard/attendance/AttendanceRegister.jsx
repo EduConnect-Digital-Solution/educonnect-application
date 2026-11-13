@@ -1,4 +1,4 @@
-import { formatSchoolTime } from '../../../../utils/schoolLocale.js';
+import { formatSchoolTime, schoolDateKey } from '../../../../utils/schoolLocale.js';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Search, Save, Send, Users, CheckCircle2, XCircle, Clock, AlertTriangle, ChevronDown, Filter, CheckSquare, Square, BookOpen, MapPin, CalendarDays, RefreshCw, LockKeyhole } from 'lucide-react';
@@ -255,24 +255,6 @@ export default function AttendanceRegister({
     });
   }, []);
 
-  const handleSelectAll = useCallback(() => {
-    const visibleIds = filteredStudents.map(s => s.studentId);
-    const allSelected = visibleIds.every(id => selectedIds.has(id));
-    if (allSelected) {
-      setSelectedIds(prev => {
-        const next = new Set(prev);
-        visibleIds.forEach(id => next.delete(id));
-        return next;
-      });
-    } else {
-      setSelectedIds(prev => {
-        const next = new Set(prev);
-        visibleIds.forEach(id => next.add(id));
-        return next;
-      });
-    }
-  }, [selectedIds]);
-
   const handleBulkStatus = useCallback((status) => {
     setStudents(prev => prev.map(s =>
       selectedIds.has(s.studentId) ? { ...s, status } : s
@@ -300,6 +282,24 @@ export default function AttendanceRegister({
     });
   }, [students, searchQuery, filterStatus]);
 
+  const handleSelectAll = useCallback(() => {
+    const visibleIds = filteredStudents.map(s => s.studentId);
+    const allSelected = visibleIds.every(id => selectedIds.has(id));
+    if (allSelected) {
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        visibleIds.forEach(id => next.delete(id));
+        return next;
+      });
+    } else {
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        visibleIds.forEach(id => next.add(id));
+        return next;
+      });
+    }
+  }, [selectedIds, filteredStudents]);
+
   const allVisibleSelected =
     filteredStudents.length > 0 &&
     filteredStudents.every(s => selectedIds.has(s.studentId));
@@ -325,7 +325,7 @@ export default function AttendanceRegister({
     // Lets the server apply the school's late-grace rule (arrival within N minutes counts as present)
     periodStartTime: toHHmm(schedule.timeSlot?.start),
     teacherId: user?.id || 'tch_current',
-    date: new Date().toISOString().split('T')[0],
+    date: schedule.date ?? schoolDateKey(),
     attendanceId,
     attendances: students.map(s => ({
       studentId: s.studentId,
@@ -405,7 +405,7 @@ export default function AttendanceRegister({
     navigate('/dashboard/teacher/attendance');
   };
 
-  const today = formatDate(new Date().toISOString());
+  const today = formatDate(`${schedule.date ?? schoolDateKey()}T12:00:00`);
 
   return (
     <div className="flex flex-col h-full">
@@ -661,3 +661,4 @@ export default function AttendanceRegister({
     </div>
   );
 }
+

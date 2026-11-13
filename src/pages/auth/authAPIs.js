@@ -288,11 +288,10 @@ export async function deletePermanentInvitation(invitationId) {
  * callers get everyone instead of silently losing everything past the first page.
  */
 const PAGE_SIZE = 50;
-const MAX_PAGES = 100;
 async function fetchAllPages(url, params, listKey) {
     const get = (page) => apiClient.get(url, { params: { ...params, page, limit: PAGE_SIZE } });
     const { data } = await get(1);
-    const pages = Math.min(data?.data?.pagination?.pages ?? 1, MAX_PAGES);
+    const pages = data?.data?.pagination?.pages ?? 1;
     for (let page = 2; page <= pages; page++) {
         const next = await get(page);
         data.data[listKey] = [...(data.data[listKey] || []), ...(next.data?.data?.[listKey] || [])];
@@ -570,3 +569,4 @@ export const ResetPassword = (payload) => postAuth('/api/school/auth/reset-passw
 // Teacher / parent accounts use the user auth routes.
 export const ForgotUserPassword = (payload) => postAuth('/api/user/auth/forgot-password', payload);
 export const ResetUserPassword = (payload) => postAuth('/api/user/auth/reset-password', payload);
+
