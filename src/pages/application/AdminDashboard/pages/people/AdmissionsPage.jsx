@@ -10,6 +10,7 @@ import {
 } from '../../services/admissionsAPI.js';
 import { getSchoolClasses } from '../../services/classAPIs.js';
 import { getClassArms } from '../../services/armAPIs.js';
+import DocumentChecklist from '../../components/documents/DocumentChecklist.jsx';
 
 const TABS = [
     ['', 'All'], ['applied', 'Applied'], ['under_review', 'Under review'],
@@ -48,6 +49,7 @@ export default function AdmissionsPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError]     = useState(null);
     const [classes, setClasses] = useState([]);
+    const [docsFor, setDocsFor] = useState(null); // applicant whose documents are open
 
     // Form drawer
     const [formOpen, setFormOpen]   = useState(false);
@@ -195,8 +197,18 @@ export default function AdmissionsPage() {
 
     const confirmDelete = async () => {
         try {
-            await deleteApplicant(deleteTarget.id);
-            pushToast({ message: `${fullName(deleteTarget)}'s application was deleted.`, type: 'success' });
+            const res = await deleteApplicant(deleteTarget.id);
+            const result = res?.data; // the server answers { success, data }
+            const unknown = result?.documentsRemaining === null;
+            const left = result?.documentsRemaining || 0;
+            pushToast({
+                message: unknown
+                    ? `${fullName(deleteTarget)}'s application was deleted. Check Settings, Documents, retention review in case any of their files are left.`
+                    : left
+                    ? `${fullName(deleteTarget)}'s application was deleted, but ${left} file${left === 1 ? '' : 's'} could not be removed yet. Find ${left === 1 ? 'it' : 'them'} under Settings, Documents, retention review.`
+                    : `${fullName(deleteTarget)}'s application was deleted.`,
+                type: (left || unknown) ? 'info' : 'success',
+            });
             load();
         } catch (e) {
             throw new Error(serverMessage(e) || 'Could not delete the application.');
@@ -208,6 +220,7 @@ export default function AdmissionsPage() {
 
     const actions = (a) => {
         const out = [];
+        out.push(<button key="docs" onClick={() => setDocsFor(a)} className={`${rowBtn} text-gray-700 bg-gray-100 hover:bg-gray-200`}>Documents</button>);
         if (a.status === 'applied') out.push(<button key="r" onClick={() => quickStatus(a, 'under_review', `${fullName(a)} is now under review.`)} className={`${rowBtn} text-blue-700 bg-blue-50 hover:bg-blue-100`}>Start review</button>);
         if (a.status === 'applied' || a.status === 'under_review') out.push(<button key="o" onClick={() => openDecision(a, 'offered')} className={`${rowBtn} text-green-700 bg-green-50 hover:bg-green-100`}>Make offer</button>);
         if (a.status === 'offered') out.push(<button key="a" onClick={() => openAdmit(a)} className={`${rowBtn} text-white bg-blue-600 hover:bg-blue-700`}>Admit</button>);
@@ -444,6 +457,14 @@ export default function AdmissionsPage() {
                 </Field>
             </Drawer>
 
+            <DocumentChecklist
+                open={!!docsFor}
+                onClose={() => setDocsFor(null)}
+                ownerType="applicant"
+                ownerId={docsFor?.id}
+                ownerName={docsFor ? fullName(docsFor) : ''}
+            />
+
             <ConfirmDestructiveDialog
                 open={!!deleteTarget}
                 onClose={() => setDeleteTarget(null)}
@@ -451,7 +472,7 @@ export default function AdmissionsPage() {
                 noun="application"
                 recordName={deleteTarget ? fullName(deleteTarget) : ''}
                 requireReason={false}
-                consequence="The application is removed for good. Admitted applicants cannot be deleted."
+                consequence="The application and any documents uploaded for it are removed for good. Admitted applicants cannot be deleted."
                 onConfirm={confirmDelete}
             />
         </AdminLayout>
