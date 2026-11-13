@@ -4,12 +4,11 @@
  * Pure, synchronous functions that run on every schedules[] mutation to give
  * real-time conflict feedback in the builder UI.
  *
- * DetectConflicts is intentionally O(n) with hash-map grouping — fast enough
- * for any realistic school timetable (< 400 slots / week).
+ * Compares the current timetable with published schedules for the same term.
  *
  * Conflict Types:
- *   TEACHER_DOUBLE_BOOKING — same teacher, same day+period, different classes
- *   ROOM_CONFLICT          — same room, same day+period, different classes
+ *   TEACHER_DOUBLE_BOOKING — same teacher, overlapping lessons, different groups
+ *   ROOM_CONFLICT          — same room, overlapping lessons, different groups
  *   PERIOD_DUPLICATION     — same class gets two subjects in the same period
  *   SUBJECT_OVERLOAD       — same subject appears > 2 times on same day (warning)
  *   MISSING_TEACHER        — a period block has no teacher assigned (warning)
@@ -51,47 +50,31 @@
  * @param {ScheduleEntry[]} schedules
  * @returns {ConflictReport[]}
  */
-export function detectConflicts(schedules) {
+export function detectConflicts(schedules, otherSchedules = []) {
   const conflicts = [];
 
-  // ── 1. Teacher double-booking ───────
-  // Same teacher in two different class+arm groups at the exact same slot.
-  // armKey ensures "Grade 10A" and "Grade 10B" are treated as different groups.
-  const byTeacherSlot = groupBy(
-    schedules.filter(s => s.teacherId),
-    s => `${s.teacherId}__${s.dayOfWeek}__${s.periodId}`
-  );
-
-  for (const [key, entries] of Object.entries(byTeacherSlot)) {
-    const uniqueGroups = new Set(entries.map(e => `${e.classId}__${e.armId ?? ''}`));
-    if (uniqueGroups.size > 1) {
-      conflicts.push({
-        id: `conflict_teacher_${key}`,
-        type: 'TEACHER_DOUBLE_BOOKING',
-        severity: 'error',
-        message: `${entries[0].teacherName} is double-booked: assigned to ${uniqueGroups.size} groups at the same time on ${entries[0].dayOfWeek} Period ${entries[0].periodNumber}.`,
-        affectedEntryIds: entries.map(e => e.id),
-      });
-    }
-  }
-
-  // ── 2. Room conflict ────────
-  // Same room used by two different class+arm groups at the same slot.
-  const byRoomSlot = groupBy(
-    schedules.filter(s => s.roomId),
-    s => `${s.roomId}__${s.dayOfWeek}__${s.periodId}`
-  );
-
-  for (const [key, entries] of Object.entries(byRoomSlot)) {
-    const uniqueGroups = new Set(entries.map(e => `${e.classId}__${e.armId ?? ''}`));
-    if (uniqueGroups.size > 1) {
-      conflicts.push({
-        id: `conflict_room_${key}`,
-        type: 'ROOM_CONFLICT',
-        severity: 'error',
-        message: `${entries[0].roomName || 'A room'} is double-booked on ${entries[0].dayOfWeek} Period ${entries[0].periodNumber}.`,
-        affectedEntryIds: entries.map(e => e.id),
-      });
+  // Compare the edited entries with each other and with published timetables
+  // for the same term. Different period IDs may still overlap in clock time.
+  const entries = [...schedules, ...otherSchedules];
+  for (let i = 0; i < schedules.length; i++) {
+    for (let j = i + 1; j < entries.length; j++) {
+      const first = entries[i];
+      const second = entries[j];
+      if (first.dayOfWeek !== second.dayOfWeek || !overlaps(first, second)) continue;
+      if (first.classId === second.classId && (first.armId ?? null) === (second.armId ?? null)) continue;
+      for (const [field, type, label] of [
+        ['teacherId', 'TEACHER_DOUBLE_BOOKING', first.teacherName || 'A teacher'],
+        ['roomId', 'ROOM_CONFLICT', first.roomName || 'A room'],
+      ]) {
+        if (!first[field] || first[field] !== second[field]) continue;
+        conflicts.push({
+          id: `${type}_${i}_${j}`,
+          type,
+          severity: 'error',
+          message: `${label} is double-booked on ${first.dayOfWeek}.`,
+          affectedEntryIds: [first.id, second.id],
+        });
+      }
     }
   }
 
@@ -202,4 +185,17 @@ function groupBy(arr, keyFn) {
     result[key].push(item);
   }
   return result;
+}
+
+
+function overlaps(a, b) {
+  const parse = value => {
+    const match = /^(\d{1,2}):(\d{2})/.exec(value || '');
+    return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+  };
+  const [startA, endA, startB, endB] = [a.startTime, a.endTime, b.startTime, b.endTime].map(parse);
+  if ([startA, endA, startB, endB].some(value => value === null)) {
+    return Boolean(a.periodId && a.periodId === b.periodId);
+  }
+  return startA < endB && startB < endA;
 }

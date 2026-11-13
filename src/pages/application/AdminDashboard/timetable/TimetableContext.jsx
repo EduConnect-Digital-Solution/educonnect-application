@@ -54,6 +54,10 @@ const initialState = {
   // Draft save
   lastSavedAt: null,
   isSaving: false,
+  saveError: false,
+  saveRetry: 0,
+  loadedScope: null,
+  otherSchedules: [],
 
   // Loading flags
   loading: { draft: false },
@@ -66,13 +70,13 @@ function timetableReducer(state, action) {
     // ── Class selection ─────────
     // Changing class resets arm, periods, schedules and draft state.
     case 'SELECT_CLASS':
-      return { ...state, selectedClass: action.payload, selectedArm: null, periods: [], schedules: [], draftId: null, selectedEntryId: null, isPublished: false };
+      return { ...state, selectedClass: action.payload, selectedArm: null, periods: [], schedules: [], draftId: null, selectedEntryId: null, isPublished: false, loadedScope: null, otherSchedules: [] };
 
     // ── Arm selection ───────────
     // Changing arm resets draft state so the new arm's timetable loads fresh.
     // Passing null means "whole class" (class has no arms).
     case 'SELECT_ARM':
-      return { ...state, selectedArm: action.payload, periods: [], schedules: [], draftId: null, selectedEntryId: null, isPublished: false };
+      return { ...state, selectedArm: action.payload, periods: [], schedules: [], draftId: null, selectedEntryId: null, isPublished: false, loadedScope: null, otherSchedules: [] };
 
     // ── Periods config ──────────
     case 'SET_PERIODS':
@@ -83,7 +87,7 @@ function timetableReducer(state, action) {
 
     // ── Schedule entries ────────
     case 'SET_DRAFT':
-      return { ...state, schedules: action.schedules, periods: action.periods || [], draftId: action.draftId, isDraft: true };
+      return { ...state, schedules: action.schedules, periods: action.periods ?? state.periods, draftId: action.draftId, isDraft: true, isPublished: false };
 
     case 'ADD_SCHEDULE_ENTRY':
       return { ...state, schedules: [...state.schedules, action.payload] };
@@ -137,6 +141,13 @@ function timetableReducer(state, action) {
       return { ...state, schedules: stampedEntries };
     }
 
+    case 'SET_SCOPE':
+      return { ...state, loadedScope: action.scope, otherSchedules: action.otherSchedules };
+    case 'RETRY_SAVE':
+      return { ...state, saveRetry: state.saveRetry + 1 };
+    case 'SAVE_FAILED':
+      return { ...state, isSaving: false, saveError: true };
+
     // ── Published ───────────────
     case 'SET_PUBLISHED':
       return { ...state, isPublished: true, isDraft: false, publishedAt: action.publishedAt };
@@ -149,9 +160,9 @@ function timetableReducer(state, action) {
 
     // ── Draft save state ────────
     case 'SET_SAVING':
-      return { ...state, isSaving: action.value };
+      return { ...state, isSaving: action.value, saveError: false };
     case 'SET_SAVED':
-      return { ...state, lastSavedAt: action.at, isSaving: false, draftId: action.draftId ?? state.draftId };
+      return { ...state, lastSavedAt: action.at, isSaving: false, saveError: false, draftId: action.draftId ?? state.draftId };
 
     // ── Loading ─────────────────
     case 'SET_LOADING':
@@ -169,7 +180,7 @@ export function TimetableProvider({ children }) {
   const [state, dispatch] = useReducer(timetableReducer, initialState);
 
   // Derived: conflict analysis (re-runs every time schedules change)
-  const conflicts = useMemo(() => detectConflicts(state.schedules), [state.schedules]);
+  const conflicts = useMemo(() => detectConflicts(state.schedules, state.otherSchedules), [state.schedules, state.otherSchedules]);
   const conflictedIds = useMemo(() => getConflictedEntryIds(conflicts), [conflicts]);
   const warnedIds = useMemo(() => getWarnedEntryIds(conflicts), [conflicts]);
   const hasErrors = useMemo(() => hasBlockingConflicts(conflicts), [conflicts]);
@@ -215,3 +226,4 @@ export function useTimetable() {
   if (!ctx) throw new Error('useTimetable must be used inside <TimetableProvider>');
   return ctx;
 }
+
