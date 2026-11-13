@@ -1,4 +1,4 @@
-import { formatSchoolTime } from '../../../utils/schoolLocale.js';
+import { formatSchoolTime, schoolDateKey } from '../../../utils/schoolLocale.js';
 import React, { useState, useEffect } from 'react';
 import TeacherLayout from './components/layout/TeacherLayout.jsx';
 import TodaysClassesBoard from './attendance/TodaysClassesBoard.jsx';
@@ -24,7 +24,7 @@ export default function AttendancePage() {
       setLoading(true);
       setError(null);
       const res = await getScheduledClasses();
-      setScheduledClasses(res.data.scheduledClasses);
+      setScheduledClasses(res.data.scheduledClasses.map(s => ({ ...s, date: s.date ?? res.data.date ?? schoolDateKey() })));
       setAcademicContext(res.data.academicContext ?? null);
       setLastRefreshed(new Date());
     } catch (err) {
@@ -95,3 +95,4 @@ export default function AttendancePage() {
     </TeacherLayout>
   );
 }
+

@@ -1,3 +1,4 @@
+import { schoolDateKey } from '../../../utils/schoolLocale.js';
 import { BrandLoader } from '@/components/brand/BrandLoader.jsx';
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
@@ -33,6 +34,7 @@ export default function AttendanceRegisterPage() {
           const listRes = await getScheduledClasses();
           resolvedSchedule = listRes.data.scheduledClasses.find(s => s.scheduleId === scheduleId);
           if (!resolvedSchedule) throw new Error('Schedule not found for id: ' + scheduleId);
+          resolvedSchedule = { ...resolvedSchedule, date: resolvedSchedule.date ?? listRes.data.date ?? schoolDateKey() };
           setSchedule(resolvedSchedule);
           // Also capture academic context from the refetched response
           setAcademicContext(listRes.data.academicContext ?? null);
@@ -100,3 +102,4 @@ export default function AttendanceRegisterPage() {
     </TeacherLayout>
   );
 }
+

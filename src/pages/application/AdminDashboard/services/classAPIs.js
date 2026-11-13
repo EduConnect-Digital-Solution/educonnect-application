@@ -64,11 +64,13 @@ export async function updateClass(classId, payload) {
 export async function deleteClasses(classIds) {
   const ids = Array.isArray(classIds) ? classIds : [classIds];
 
-  const results = await Promise.all(
-      ids.map(id => apiClient.delete(`/api/academic/classes/${id}`))
-  );
-  const last = results[results.length - 1].data;
-  return { ...last, data: { deleted: results.length, errors: [] } };
+  const results = await Promise.allSettled(ids.map(id => apiClient.delete(`/api/academic/classes/${id}`)));
+  const errors = results.flatMap((result, i) => {
+    if (result.status === 'rejected') return [{ id: ids[i], message: result.reason?.response?.data?.message || result.reason?.message || 'Delete failed' }];
+    if (!result.value.data?.success) return [{ id: ids[i], message: result.value.data?.message || 'Delete failed' }];
+    return [];
+  });
+  return { success: errors.length === 0, message: errors.length ? `${errors.length} class deletion(s) failed.` : 'Classes deleted.', data: { deleted: ids.length - errors.length, errors } };
 }
 
 // =============================================================================
@@ -96,3 +98,4 @@ export async function addSubjectsToClass(classId, subjectIds) {
   });
   return data;
 }
+

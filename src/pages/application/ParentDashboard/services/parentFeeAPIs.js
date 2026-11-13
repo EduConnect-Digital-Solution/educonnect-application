@@ -4,6 +4,25 @@ import apiClient from '../../../../utils/axiosConfig.js';
  * Parent fee access (backend: /api/fees/my/*).
  * The backend stores money in kobo; everything returned here is in naira.
  */
+export const pendingPaymentKey = user => {
+    const identity = user?.id ?? user?.userId ?? user?.email;
+    return identity ? `ec_pending_paystack_ref:${identity}:${user?.schoolId ?? ''}` : null;
+};
+
+export const readPendingPayments = key => {
+    if (!key) return [];
+    try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return [];
+        try { const parsed = JSON.parse(raw); return Array.isArray(parsed) ? parsed.filter(item => item?.reference) : []; }
+        catch { return [{ reference: raw }]; }
+    } catch { return []; }
+};
+export const writePendingPayments = (key, payments) => {
+    if (!key) return;
+    try { if (payments.length) localStorage.setItem(key, JSON.stringify(payments)); else localStorage.removeItem(key); } catch { /* storage unavailable */ }
+};
+
 const KOBO = 100;
 const toNaira = (kobo) => Number(kobo || 0) / KOBO;
 
@@ -89,3 +108,4 @@ export async function verifyPayment(gateway, reference) {
         throw unwrapError(err, 'Could not check the payment. Please try again.');
     }
 }
+

@@ -6,7 +6,7 @@ import { EmptyState } from '../../../../components/patterns';
 import { getAttendanceOverview, reopenRegister } from '../services/attendanceOverviewAPI.js';
 import { notify } from '@/components/patterns/toastBus.js';
 
-const today = () => new Date().toISOString().slice(0, 10);
+import { schoolDateKey as today } from '../../../../utils/schoolLocale.js';
 const inputClass = 'px-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300';
 
 const rateTone = (rate) => {
@@ -187,3 +187,4 @@ export default function AttendanceOpsPage() {
         </AdminLayout>
     );
 }
+

@@ -3,7 +3,7 @@ import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
 import ParentLayout from './components/layout/ParentLayout.jsx';
 import { getParentDashboard } from '../../auth/authAPIs.js';
 import { getChildDay } from './services/parentAttendanceAPI.js';
-import { formatSchoolDate } from '../../../utils/schoolLocale.js';
+import { formatSchoolDate, schoolDateKey } from '../../../utils/schoolLocale.js';
 import { SectionLoader } from '@/components/brand/BrandLoader.jsx';
 import { EmptyState } from '../../../components/patterns';
 
@@ -15,7 +15,7 @@ const STATUS = {
     not_marked: { label: 'Not marked yet', cls: 'bg-gray-50 text-gray-500 border-gray-200' },
 };
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
+const todayIso = schoolDateKey;
 const shift = (iso, days) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10); };
 
 function ParentAttendanceContent() {

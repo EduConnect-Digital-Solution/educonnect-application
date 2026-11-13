@@ -2,7 +2,6 @@ import { notify } from '@/components/patterns/toastBus.js';
 import React, {useCallback, useState} from 'react';
 import { MapPin, Mail, Phone, Send } from 'lucide-react';
 import {Images} from "./images.jsx";
-import ContactPage from "../pages/ContactForm.jsx";
 import { FaTiktok, FaLinkedinIn, FaFacebookF } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
 import {navItems} from "../utils/imports.jsx";

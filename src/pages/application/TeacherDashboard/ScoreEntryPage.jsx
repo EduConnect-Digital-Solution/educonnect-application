@@ -14,10 +14,11 @@ import {
 } from './services/scoreEntryAPIs.js';
 import {
     listAssessmentEntries,
+    saveAssessmentWithScores,
     createAssessmentEntry,
     updateAssessmentEntry,
-    deleteAssessmentEntry,
     saveEntryScores,
+    deleteAssessmentEntry,
     ASSESSMENT_TYPES,
 } from './services/assessmentEntryAPIs.js';
 
@@ -406,6 +407,8 @@ function AssessmentDrawer({
     const [scoreMap,         setScoreMap]         = useState({});        // { [studentId]: string }
     const [saving,           setSaving]           = useState(false);
     const [typeIsCustom,     setTypeIsCustom]     = useState(false);
+    const legacyCreatedId = useRef(null);
+    useEffect(() => { if (!open) legacyCreatedId.current = null; }, [open]);
 
     // Populate form when drawer opens
     useEffect(() => {
@@ -472,35 +475,30 @@ function AssessmentDrawer({
                 contributionPoints:  contribNum,
             };
 
-            let targetEntryId;
-            if (isCreate) {
-                const res = await createAssessmentEntry({
-                    ...payload,
-                    className,
-                    subjectName,
-                    termId,
-                });
-                targetEntryId = res.data.entry.id;
-            } else {
-                await updateAssessmentEntry(entry.id, {
-                    title:              title.trim(),
-                    assessmentType:     effectiveType,
-                    maxObtainableScore: maxScoreNum,
-                    contributionPoints: contribNum,
-                });
-                targetEntryId = entry.id;
-            }
-
-            // Save scores
             const scores = students
                 .filter(s => scoreMap[s.id] !== '' && scoreMap[s.id] != null)
-                .map(s => ({
-                    studentId: s.id,
-                    studentName: s.fullName,
-                    scoreObtained: Number(scoreMap[s.id]),
-                }));
-
-            await saveEntryScores(targetEntryId, scores);
+                .map(s => ({ studentId: s.id, studentName: s.fullName, scoreObtained: Number(scoreMap[s.id]) }));
+            const metadata = isCreate ? { ...payload, className, subjectName, termId } : {
+                title: payload.title, assessmentType: payload.assessmentType,
+                maxObtainableScore: maxScoreNum, contributionPoints: contribNum,
+            };
+            try {
+                await saveAssessmentWithScores({ ...metadata, scores }, isCreate ? null : entry.id);
+            } catch (error) {
+                if (!error.endpointUnavailable) throw error;
+                // Older servers lack the atomic endpoint. Keep the created ID so a
+                // score-save retry in this drawer does not create a duplicate.
+                let targetId = isCreate ? legacyCreatedId.current : entry.id;
+                if (isCreate && !targetId) {
+                    const created = await createAssessmentEntry(metadata);
+                    targetId = created.data.entry.id;
+                    legacyCreatedId.current = targetId;
+                } else {
+                    await updateAssessmentEntry(targetId, { title: payload.title, assessmentType: payload.assessmentType, maxObtainableScore: maxScoreNum, contributionPoints: contribNum });
+                }
+                try { await saveEntryScores(targetId, scores); }
+                catch (err) { throw new Error(`${err?.message || 'Scores were not saved.'} The assessment exists; retry without closing this form.`); }
+            }
 
             pushToast({
                 message: isCreate ? 'Assessment recorded successfully.' : 'Assessment updated.',

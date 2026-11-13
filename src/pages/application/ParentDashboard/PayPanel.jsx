@@ -1,7 +1,8 @@
 import { currencySymbol, formatMajor, formatSchoolDateTime } from '../../../utils/schoolLocale.js';
 import React, { useEffect, useState } from 'react';
 import { ArrowRight, Check, Copy, CreditCard, Landmark, Lock } from 'lucide-react';
-import { getMyGateways, startPaystackPayment, startBankTransfer, verifyPayment } from './services/parentFeeAPIs.js';
+import { useAuth } from '../../../contexts/AuthContext.jsx';
+import { pendingPaymentKey, readPendingPayments, writePendingPayments, getMyGateways, startPaystackPayment, startBankTransfer, verifyPayment } from './services/parentFeeAPIs.js';
 
 const money = (n) => formatMajor(n, 2);
 
@@ -18,6 +19,8 @@ const fmtExpiry = (iso) => {
  * calls onPaid() once a payment is confirmed so the page can refresh.
  */
 export default function PayPanel({ fee, onPaid }) {
+    const { user } = useAuth();
+    const paymentKey = pendingPaymentKey(user);
     const outstanding = Number(fee.amountDue ?? 0);
 
     const [gateways, setGateways] = useState(null); // null = loading
@@ -52,7 +55,10 @@ export default function PayPanel({ fee, onPaid }) {
                 }
                 // Remember it, so the fees page can still confirm the payment if the gateway
                 // does not send the parent straight back with the reference.
-                try { if (res.reference) localStorage.setItem('ec_pending_paystack_ref', res.reference); } catch { /* storage unavailable */ }
+                if (res.reference && paymentKey) {
+                    const pending = readPendingPayments(paymentKey).filter(item => item.reference !== res.reference);
+                    writePendingPayments(paymentKey, [...pending, { reference: res.reference, invoiceId: fee.id }]);
+                }
                 window.location.assign(res.authorizationUrl);
                 return; // leaving the page; keep the button disabled
             }
@@ -199,4 +205,5 @@ export default function PayPanel({ fee, onPaid }) {
         </div>
     );
 }
+
 

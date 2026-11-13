@@ -11,7 +11,7 @@ import { getClassArms } from '../../services/armAPIs.js';
 import {
     getReportCardTemplate, saveReportCardTemplate,
     getReportCardComments, saveReportCardComment, REPORT_CARD_TRAITS, getPublishStatus,
-    generateReportCards, getPdfJob, signOffReportCards, publishReportCardsToParents,
+    generateReportCards, getPdfJob, getReportCardStatus, signOffReportCards, publishReportCardsToParents,
 } from '../../services/gradingAPIs.js';
 
 const TABS = [
@@ -621,19 +621,22 @@ function GenerateReleaseTab() {
     const [job, setJob]       = useState(null);
     const [busy, setBusy]     = useState(false);
     const pollRef = useRef(null);
+    const generationRef = useRef(0);
 
     // Reset the pipeline whenever the target changes
     useEffect(() => {
-        setStage('idle'); setJob(null); setBusy(false);
-        clearInterval(pollRef.current);
-    }, [armId, currentTerm?.id]);
+        generationRef.current++;
+        setStage('idle'); setJob(null); setBusy(false); setStatusUnavailable(false);
+        clearTimeout(pollRef.current);
+    }, [classId, armId, currentTerm?.id]);
 
-    useEffect(() => () => clearInterval(pollRef.current), []);
+    useEffect(() => () => { generationRef.current++; clearTimeout(pollRef.current); }, []);
 
     const ready = armId && currentTerm?.id;
 
     // Real prerequisites, read from the server whenever the class, arm or term changes
     const [checks, setChecks] = useState({ loading: false, published: false, pendingComments: null, totalStudents: 0, error: null });
+    const [statusUnavailable, setStatusUnavailable] = useState(false);
     useEffect(() => {
         if (!armId || !classId || !currentTerm?.id) return undefined;
         let cancelled = false;
@@ -641,8 +644,15 @@ function GenerateReleaseTab() {
         Promise.all([
             getPublishStatus(currentTerm.id, classId),
             getReportCardComments(armId, currentTerm.id),
-        ]).then(([publish, comments]) => {
+            getReportCardStatus(armId, currentTerm.id).catch(e => { if (e?.response?.status === 404) return null; throw e; }),
+        ]).then(([publish, comments, release]) => {
             if (cancelled) return;
+            setStatusUnavailable(!release);
+            const state = release?.data;
+            if (state?.released) setStage('published');
+            else if (state?.signedOff) setStage('signed');
+            else if (state?.job?.status === 'completed') { setStage('generated'); setJob(state.job); }
+            else if (state?.job?.status === 'processing') { setJob(state.job); setBusy(true); pollJob(state.job.jobId, generationRef.current); }
             const students = comments.data?.students ?? [];
             setChecks({
                 loading: false, error: null,
@@ -669,61 +679,66 @@ function GenerateReleaseTab() {
     ];
     const allPrereq = !checks.loading && !checks.error && prereqs.filter(p => !p.optional).every(p => p.passed);
 
+    const pollJob = (jobId, generation) => {
+        const poll = async () => {
+            try {
+                const jr = await getPdfJob(jobId);
+                if (generation !== generationRef.current) return;
+                setJob(jr.data);
+                if (jr.data.status === 'completed') {
+                    setBusy(false); setStage('generated');
+                    pushToast({ message: 'Report cards generated.', type: 'success' });
+                } else if (jr.data.status === 'failed') {
+                    setBusy(false); pushToast({ message: jr.data.error || 'Report card generation failed.', type: 'error' });
+                } else pollRef.current = setTimeout(poll, 600);
+            } catch {
+                if (generation === generationRef.current) { setBusy(false); pushToast({ message: 'Could not check report-card generation.', type: 'error' }); }
+            }
+        };
+        clearTimeout(pollRef.current);
+        pollRef.current = setTimeout(poll, 600);
+    };
+
     const handleGenerate = async () => {
+        const generation = ++generationRef.current;
         setBusy(true); setJob({ status: 'processing', progress: 0 });
         try {
             const res = await generateReportCards({ armId, termId: currentTerm.id });
-            const jobId = res.data.jobId;
-            clearInterval(pollRef.current);
-            pollRef.current = setInterval(async () => {
-                try {
-                    const jr = await getPdfJob(jobId);
-                    setJob(jr.data);
-                    if (jr.data.status === 'failed') {
-                        clearInterval(pollRef.current);
-                        setBusy(false);
-                        pushToast({ message: jr.data.error || 'Report card generation failed.', type: 'error' });
-                    } else if (jr.data.status === 'completed') {
-                        clearInterval(pollRef.current);
-                        setBusy(false);
-                        setStage('generated');
-                        pushToast({ message: 'Report cards generated.', type: 'success' });
-                    }
-                } catch {
-                    clearInterval(pollRef.current);
-                    setBusy(false);
-                }
-            }, 600);
+            if (generation === generationRef.current) pollJob(res.data.jobId, generation);
         } catch (e) {
-            pushToast({ message: e?.message || 'Generation failed.', type: 'error' });
-            setBusy(false); setJob(null);
+            if (generation === generationRef.current) { pushToast({ message: e?.message || 'Generation failed.', type: 'error' }); setBusy(false); setJob(null); }
         }
     };
 
     const handleSignOff = async () => {
+        const generation = generationRef.current;
         setBusy(true);
         try {
             await signOffReportCards({ armId, termId: currentTerm.id });
+            if (generation !== generationRef.current) return;
             setStage('signed');
             pushToast({ message: 'Cards signed off by principal.', type: 'success' });
         } catch (e) {
-            pushToast({ message: e?.message || 'Sign-off failed.', type: 'error' });
-        } finally { setBusy(false); }
+            if (generation === generationRef.current) pushToast({ message: e?.message || 'Sign-off failed.', type: 'error' });
+        } finally { if (generation === generationRef.current) setBusy(false); }
     };
 
     const handlePublish = async () => {
+        const generation = generationRef.current;
         setBusy(true);
         try {
             const res = await publishReportCardsToParents({ armId, termId: currentTerm.id });
+            if (generation !== generationRef.current) return;
             setStage('published');
             pushToast({ message: `${res.data.publishedCount} cards released to parents.`, type: 'success' });
         } catch (e) {
-            pushToast({ message: e?.message || 'Publishing failed.', type: 'error' });
-        } finally { setBusy(false); }
+            if (generation === generationRef.current) pushToast({ message: e?.message || 'Publishing failed.', type: 'error' });
+        } finally { if (generation === generationRef.current) setBusy(false); }
     };
 
     return (
         <div className="flex flex-col gap-5">
+            {statusUnavailable && <p role="alert" className="text-sm text-amber-800 bg-amber-50 p-3 rounded-lg">The server cannot restore report-card status yet. Confirm the existing release status before continuing.</p>}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-base font-bold text-gray-900">Generate & Release</h2>

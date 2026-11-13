@@ -1,8 +1,9 @@
 import { formatMajor } from '../../../utils/schoolLocale.js';
 import { BrandLoader } from '@/components/brand/BrandLoader.jsx';
+import { useAuth } from '../../../contexts/AuthContext.jsx';
 import React, { useState, useEffect } from 'react';
 import ParentLayout from "./components/layout/ParentLayout.jsx";
-import { getMyInvoices, verifyPayment } from "./services/parentFeeAPIs.js";
+import { pendingPaymentKey, readPendingPayments, writePendingPayments, getMyInvoices, verifyPayment } from "./services/parentFeeAPIs.js";
 import ReceiptModal from "./ReceiptModal.jsx";
 import PayPanel from "./PayPanel.jsx";
 import {
@@ -571,6 +572,8 @@ function PageHeader() {
 }
 
 export default function FeesAndPayments() {
+    const { user } = useAuth();
+    const paymentKey = pendingPaymentKey(user);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [fees, setFees] = useState([]);
@@ -605,32 +608,41 @@ export default function FeesAndPayments() {
         fetchFees();
     }, []);
 
-    // Back from Paystack: the reference arrives in the query string. Check it, then tidy the URL.
+    // Keep pending references until verification reaches a terminal state.
     useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        let stored = null;
-        try { stored = localStorage.getItem('ec_pending_paystack_ref'); } catch { /* storage unavailable */ }
-        // The query string wins; otherwise fall back to the payment this browser last started
-        const reference = params.get('reference') || params.get('trxref') || stored;
-        if (!reference) return;
-        window.history.replaceState({}, '', window.location.pathname);
-        try { localStorage.removeItem('ec_pending_paystack_ref'); } catch { /* storage unavailable */ }
-
-        verifyPayment('paystack', reference)
-            .then((res) => {
-                if (res?.status === 'confirmed') {
-                    setNotice({ tone: 'success', text: 'Payment received. Thank you! Your receipt is in the payment history below.' });
-                    refreshFees();
-                } else if (res?.status === 'failed') {
-                    setNotice({ tone: 'warning', text: 'The payment was not completed, so you have not been charged. You can try again.' });
-                } else if (res?.status === 'review') {
-                    setNotice({ tone: 'warning', text: 'We received your payment but need to check it against the invoice. Please contact the school office and quote your payment reference.' });
-                } else {
-                    setNotice({ tone: 'info', text: 'We are still confirming your payment. Please refresh in a few minutes.' });
+        const url = new URL(window.location.href);
+        const callbackRef = url.searchParams.get('reference') || url.searchParams.get('trxref');
+        const pending = readPendingPayments(paymentKey);
+        const references = [...new Set([callbackRef, ...pending.map(item => item.reference)].filter(Boolean))];
+        if (!references.length) return undefined;
+        let active = true;
+        (async () => {
+            for (const reference of references) {
+                try {
+                    const res = await verifyPayment('paystack', reference);
+                    if (!active) return;
+                    if (res?.status === 'confirmed' || res?.status === 'failed') {
+                        // Re-read before writing, preserving payments started in another tab.
+                        const remaining = readPendingPayments(paymentKey).filter(item => item.reference !== reference);
+                        writePendingPayments(paymentKey, remaining);
+                        if (reference === callbackRef) {
+                            url.searchParams.delete('reference'); url.searchParams.delete('trxref');
+                            window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+                        }
+                    }
+                    if (res?.status === 'confirmed') {
+                        setNotice({ tone: 'success', text: 'Payment received. Thank you! Your receipt is in the payment history below.' });
+                        refreshFees();
+                    } else if (res?.status === 'failed') setNotice({ tone: 'warning', text: `Payment ${reference} was not completed. You can try again.` });
+                    else if (res?.status === 'review') setNotice({ tone: 'warning', text: `Payment ${reference} needs review. Please contact the school office.` });
+                    else setNotice({ tone: 'info', text: `Payment ${reference} is still being confirmed. Please refresh in a few minutes.` });
+                } catch (e) {
+                    if (active) setNotice({ tone: 'warning', text: `${e.message} Refresh to retry payment ${reference}.` });
                 }
-            })
-            .catch((e) => setNotice({ tone: 'warning', text: e.message }));
-    }, []);
+            }
+        })();
+        return () => { active = false; };
+    }, [paymentKey]);
 
     if (loading) {
         return (
@@ -685,3 +697,4 @@ export default function FeesAndPayments() {
         </ParentLayout>
     );
 }
+

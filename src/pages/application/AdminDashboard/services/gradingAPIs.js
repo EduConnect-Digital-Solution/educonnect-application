@@ -726,6 +726,11 @@ export async function saveReportCardComment(studentId, payload) {
  * payload: { armId, termId }
  * Response: { success, data: { jobId } }
  */
+export async function getReportCardStatus(armId, termId) {
+    const { data } = await apiClient.get('/api/admin/report-cards/status', { params: { armId, termId } });
+    return data;
+}
+
 export async function generateReportCards(payload) {
     try {
         const { data } = await apiClient.post('/api/admin/report-cards/generate', payload);
@@ -905,3 +910,4 @@ export async function getAdminSubjectScores(termId, className, armName, subjectN
         throw error?.response?.data || error;
     }
 }
+

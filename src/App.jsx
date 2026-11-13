@@ -106,17 +106,20 @@ const AuthContextBridge = ({ children }) => {
         };
     }, [auth]);
 
-    // Load the school's currency / timezone / date format once someone is signed in, so every
-    // screen formats money and dates the way the school chose. Cached for the next page load.
-    const signedIn = Boolean(auth.user);
+    const user = auth.user;
+    const identity = user ? JSON.stringify([user.id ?? user.userId ?? user.email, user.schoolId, user.role]) : null;
+    const [localeIdentity, setLocaleIdentity] = React.useState(null);
     useEffect(() => {
-        if (!signedIn) { clearSchoolLocale(); return undefined; }
+        clearSchoolLocale();
+        if (!identity) { setLocaleIdentity(null); return undefined; }
         let alive = true;
         getPublicSettings()
-            .then((s) => { if (alive && s?.locale) setSchoolLocale(s.locale); })
-            .catch(() => { /* keep the cached or default locale */ });
+            .then(s => { if (alive && s?.locale) setSchoolLocale(s.locale); })
+            .catch(() => { /* use defaults if settings are unavailable */ })
+            .finally(() => { if (alive) setLocaleIdentity(identity); });
         return () => { alive = false; };
-    }, [signedIn]);
+    }, [identity]);
+    if (identity && localeIdentity !== identity) return <LoadingFallback />;
 
     return children;
 };
