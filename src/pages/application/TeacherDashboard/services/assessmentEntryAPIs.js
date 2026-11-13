@@ -11,7 +11,7 @@
  * A component's allocation is fully used when the sum of contributionPoints
  * across all its entries equals the component's maxScore.
  *
- * Live endpoints (backend pending — uncomment apiClient calls when ready):
+ * Live endpoints:
  *   GET    /api/teacher/assessment-entries?className=&subjectName=&termId=
  *   POST   /api/teacher/assessment-entries
  *   PUT    /api/teacher/assessment-entries/:id
@@ -199,6 +199,7 @@ export async function listAssessmentEntries(className, subjectName, termId) {
  *   termId: string,
  *   maxObtainableScore: number,
  *   contributionPoints: number,
+ *   scores?: [{ studentId, scoreObtained }],   // saved with the details, all-or-nothing
  * }
  *
  * Response: { data: { entry: AssessmentEntry } }
@@ -235,11 +236,12 @@ export async function createAssessmentEntry(payload) {
 /**
  * PUT /api/teacher/assessment-entries/:id
  *
- * Updates an existing assessment entry's metadata (not scores — use saveEntryScores).
+ * Updates an existing assessment entry's metadata. Pass `scores` to replace the scores in the same
+ * all-or-nothing save (omit to leave them, [] to clear them).
  * Can update: title, assessmentType, maxObtainableScore, contributionPoints.
  * Cannot change: policyComponentId, className, subjectName, termId.
  *
- * payload: { title?, assessmentType?, maxObtainableScore?, contributionPoints? }
+ * payload: { title?, assessmentType?, maxObtainableScore?, contributionPoints?, scores? }
  *
  * Response: { data: { entry: AssessmentEntry } }
  */

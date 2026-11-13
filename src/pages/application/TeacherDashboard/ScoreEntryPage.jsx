@@ -16,7 +16,6 @@ import {
     listAssessmentEntries,
     createAssessmentEntry,
     updateAssessmentEntry,
-    saveEntryScores,
     deleteAssessmentEntry,
     ASSESSMENT_TYPES,
 } from './services/assessmentEntryAPIs.js';
@@ -407,6 +406,7 @@ function AssessmentDrawer({
     const [saving,           setSaving]           = useState(false);
     const [typeIsCustom,     setTypeIsCustom]     = useState(false);
     const createdEntryId = useRef(null);
+    const savingRef = useRef(false);
     useEffect(() => { if (!open) createdEntryId.current = null; }, [open]);
 
     // Populate form when drawer opens
@@ -462,6 +462,8 @@ function AssessmentDrawer({
 
     // ── Handlers ─────────────────────────────────────────────────────────────
     const handleSave = async () => {
+        if (savingRef.current) return; // a second click must not start a second save
+        savingRef.current = true;
         setSaving(true);
         try {
             const payload = {
@@ -484,18 +486,19 @@ function AssessmentDrawer({
             if (scores.some(s => !Number.isFinite(s.scoreObtained) || s.scoreObtained < 0 || s.scoreObtained > maxScoreNum)) {
                 throw new Error(`Scores must be between 0 and ${maxScoreNum}.`);
             }
-            // The server saves assessment details and scores separately. Retain
-            // the created ID while this drawer is open so a retry reuses it.
+            // Details and scores go in ONE request, so the server saves both or neither.
+            // After a create succeeds the id is kept for this open form, so anything that
+            // happens afterwards updates that entry instead of creating a second one.
             let targetId = isCreate ? createdEntryId.current : entry.id;
             if (isCreate && !targetId) {
-                const created = await createAssessmentEntry(metadata);
-                targetId = created.data.entry.id;
-                createdEntryId.current = targetId;
+                const created = await createAssessmentEntry({ ...metadata, scores });
+                createdEntryId.current = created.data.entry.id;
             } else {
-                await updateAssessmentEntry(targetId, { title: payload.title, assessmentType: payload.assessmentType, maxObtainableScore: maxScoreNum, contributionPoints: contribNum });
+                await updateAssessmentEntry(targetId, {
+                    title: payload.title, assessmentType: payload.assessmentType,
+                    maxObtainableScore: maxScoreNum, contributionPoints: contribNum, scores,
+                });
             }
-            try { await saveEntryScores(targetId, scores); }
-            catch (err) { throw new Error(`${err?.message || 'Scores were not saved.'} The assessment exists; retry without closing this form.`); }
 
             pushToast({
                 message: isCreate ? 'Assessment recorded successfully.' : 'Assessment updated.',
@@ -505,6 +508,7 @@ function AssessmentDrawer({
         } catch (e) {
             pushToast({ message: e?.message || 'Failed to save. Please try again.', type: 'error' });
         } finally {
+            savingRef.current = false;
             setSaving(false);
         }
     };
