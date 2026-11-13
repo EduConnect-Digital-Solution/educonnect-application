@@ -203,17 +203,6 @@ export async function listAssessmentEntries(className, subjectName, termId) {
  *
  * Response: { data: { entry: AssessmentEntry } }
  */
-export async function saveAssessmentWithScores(payload, entryId = null) {
-    try {
-        const url = entryId ? `/api/teacher/assessment-entries/${entryId}/with-scores` : '/api/teacher/assessment-entries/with-scores';
-        const { data } = entryId ? await apiClient.put(url, payload) : await apiClient.post(url, payload);
-        return data;
-    } catch (error) {
-        if (error?.response?.status === 404) { const e = new Error('Atomic assessment endpoint is unavailable.'); e.endpointUnavailable = true; throw e; }
-        throw error?.response?.data || error;
-    }
-}
-
 export async function createAssessmentEntry(payload) {
     try {
         const { data } = await apiClient.post('/api/teacher/assessment-entries', payload);

@@ -11,7 +11,7 @@ import { getClassArms } from '../../services/armAPIs.js';
 import {
     getReportCardTemplate, saveReportCardTemplate,
     getReportCardComments, saveReportCardComment, REPORT_CARD_TRAITS, getPublishStatus,
-    generateReportCards, getPdfJob, getReportCardStatus, signOffReportCards, publishReportCardsToParents,
+    generateReportCards, getPdfJob, signOffReportCards, publishReportCardsToParents,
 } from '../../services/gradingAPIs.js';
 
 const TABS = [
@@ -626,7 +626,7 @@ function GenerateReleaseTab() {
     // Reset the pipeline whenever the target changes
     useEffect(() => {
         generationRef.current++;
-        setStage('idle'); setJob(null); setBusy(false); setStatusUnavailable(false);
+        setStage('idle'); setJob(null); setBusy(false);
         clearTimeout(pollRef.current);
     }, [classId, armId, currentTerm?.id]);
 
@@ -636,7 +636,6 @@ function GenerateReleaseTab() {
 
     // Real prerequisites, read from the server whenever the class, arm or term changes
     const [checks, setChecks] = useState({ loading: false, published: false, pendingComments: null, totalStudents: 0, error: null });
-    const [statusUnavailable, setStatusUnavailable] = useState(false);
     useEffect(() => {
         if (!armId || !classId || !currentTerm?.id) return undefined;
         let cancelled = false;
@@ -644,15 +643,8 @@ function GenerateReleaseTab() {
         Promise.all([
             getPublishStatus(currentTerm.id, classId),
             getReportCardComments(armId, currentTerm.id),
-            getReportCardStatus(armId, currentTerm.id).catch(e => { if (e?.response?.status === 404) return null; throw e; }),
-        ]).then(([publish, comments, release]) => {
+        ]).then(([publish, comments]) => {
             if (cancelled) return;
-            setStatusUnavailable(!release);
-            const state = release?.data;
-            if (state?.released) setStage('published');
-            else if (state?.signedOff) setStage('signed');
-            else if (state?.job?.status === 'completed') { setStage('generated'); setJob(state.job); }
-            else if (state?.job?.status === 'processing') { setJob(state.job); setBusy(true); pollJob(state.job.jobId, generationRef.current); }
             const students = comments.data?.students ?? [];
             setChecks({
                 loading: false, error: null,
@@ -738,7 +730,7 @@ function GenerateReleaseTab() {
 
     return (
         <div className="flex flex-col gap-5">
-            {statusUnavailable && <p role="alert" className="text-sm text-amber-800 bg-amber-50 p-3 rounded-lg">The server cannot restore report-card status yet. Confirm the existing release status before continuing.</p>}
+            {ready && <p role="status" className="text-sm text-amber-800 bg-amber-50 p-3 rounded-lg">This page cannot restore report-card release progress after a refresh. Confirm the existing status before continuing.</p>}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-base font-bold text-gray-900">Generate & Release</h2>
