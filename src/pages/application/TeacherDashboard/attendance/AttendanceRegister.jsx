@@ -255,24 +255,6 @@ export default function AttendanceRegister({
     });
   }, []);
 
-  const handleSelectAll = useCallback(() => {
-    const visibleIds = filteredStudents.map(s => s.studentId);
-    const allSelected = visibleIds.every(id => selectedIds.has(id));
-    if (allSelected) {
-      setSelectedIds(prev => {
-        const next = new Set(prev);
-        visibleIds.forEach(id => next.delete(id));
-        return next;
-      });
-    } else {
-      setSelectedIds(prev => {
-        const next = new Set(prev);
-        visibleIds.forEach(id => next.add(id));
-        return next;
-      });
-    }
-  }, [selectedIds]);
-
   const handleBulkStatus = useCallback((status) => {
     setStudents(prev => prev.map(s =>
       selectedIds.has(s.studentId) ? { ...s, status } : s
@@ -299,6 +281,24 @@ export default function AttendanceRegister({
       return matchesSearch && matchesFilter;
     });
   }, [students, searchQuery, filterStatus]);
+
+  const handleSelectAll = useCallback(() => {
+    const visibleIds = filteredStudents.map(s => s.studentId);
+    const allSelected = visibleIds.every(id => selectedIds.has(id));
+    if (allSelected) {
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        visibleIds.forEach(id => next.delete(id));
+        return next;
+      });
+    } else {
+      setSelectedIds(prev => {
+        const next = new Set(prev);
+        visibleIds.forEach(id => next.add(id));
+        return next;
+      });
+    }
+  }, [selectedIds, filteredStudents]);
 
   const allVisibleSelected =
     filteredStudents.length > 0 &&
@@ -661,3 +661,4 @@ export default function AttendanceRegister({
     </div>
   );
 }
+

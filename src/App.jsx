@@ -252,14 +252,20 @@ function AppRoutes() {
     );
 }
 
+function ScopedAcademicProvider({ children }) {
+    const { user } = useAuth();
+    const identity = user ? JSON.stringify([user.id ?? user.userId ?? user.email, user.schoolId, user.role]) : 'signed-out';
+    return <AcademicProvider key={identity}>{children}</AcademicProvider>;
+}
+
 function App() {
     return (
         <AuthProvider>
             <PWAProvider>
                 <AuthContextBridge>
-                    <AcademicProvider>
+                    <ScopedAcademicProvider>
                         <AppRoutes />
-                    </AcademicProvider>
+                    </ScopedAcademicProvider>
                 </AuthContextBridge>
             </PWAProvider>
         </AuthProvider>

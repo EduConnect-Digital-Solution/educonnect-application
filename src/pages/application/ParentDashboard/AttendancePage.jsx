@@ -25,9 +25,12 @@ function ParentAttendanceContent() {
     const [day, setDay] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [retryChildren, setRetryChildren] = useState(0);
+    const [retryDay, setRetryDay] = useState(0);
 
     useEffect(() => {
         let alive = true;
+        setError('');
         getParentDashboard()
             .then((res) => {
                 if (!alive) return;
@@ -37,7 +40,7 @@ function ParentAttendanceContent() {
             })
             .catch((e) => alive && setError(e?.message || 'Could not load your children.'));
         return () => { alive = false; };
-    }, []);
+    }, [retryChildren]);
 
     useEffect(() => {
         if (!childId) return undefined;
@@ -48,7 +51,7 @@ function ParentAttendanceContent() {
             .catch((e) => alive && setError(e.message))
             .finally(() => alive && setLoading(false));
         return () => { alive = false; };
-    }, [childId, date]);
+    }, [childId, date, retryDay]);
 
     if (children === null && !error) return <SectionLoader label="Loading your children…" />;
     if (children && children.length === 0) return <EmptyState title="No children linked" description="Ask the school to link your child to your account." />;
@@ -75,7 +78,7 @@ function ParentAttendanceContent() {
                 {date !== todayIso() && <button onClick={() => setDate(todayIso())} className="text-sm font-semibold text-blue-600 hover:text-blue-800">Today</button>}
             </div>
 
-            {error ? <EmptyState variant="error" description={error} onRetry={() => setDate((d) => d)} />
+            {error ? <EmptyState variant="error" description={error} onRetry={() => children === null ? setRetryChildren(n => n + 1) : setRetryDay(n => n + 1)} />
                 : loading || !day ? <SectionLoader label="Loading the day…" />
                 : (
                     <>
@@ -122,3 +125,4 @@ export default function ParentAttendancePage() {
         </ParentLayout>
     );
 }
+

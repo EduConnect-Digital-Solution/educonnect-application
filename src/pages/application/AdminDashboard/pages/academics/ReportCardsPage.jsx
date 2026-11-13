@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { LayoutTemplate, MessageSquareText, Send, GripVertical, Eye, EyeOff, ArrowUp, ArrowDown, Save, CheckCircle2, XCircle, Lock, FileText, ShieldCheck, Printer, Users, Star } from 'lucide-react';
+import { LayoutTemplate, MessageSquareText, Send, GripVertical, Eye, EyeOff, ArrowUp, ArrowDown, Save, CheckCircle2, XCircle, Lock, FileText, ShieldCheck, Users, Star } from 'lucide-react';
 import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import AdminLayout from '../../components/layout/AdminLayout.jsx';
 import {
@@ -679,7 +679,11 @@ function GenerateReleaseTab() {
                 try {
                     const jr = await getPdfJob(jobId);
                     setJob(jr.data);
-                    if (jr.data.status === 'completed') {
+                    if (jr.data.status === 'failed') {
+                        clearInterval(pollRef.current);
+                        setBusy(false);
+                        pushToast({ message: jr.data.error || 'Report card generation failed.', type: 'error' });
+                    } else if (jr.data.status === 'completed') {
                         clearInterval(pollRef.current);
                         setBusy(false);
                         setStage('generated');
@@ -716,10 +720,6 @@ function GenerateReleaseTab() {
         } catch (e) {
             pushToast({ message: e?.message || 'Publishing failed.', type: 'error' });
         } finally { setBusy(false); }
-    };
-
-    const handlePrint = () => {
-        pushToast({ message: 'Batch sent to the print queue.', type: 'success' });
     };
 
     return (
@@ -812,7 +812,7 @@ function GenerateReleaseTab() {
                         </StageStep>
 
                         <StageStep index={3} title="Release to parents"
-                            description="Publish signed cards to the parent portal and optionally send to the print queue."
+                            description="Publish signed cards to the parent portal."
                             done={stage === 'published'} current={stage === 'signed'}>
                             {stage === 'signed' && (
                                 <button type="button" onClick={handlePublish} disabled={busy}
@@ -825,10 +825,6 @@ function GenerateReleaseTab() {
                                     <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-green-700">
                                         <Lock size={14} /> Released to parents
                                     </span>
-                                    <button type="button" onClick={handlePrint}
-                                        className="px-3 py-1.5 bg-white border border-gray-200 text-xs font-semibold text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1.5">
-                                        <Printer size={13} /> Batch print
-                                    </button>
                                 </div>
                             )}
                         </StageStep>
@@ -895,3 +891,4 @@ export default function ReportCardsPage() {
         </AdminLayout>
     );
 }
+

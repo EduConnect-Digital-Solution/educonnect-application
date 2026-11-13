@@ -39,10 +39,10 @@ const moneyFormatter = (decimals) => new Intl.NumberFormat(current.locale, {
 });
 
 /** Minor units (kobo, pesewas, cents) to a currency string. */
-export const formatMinor = (minor = 0, decimals = 0) => moneyFormatter(decimals).format((Number(minor) || 0) / 100);
+export const formatMinor = (minor = 0, decimals = 2) => moneyFormatter(decimals).format((Number(minor) || 0) / 100);
 
 /** A whole-currency amount (already in naira, cedis, ...) to a currency string. */
-export const formatMajor = (amount = 0, decimals = 0) => moneyFormatter(decimals).format(Number(amount) || 0);
+export const formatMajor = (amount = 0, decimals = 2) => moneyFormatter(decimals).format(Number(amount) || 0);
 
 export const currencySymbol = () => {
     const part = moneyFormatter(0).formatToParts(0).find((p) => p.type === 'currency');
@@ -82,3 +82,4 @@ export const formatSchoolDateTime = (value) => {
     const date = formatSchoolDate(value);
     return date ? `${date}, ${formatSchoolTime(value)}` : '';
 };
+

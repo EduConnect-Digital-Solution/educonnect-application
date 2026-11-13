@@ -492,11 +492,13 @@ function AssessmentDrawer({
             }
 
             // Save scores
-            const scores = students.map(s => ({
-                studentId:     s.id,
-                studentName:   s.fullName,
-                scoreObtained: Number(scoreMap[s.id]) || 0,
-            })).filter(s => s.scoreObtained > 0);
+            const scores = students
+                .filter(s => scoreMap[s.id] !== '' && scoreMap[s.id] != null)
+                .map(s => ({
+                    studentId: s.id,
+                    studentName: s.fullName,
+                    scoreObtained: Number(scoreMap[s.id]),
+                }));
 
             await saveEntryScores(targetEntryId, scores);
 
@@ -1193,3 +1195,4 @@ export default function ScoreEntryPage() {
         </TeacherLayout>
     );
 }
+
