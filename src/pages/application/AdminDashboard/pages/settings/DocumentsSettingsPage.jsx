@@ -13,16 +13,23 @@ import {
 
 const AUDIENCES = [['applicant', 'Applicants'], ['student', 'Students'], ['staff', 'Staff']];
 const FILE_KINDS = [['application/pdf', 'PDF'], ['image/jpeg', 'JPEG'], ['image/png', 'PNG'], ['image/webp', 'WebP']];
-const EMPTY = { name: '', description: '', appliesTo: ['applicant'], required: false, allowedMimeTypes: FILE_KINDS.map(([m]) => m), maxSizeMb: 5, keepForever: true, retentionMonths: 12, isActive: true };
+const EMPTY = { name: '', description: '', appliesTo: ['applicant'], required: false, allowedMimeTypes: FILE_KINDS.map(([m]) => m), maxSizeMb: 5, keepForever: true, retentionMonths: 12, retentionFrom: 'upload', isActive: true };
 
 const btnPrimary = 'flex-1 py-2.5 rounded-lg bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60 inline-flex items-center justify-center gap-2';
 const btnGhost = 'flex-1 py-2.5 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50';
 
-const retentionLabel = (m) => {
+const FROM_LABEL = { upload: 'the upload', decision: 'the application is declined', departure: 'the student leaves' };
+const retentionLabel = (m, from = 'upload') => {
     if (!m) return 'Kept until you delete it';
-    if (m % 12 === 0) return `Reviewed after ${m / 12} year${m === 12 ? '' : 's'}`;
-    return `Reviewed after ${m} month${m === 1 ? '' : 's'}`;
+    const span = m % 12 === 0 ? `${m / 12} year${m === 12 ? '' : 's'}` : `${m} month${m === 1 ? '' : 's'}`;
+    return `Reviewed ${span} after ${FROM_LABEL[from] || FROM_LABEL.upload}`;
 };
+// A clock that starts on a decision needs a type for applicants alone; one that starts on departure, students alone.
+const basesFor = (appliesTo) => [
+    ['upload', 'The file is uploaded'],
+    ...(appliesTo.length === 1 && appliesTo[0] === 'applicant' ? [['decision', 'The application is declined']] : []),
+    ...(appliesTo.length === 1 && appliesTo[0] === 'student' ? [['departure', 'The student leaves (is deactivated)']] : []),
+];
 const audienceLabel = (list) => AUDIENCES.filter(([k]) => list.includes(k)).map(([, l]) => l.toLowerCase()).join(', ');
 
 function Check({ checked, onChange, children, disabled }) {
@@ -64,7 +71,7 @@ function DocumentsContent() {
         setForm({
             name: t.name, description: t.description, appliesTo: t.appliesTo, required: t.required,
             allowedMimeTypes: t.allowedMimeTypes, maxSizeMb: t.maxSizeMb,
-            keepForever: !t.retentionMonths, retentionMonths: t.retentionMonths || 12, isActive: t.isActive,
+            keepForever: !t.retentionMonths, retentionMonths: t.retentionMonths || 12, retentionFrom: t.retentionFrom || 'upload', isActive: t.isActive,
         });
         setFormError(''); setFormOpen(true);
     };
@@ -78,6 +85,8 @@ function DocumentsContent() {
             name: form.name.trim(), description: form.description.trim(), appliesTo: form.appliesTo, required: form.required,
             allowedMimeTypes: form.allowedMimeTypes, maxSizeMb: Number(form.maxSizeMb),
             retentionMonths: form.keepForever ? null : Number(form.retentionMonths),
+            // With files stored the starting point is locked: send it unchanged, so a clash with the audience reads clearly
+            retentionFrom: editing?.documentCount ? editing.retentionFrom : (basesFor(form.appliesTo).some(([k]) => k === form.retentionFrom) ? form.retentionFrom : 'upload'),
             isActive: form.isActive,
         };
         setSaving(true); setFormError('');
@@ -179,7 +188,7 @@ function DocumentsContent() {
                                         {!t.isActive && <span className="ml-2 text-[11px] font-bold uppercase tracking-wide text-gray-500">Switched off</span>}
                                     </p>
                                     {t.description && <p className="text-xs text-gray-500 mt-0.5">{t.description}</p>}
-                                    <p className="text-xs text-gray-500 mt-2">For {audienceLabel(t.appliesTo)} · {t.allowedMimeTypes.map((m) => FILE_KINDS.find(([k]) => k === m)?.[1] || m).join(', ')} · up to {t.maxSizeMb} MB · {retentionLabel(t.retentionMonths)}</p>
+                                    <p className="text-xs text-gray-500 mt-2">For {audienceLabel(t.appliesTo)} · {t.allowedMimeTypes.map((m) => FILE_KINDS.find(([k]) => k === m)?.[1] || m).join(', ')} · up to {t.maxSizeMb} MB · {retentionLabel(t.retentionMonths, t.retentionFrom)}</p>
                                     <p className="text-xs text-gray-400 mt-0.5">{t.documentCount} file{t.documentCount === 1 ? '' : 's'} stored</p>
                                 </div>
                                 <div className="flex items-center gap-1.5">
@@ -244,14 +253,18 @@ function DocumentsContent() {
                 <Field label="Largest file (MB)" htmlFor="dt-size" hint="Up to 10">
                     <input id="dt-size" type="number" min={1} max={10} value={form.maxSizeMb} onChange={(e) => setForm({ ...form, maxSizeMb: e.target.value })} className={inputClass(false)} />
                 </Field>
-                <Field label="Retention" hint="After this, the file is flagged for you to review. It is never deleted for you. Changing it affects new uploads only.">
+                <Field label="Retention" hint="After this, the file is flagged for you to review. It is never deleted for you. Choosing applicants alone or students alone unlocks counting from the decision or the departure. Changing the months applies to files that have no review date yet. Files that already have one keep it. Once files are stored the starting point is fixed, so add a new type for a new rule.">
                     <div className="flex flex-col gap-2">
                         <Check checked={form.keepForever} onChange={(v) => setForm({ ...form, keepForever: v })}>Keep until I delete it</Check>
                         {!form.keepForever && (
                             <div className="flex items-center gap-2 text-sm text-gray-700">
                                 Review after
                                 <input aria-label="Months" type="number" min={1} max={1200} value={form.retentionMonths} onChange={(e) => setForm({ ...form, retentionMonths: e.target.value })} className={`${inputClass(false)} w-24`} />
-                                months
+                                months after
+                                <select aria-label="Retention starts" disabled={Boolean(editing?.documentCount)} title={editing?.documentCount ? 'Files are stored under this type, so the starting point cannot change' : undefined} value={basesFor(form.appliesTo).some(([k]) => k === form.retentionFrom) ? form.retentionFrom : 'upload'}
+                                    onChange={(e) => setForm({ ...form, retentionFrom: e.target.value })} className={`${inputClass(false)} w-auto`}>
+                                    {basesFor(form.appliesTo).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+                                </select>
                             </div>
                         )}
                     </div>

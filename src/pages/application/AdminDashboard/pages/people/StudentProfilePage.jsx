@@ -1,7 +1,8 @@
 import { formatSchoolDate } from '../../../../../utils/schoolLocale.js';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { PencilLine, Power, Trash2, ClipboardCheck, ClipboardList, Wallet, Users, UserPlus, FilePlus2, RefreshCw } from 'lucide-react';
+import { PencilLine, Power, Trash2, ClipboardCheck, ClipboardList, Wallet, Users, UserPlus, FilePlus2, RefreshCw, FolderArchive } from 'lucide-react';
+import DocumentChecklist from '../../components/documents/DocumentChecklist.jsx';
 import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import AdminLayout from '../../components/layout/AdminLayout.jsx';
 import {
@@ -55,6 +56,7 @@ export default function StudentProfilePage() {
     // Destructive / status dialogs
     const [removeOpen, setRemoveOpen] = useState(false);
     const [statusOpen, setStatusOpen] = useState(false);
+    const [docsOpen, setDocsOpen] = useState(false);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -227,6 +229,7 @@ export default function StudentProfilePage() {
                 status={student?.isActive ? 'active' : 'inactive'}
                 primaryActions={[
                     { id: 'edit', label: 'Edit', icon: PencilLine, onClick: openEdit, variant: 'outline' },
+                    { id: 'documents', label: 'Documents', icon: FolderArchive, onClick: () => setDocsOpen(true), variant: 'outline' },
                 ]}
                 overflowActions={[
                     {
@@ -445,6 +448,8 @@ export default function StudentProfilePage() {
                     <p className="text-[12px] font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{formError}</p>
                 )}
             </Drawer>
+
+            <DocumentChecklist open={docsOpen} onClose={() => setDocsOpen(false)} ownerType="student" ownerId={student?.id} ownerName={student?.name} />
 
             {/* ── Status change (reason required, audited) ──────────────── */}
             <ConfirmDestructiveDialog

@@ -97,22 +97,34 @@ export const DeleteUserModal = ({ onClose, showToast, user, schoolId }) => {
         const studentPayload = {reason: deleteReason, schoolId: schoolId, studentId: user.id}
 
 
-        switch (user.role) {
-            case 'teacher':
-                await deleteUser(userPayload);
-                break;
-            case 'parent':
-                await deleteUser(userPayload);
-                break;
-            case 'Student':
-                await deleteStudent(studentPayload);
-                break;
-            default:
-                throw new Error('Invalid user role');
+        let result;
+        try {
+            switch (user.role) {
+                case 'teacher':
+                    result = await deleteUser(userPayload);
+                    break;
+                case 'parent':
+                    result = await deleteUser(userPayload);
+                    break;
+                case 'Student':
+                    result = await deleteStudent(studentPayload);
+                    break;
+                default:
+                    throw new Error('Invalid user role');
+            }
+        } catch (e) {
+            showToast(e?.response?.data?.message || e?.message || 'Could not remove this user.', 'error');
+            return;
         }
 
         setUserToDelete(updatedUser);
-        showToast('User removed successfully!', 'success');
+        // Staff removal reports files that could not be removed yet (they wait under Settings, Documents, retention review)
+        const left = result?.data?.documentsRemaining;
+        if (left === null || left > 0) {
+            showToast('User removed. Some of their documents are still stored: check Settings, Documents, retention review.', 'success');
+        } else {
+            showToast('User removed successfully!', 'success');
+        }
         onClose();
     };
 
