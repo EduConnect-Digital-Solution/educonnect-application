@@ -3,7 +3,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
     CalendarDays,
     LayoutDashboard, LogOut, Menu, X, GraduationCap, User,
-    ClipboardCheck, ClipboardList, BookOpen, ChevronDown, ChevronLeft, ChevronRight, School
+    ClipboardCheck, ClipboardList, BookOpen, BookOpenText, ChevronDown, ChevronLeft, ChevronRight, School
 } from 'lucide-react';
 import { Header } from '../../../dashboardUtilities.jsx';
 import { useAuth } from '../../../../../contexts/AuthContext.jsx';
@@ -25,6 +25,7 @@ const NavList = ({ collapsed, onNavigate, hasPolicyPermission }) => {
         { name: 'My Timetable', icon: CalendarDays,    link: '/dashboard/teacher/timetable' },
         { name: 'Attendance',   icon: ClipboardCheck,  link: '/dashboard/teacher/attendance' },
         { name: 'Score Entry',  icon: ClipboardList,   link: '/dashboard/teacher/score-entry' },
+        { name: 'Lesson Plans', icon: BookOpenText,    link: '/dashboard/teacher/lesson-plans' },
         { name: 'User Profile', icon: User,            link: '/dashboard/teacher/profile' },
     ];
 
@@ -32,7 +33,7 @@ const NavList = ({ collapsed, onNavigate, hasPolicyPermission }) => {
         ? [
             ...baseNavItems.slice(0, 5),
             { name: 'Assessment Policies', icon: BookOpen, link: '/dashboard/teacher/assessment-policies' },
-            ...baseNavItems.slice(4),
+            ...baseNavItems.slice(5), // after Score Entry (this used to repeat Score Entry)
           ]
         : baseNavItems;
 
