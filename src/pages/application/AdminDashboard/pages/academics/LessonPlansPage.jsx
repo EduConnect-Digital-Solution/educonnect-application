@@ -31,7 +31,8 @@ export default function LessonPlansPage() {
             setPlans(res.plans); setTruncated(Boolean(res.truncated)); setError('');
         } catch (e) { if (seq === loadSeq.current) setError(e.message); }
     }, [filter]);
-    useEffect(() => { getLessonPlanFilters().then(setMenus).catch(() => {}); }, []);
+    const [menuError, setMenuError] = useState(false);
+    useEffect(() => { getLessonPlanFilters().then((m) => { setMenus(m); setMenuError(false); }).catch(() => setMenuError(true)); }, []);
     useEffect(() => {
         const wait = setTimeout(load, filter.q ? 300 : 0); // typing in the search box waits a moment
         return () => clearTimeout(wait);
@@ -89,6 +90,11 @@ export default function LessonPlansPage() {
                     </div>
                 )}
 
+                {menuError && (
+                    <p role="status" className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                        The class, subject and teacher menus could not be loaded, so only the title search works right now. Reload the page to try again.
+                    </p>
+                )}
                 {error && <div className="bg-white border border-gray-200 rounded-2xl"><EmptyState variant="error" description={error} onRetry={load} /></div>}
                 {!error && !plans && <p className="text-sm text-gray-500 flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> Loading…</p>}
                 {!error && plans && plans.length === 0 && !filtering && (

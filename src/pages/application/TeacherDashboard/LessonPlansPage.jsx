@@ -112,11 +112,16 @@ export default function LessonPlansPage() {
     };
 
     // Re-reads one plan. If the drawer has moved on to another plan meanwhile, the answer is dropped.
+    // The change itself already worked when this runs, so a failed re-read is a gentle note, not a second error.
     const refreshPlan = async (id) => {
         const seq = ++refreshSeq.current;
-        const full = await getMyLessonPlan(id);
-        if (activeId.current === id && seq === refreshSeq.current) setPlan(full);
-        await load();
+        try {
+            const full = await getMyLessonPlan(id);
+            if (activeId.current === id && seq === refreshSeq.current) setPlan(full);
+            await load();
+        } catch {
+            pushToast({ message: 'That worked, but the page could not refresh. Reload to see the latest.', type: 'info' });
+        }
     };
 
     const onPick = async (file) => {
@@ -285,10 +290,10 @@ export default function LessonPlansPage() {
                                 <p className="text-[13px] font-medium text-gray-800 truncate">{f.fileName}</p>
                                 <p className="text-[11px] text-gray-500">{kb(f.sizeBytes)}</p>
                             </div>
-                            <button onClick={() => openFile(f)} disabled={working} aria-label={`Download ${f.fileName}`} className="p-1.5 rounded-lg text-blue-700 hover:bg-blue-50 disabled:opacity-50">
+                            <button onClick={() => openFile(f)} disabled={working} aria-label={`Download ${f.fileName}`} className="p-1.5 rounded-lg text-blue-700 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed">
                                 {busyFile === f.id ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
                             </button>
-                            <button onClick={() => removeFile(f)} disabled={working} aria-label={`Delete ${f.fileName}`} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50"><Trash2 size={15} /></button>
+                            <button onClick={() => removeFile(f)} disabled={working} aria-label={`Delete ${f.fileName}`} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"><Trash2 size={15} /></button>
                         </div>
                     ))}
                     {plan && plan.files.length < MAX_FILES && (
