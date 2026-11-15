@@ -65,6 +65,7 @@ export const ROUTES = {
     settingsAuditLog:           `${BASE}/settings/audit-log`,
     settingsData:               `${BASE}/settings/data`,
     settingsNotifications:      `${BASE}/settings/notifications`,
+    settingsDocuments:          `${BASE}/settings/documents`,
 
     adminProfile:    `${BASE}/profile`,
 };
@@ -182,6 +183,7 @@ export const PAGE_INDEX = [
     { label: 'Settings · Attendance Policy',         group: 'Settings', route: ROUTES.settingsAttendance, keywords: 'attendance late grace edit window parent email absent' },
     { label: 'Settings · Audit Log',                 group: 'Settings', route: ROUTES.settingsAuditLog, keywords: 'audit history who changed activity log security' },
     { label: 'Settings · Notifications',             group: 'Settings', route: ROUTES.settingsNotifications, keywords: 'notifications channels email push sms defaults alerts' },
+    { label: 'Settings · Documents',                group: 'Settings', route: ROUTES.settingsDocuments, keywords: 'documents types admission requirements retention files upload birth certificate identity' },
     { label: 'Settings · Data & Import',             group: 'Settings', route: ROUTES.settingsData,     keywords: 'import export csv upload students teachers spreadsheet' },
     { label: 'Settings · Grading & Assessment',      group: 'Settings', route: ROUTES.settingsGradingSetup, keywords: 'grading scheme scale bands grade points assessment policy ca exam marks breakdown continuous components setup' },
 ];

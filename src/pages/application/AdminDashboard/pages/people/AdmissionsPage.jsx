@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { UserPlus, Search, AlertCircle } from 'lucide-react';
 import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import AdminLayout from '../../components/layout/AdminLayout.jsx';
@@ -10,6 +10,8 @@ import {
 } from '../../services/admissionsAPI.js';
 import { getSchoolClasses } from '../../services/classAPIs.js';
 import { getClassArms } from '../../services/armAPIs.js';
+import DocumentChecklist from '../../components/documents/DocumentChecklist.jsx';
+import { getChecklist } from '../../services/documentsAPI.js';
 
 const TABS = [
     ['', 'All'], ['applied', 'Applied'], ['under_review', 'Under review'],
@@ -48,6 +50,10 @@ export default function AdmissionsPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError]     = useState(null);
     const [classes, setClasses] = useState([]);
+    const [docsFor, setDocsFor] = useState(null); // applicant whose documents are open
+    const [missingDocs, setMissingDocs] = useState([]); // required documents the applicant being admitted still lacks
+    const [admitAnyway, setAdmitAnyway] = useState(false);
+    const admitTarget = useRef(null); // the applicant whose drawer is open, so a late answer for someone else is ignored
 
     // Form drawer
     const [formOpen, setFormOpen]   = useState(false);
@@ -173,20 +179,30 @@ export default function AdmissionsPage() {
         setAdmitFor(a);
         setAdmitForm({ classId: a.applyingClassId || '', armId: '', admissionNumber: '' });
         setDrawerError(null);
+        setMissingDocs([]); setAdmitAnyway(false);
+        admitTarget.current = a.id;
+        getChecklist('applicant', a.id)
+            .then((c) => { if (admitTarget.current === a.id) setMissingDocs(c.items.filter((i) => i.type.required && !i.complete).map((i) => i.type.name)); })
+            .catch(() => {}); // the server checks again when admitting, and its answer fills this in if this failed
     };
     const confirmAdmit = async () => {
         if (!admitForm.classId) { setDrawerError('Choose the class to admit this child into.'); return; }
+        if (missingDocs.length > 0 && !admitAnyway) { setDrawerError('Required documents are missing. Upload them, or tick "Admit anyway".'); return; }
         setBusy(true); setDrawerError(null);
         try {
             await admitApplicant(admitFor.id, {
                 classId: admitForm.classId,
                 armId: admitForm.armId || undefined,
                 admissionNumber: admitForm.admissionNumber.trim() || undefined,
+                acknowledgeMissingDocuments: missingDocs.length > 0 && admitAnyway ? true : undefined,
             });
             pushToast({ message: `${fullName(admitFor)} is now a student in ${className[admitForm.classId] || 'the class'}.`, type: 'success' });
             setAdmitFor(null);
             load();
         } catch (e) {
+            // The server found missing documents our own check had not (it failed, or things changed): show the
+            // "Admit anyway" choice now, so the admin is never refused with nothing to click.
+            if (e?.code === 'DOCUMENTS_MISSING') setMissingDocs(Array.isArray(e.missingDocuments) && e.missingDocuments.length ? e.missingDocuments : ['a required document']);
             setDrawerError(serverMessage(e));
         } finally {
             setBusy(false);
@@ -195,8 +211,18 @@ export default function AdmissionsPage() {
 
     const confirmDelete = async () => {
         try {
-            await deleteApplicant(deleteTarget.id);
-            pushToast({ message: `${fullName(deleteTarget)}'s application was deleted.`, type: 'success' });
+            const res = await deleteApplicant(deleteTarget.id);
+            const result = res?.data; // the server answers { success, data }
+            const unknown = result?.documentsRemaining === null;
+            const left = result?.documentsRemaining || 0;
+            pushToast({
+                message: unknown
+                    ? `${fullName(deleteTarget)}'s application was deleted. Check Settings, Documents, retention review in case any of their files are left.`
+                    : left
+                    ? `${fullName(deleteTarget)}'s application was deleted, but ${left} file${left === 1 ? '' : 's'} could not be removed yet. Find ${left === 1 ? 'it' : 'them'} under Settings, Documents, retention review.`
+                    : `${fullName(deleteTarget)}'s application was deleted.`,
+                type: (left || unknown) ? 'info' : 'success',
+            });
             load();
         } catch (e) {
             throw new Error(serverMessage(e) || 'Could not delete the application.');
@@ -208,6 +234,7 @@ export default function AdmissionsPage() {
 
     const actions = (a) => {
         const out = [];
+        out.push(<button key="docs" onClick={() => setDocsFor(a)} className={`${rowBtn} text-gray-700 bg-gray-100 hover:bg-gray-200`}>Documents</button>);
         if (a.status === 'applied') out.push(<button key="r" onClick={() => quickStatus(a, 'under_review', `${fullName(a)} is now under review.`)} className={`${rowBtn} text-blue-700 bg-blue-50 hover:bg-blue-100`}>Start review</button>);
         if (a.status === 'applied' || a.status === 'under_review') out.push(<button key="o" onClick={() => openDecision(a, 'offered')} className={`${rowBtn} text-green-700 bg-green-50 hover:bg-green-100`}>Make offer</button>);
         if (a.status === 'offered') out.push(<button key="a" onClick={() => openAdmit(a)} className={`${rowBtn} text-white bg-blue-600 hover:bg-blue-700`}>Admit</button>);
@@ -439,10 +466,28 @@ export default function AdmissionsPage() {
                         {arms.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                     </select>
                 </Field>
+                {missingDocs.length > 0 && (
+                    <div role="status" className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-[13px] text-amber-900">
+                        <p className="font-semibold">{missingDocs.length} required document{missingDocs.length === 1 ? ' is' : 's are'} missing</p>
+                        <p className="mt-0.5">{missingDocs.join(', ')}. Close this and use Documents on the applicant to upload {missingDocs.length === 1 ? 'it' : 'them'}.</p>
+                        <label className="mt-2 inline-flex items-center gap-2 font-medium">
+                            <input type="checkbox" checked={admitAnyway} onChange={(e) => setAdmitAnyway(e.target.checked)} className="rounded border-amber-400" />
+                            Admit anyway
+                        </label>
+                    </div>
+                )}
                 <Field label="Admission number" htmlFor="ad-no" hint="Leave blank to add it later">
                     <input id="ad-no" value={admitForm.admissionNumber} onChange={e => setAdmitForm({ ...admitForm, admissionNumber: e.target.value })} className={inputClass(false)} />
                 </Field>
             </Drawer>
+
+            <DocumentChecklist
+                open={!!docsFor}
+                onClose={() => setDocsFor(null)}
+                ownerType="applicant"
+                ownerId={docsFor?.id}
+                ownerName={docsFor ? fullName(docsFor) : ''}
+            />
 
             <ConfirmDestructiveDialog
                 open={!!deleteTarget}
@@ -451,7 +496,7 @@ export default function AdmissionsPage() {
                 noun="application"
                 recordName={deleteTarget ? fullName(deleteTarget) : ''}
                 requireReason={false}
-                consequence="The application is removed for good. Admitted applicants cannot be deleted."
+                consequence="The application and any documents uploaded for it are removed for good. Admitted applicants cannot be deleted."
                 onConfirm={confirmDelete}
             />
         </AdminLayout>

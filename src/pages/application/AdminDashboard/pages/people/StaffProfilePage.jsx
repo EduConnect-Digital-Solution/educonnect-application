@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Power, Trash2, BookOpen, Layers, RefreshCw, FilePlus2 } from 'lucide-react';
+import { Power, Trash2, BookOpen, Layers, RefreshCw, FilePlus2, FolderArchive } from 'lucide-react';
+import DocumentChecklist from '../../components/documents/DocumentChecklist.jsx';
 import AdminLayout from '../../components/layout/AdminLayout.jsx';
 import { DetailPage, EmptyState, Timeline, StatusChip, pushToast } from '../../../../../components/patterns';
 import { getDashboardUsers } from '../../services/adminService';
@@ -46,6 +47,7 @@ export default function StaffProfilePage() {
 
             setStaff({
                 id: found.id,
+                role: 'teacher', // the status and remove dialogs choose their action from this
                 name: `${found.firstName ?? ''} ${found.lastName ?? ''}`.trim() || 'Staff',
                 firstName: found.firstName,
                 lastName: found.lastName,
@@ -97,6 +99,7 @@ export default function StaffProfilePage() {
                 primaryActions={[
                     { id: 'classes', label: 'Assign classes', icon: Layers, variant: 'outline', onClick: () => setModal('assignClasses') },
                     { id: 'subjects', label: 'Assign subjects', icon: BookOpen, onClick: () => setModal('assignSubjects') },
+                    { id: 'documents', label: 'Documents', icon: FolderArchive, variant: 'outline', onClick: () => setModal('documents') },
                 ]}
                 overflowActions={[
                     { id: 'unassignClasses', label: 'Unassign classes', icon: Layers, onClick: () => setModal('unassignClasses') },
@@ -155,6 +158,7 @@ export default function StaffProfilePage() {
                 }
             />
 
+            <DocumentChecklist open={modal === 'documents'} onClose={closeModal} ownerType="staff" ownerId={staff?.id} ownerName={staff?.name} />
             {modal === 'status' && <StatusChangeModal onClose={afterAction} showToast={toast} user={staff} schoolId={user?.schoolId} />}
             {modal === 'delete' && <DeleteUserModal onClose={() => { closeModal(); navigate(ROUTES.staff); }} showToast={toast} user={staff} schoolId={user?.schoolId} />}
             {modal === 'assignClasses' && <TeacherClassAssignmentModal teacher={staff} schoolId={user?.schoolId} onClose={closeModal} onAssigned={load} />}

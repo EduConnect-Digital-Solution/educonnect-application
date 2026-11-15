@@ -81,7 +81,8 @@ const SECTIONS = [
         icon: FolderArchive,
         title: 'Documents',
         description: 'Document types, admission requirements, and retention.',
-        live: false,
+        to: ROUTES.settingsDocuments,
+        live: true,
     },
     {
         icon: DatabaseZap,
