@@ -719,6 +719,22 @@ export async function saveReportCardComment(studentId, payload) {
 }
 
 /**
+ * GET /api/admin/report-cards/status?armId=&termId=
+ * Where an arm's report cards got to, so the release page can restore itself after a refresh.
+ *
+ * Response: { success, data: { signedOff, signedAt, released, releasedAt, publishedCount,
+ *   latestJob: { jobId, status, progress, downloadUrl, createdAt } | null } }
+ */
+export async function getReportCardStatus(armId, termId) {
+    try {
+        const { data } = await apiClient.get('/api/admin/report-cards/status', { params: { armId, termId } });
+        return data;
+    } catch (error) {
+        throw error?.response?.data || error;
+    }
+}
+
+/**
  * POST /api/admin/report-cards/generate
  * Generates report-card PDFs for an arm/term (async job, same polling contract
  * as result PDFs — poll getPdfJob).

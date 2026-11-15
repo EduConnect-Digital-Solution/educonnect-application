@@ -11,7 +11,7 @@ import { getClassArms } from '../../services/armAPIs.js';
 import {
     getReportCardTemplate, saveReportCardTemplate,
     getReportCardComments, saveReportCardComment, REPORT_CARD_TRAITS, getPublishStatus,
-    generateReportCards, getPdfJob, signOffReportCards, publishReportCardsToParents,
+    generateReportCards, getPdfJob, signOffReportCards, publishReportCardsToParents, getReportCardStatus,
 } from '../../services/gradingAPIs.js';
 
 const TABS = [
@@ -632,6 +632,41 @@ function GenerateReleaseTab() {
 
     useEffect(() => () => { generationRef.current++; clearTimeout(pollRef.current); }, []);
 
+    // Restore where this arm's cards got to (generation, sign-off, release) after a refresh or a change of target.
+    // Declared after the reset effect above so it runs after it.
+    const [restoring, setRestoring] = useState(false);
+    useEffect(() => {
+        if (!armId || !currentTerm?.id) return undefined;
+        const generation = generationRef.current;
+        let cancelled = false;
+        setRestoring(true);
+        getReportCardStatus(armId, currentTerm.id).then((res) => {
+            if (cancelled || generation !== generationRef.current) return;
+            const st = res.data || {};
+            const latest = st.latestJob;
+            if (st.released) setStage('published');
+            else if (st.signedOff) setStage('signed');
+            else if (latest?.status === 'completed') setStage('generated');
+            if (latest) {
+                const AGE_LIMIT_MS = 30 * 60 * 1000;
+                const stuck = latest.status === 'processing' && Date.now() - new Date(latest.createdAt).getTime() > AGE_LIMIT_MS;
+                if (latest.status === 'processing' && !stuck) {
+                    // Still generating on the server: pick the progress bar back up
+                    setBusy(true);
+                    setJob({ status: 'processing', progress: latest.progress ?? 0 });
+                    pollJob(latest.jobId, generation);
+                } else if (stuck || latest.status === 'failed') {
+                    setJob({ status: 'failed', progress: 0, interrupted: stuck });
+                } else {
+                    setJob({ status: latest.status, progress: latest.progress ?? 100, downloadUrl: latest.downloadUrl });
+                }
+            }
+        }).catch((e) => {
+            if (!cancelled) pushToast({ message: e?.message || 'Could not load the saved release status. Check it before continuing.', type: 'error' });
+        }).finally(() => { if (!cancelled) setRestoring(false); });
+        return () => { cancelled = true; };
+    }, [armId, currentTerm?.id]);
+
     const ready = armId && currentTerm?.id;
 
     // Real prerequisites, read from the server whenever the class, arm or term changes
@@ -730,7 +765,6 @@ function GenerateReleaseTab() {
 
     return (
         <div className="flex flex-col gap-5">
-            {ready && <p role="status" className="text-sm text-amber-800 bg-amber-50 p-3 rounded-lg">This page cannot restore report-card release progress after a refresh. Confirm the existing status before continuing.</p>}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-base font-bold text-gray-900">Generate & Release</h2>
@@ -796,8 +830,13 @@ function GenerateReleaseTab() {
                                     </div>
                                 </div>
                             )}
+                            {stage === 'idle' && job?.status === 'failed' && (
+                                <p role="status" className="mb-2 text-xs text-red-600">
+                                    {job.interrupted ? 'The last generation was interrupted.' : 'The last generation failed.'} Generate again to retry.
+                                </p>
+                            )}
                             {stage === 'idle' && (!job || job.status !== 'processing') && (
-                                <button type="button" onClick={handleGenerate} disabled={!allPrereq || busy}
+                                <button type="button" onClick={handleGenerate} disabled={!allPrereq || busy || restoring}
                                     className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-40 transition-colors flex items-center gap-2">
                                     <FileText size={14} /> Generate All
                                 </button>
