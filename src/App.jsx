@@ -49,6 +49,8 @@ const FeeReportsPage      = lazy(() => import("./pages/application/AdminDashboar
 const AdmissionsPage      = lazy(() => import("./pages/application/AdminDashboard/pages/people/AdmissionsPage.jsx"));
 const GradingPage         = lazy(() => import("./pages/application/AdminDashboard/pages/academics/GradingPage.jsx"));
 const ReportCardsPage     = lazy(() => import("./pages/application/AdminDashboard/pages/academics/ReportCardsPage.jsx"));
+const AdminLessonPlansPage = lazy(() => import("./pages/application/AdminDashboard/pages/academics/LessonPlansPage.jsx"));
+const TeacherLessonPlansPage = lazy(() => import("./pages/application/TeacherDashboard/LessonPlansPage.jsx"));
 const AdminAttendancePage = lazy(() => import("./pages/application/AdminDashboard/pages/AttendanceOpsPage.jsx"));
 // const DefaultersPage      = lazy(() => import("./pages/application/AdminDashboard/pages/fees/DefaultersPage.jsx"));
 const AnnouncementsPage   = lazy(() => import("./pages/application/AdminDashboard/pages/communication/AnnouncementsPage.jsx"));
@@ -160,6 +162,7 @@ function AppRoutes() {
                 <Route path="/dashboard/admin/academics/grading"            element={<ProtectedRoute requiredRole="admin"><GradingPage /></ProtectedRoute>} />
                 <Route path="/dashboard/admin/academics/grading/subject-view" element={<ProtectedRoute requiredRole="admin"><SubjectGradingViewPage /></ProtectedRoute>} />
                 <Route path="/dashboard/admin/academics/report-cards"       element={<ProtectedRoute requiredRole="admin"><ReportCardsPage /></ProtectedRoute>} />
+                <Route path="/dashboard/admin/academics/lesson-plans"       element={<ProtectedRoute requiredRole="admin"><AdminLessonPlansPage /></ProtectedRoute>} />
                 <Route path="/dashboard/admin/academics/timetables"         element={<ProtectedRoute requiredRole="admin"><TimetableLibraryPage /></ProtectedRoute>} />
                 <Route path="/dashboard/admin/academics/timetables/view"    element={<ProtectedRoute requiredRole="admin"><TimetableViewPage /></ProtectedRoute>} />
                 <Route path="/dashboard/admin/academics/timetables/builder" element={<ProtectedRoute requiredRole="admin"><TimetablePage /></ProtectedRoute>} />
@@ -241,6 +244,7 @@ function AppRoutes() {
                 <Route path="/dashboard/teacher/attendance/register/:scheduleId" element={<ProtectedRoute requiredRole="teacher"><AttendanceRegisterPage /></ProtectedRoute>} />
                 <Route path="/dashboard/teacher/timetable" element={<ProtectedRoute requiredRole="teacher"><MyTimetablePage /></ProtectedRoute>} />
                 <Route path="/dashboard/teacher/score-entry" element={<ProtectedRoute requiredRole="teacher"><ScoreEntryPage /></ProtectedRoute>} />
+                <Route path="/dashboard/teacher/lesson-plans" element={<ProtectedRoute requiredRole="teacher"><TeacherLessonPlansPage /></ProtectedRoute>} />
                 <Route path="/dashboard/teacher/assessment-policies" element={<ProtectedRoute requiredRole="teacher"><TeacherAssessmentPoliciesPage /></ProtectedRoute>} />
 
                 <Route path="*" element={<Navigate to="/" />} />
