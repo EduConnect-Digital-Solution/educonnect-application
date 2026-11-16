@@ -106,6 +106,8 @@ const SchoolProfilePage = () => {
 
     useEffect(() => {
         fetchSchoolProfile();
+        // Load once when the page opens
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleUpdateSchool = async () => {

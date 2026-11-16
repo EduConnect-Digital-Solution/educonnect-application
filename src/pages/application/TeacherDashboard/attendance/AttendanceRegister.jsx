@@ -181,6 +181,7 @@ export default function AttendanceRegister({
   initialStatus,   // 'not_started' | 'in_progress' | 'completed'
   submittedAt,
   academicContext, // passed from page when available
+  initialAttendanceId, // id of the saved record for this session, when one exists
 }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -206,12 +207,16 @@ export default function AttendanceRegister({
     getPublicSettings().then((s) => { if (alive) setPolicy(s?.attendance || null); }).catch(() => {});
     return () => { alive = false; };
   }, []);
-  const [attendanceId, setAttendanceId] = useState(schedule?.attendanceId || null);
+  const [attendanceId, setAttendanceId] = useState(schedule?.attendanceId || initialAttendanceId || null);
   const hasUnsavedRef = useRef(false);
+
+  // A submitted register is locked unless it was opened for correction (?edit=true)
+  const isCorrecting = isSubmitted && isEditMode && !isReadOnly;
+  const rowsLocked = isReadOnly || (isSubmitted && !isCorrecting);
 
   // ─── Track unsaved changes ──
   useEffect(() => {
-    if (!isReadOnly && !isSubmitted) {
+    if (!rowsLocked) {
       const handler = (e) => {
         if (hasUnsavedRef.current) {
           e.preventDefault();
@@ -221,7 +226,8 @@ export default function AttendanceRegister({
       window.addEventListener('beforeunload', handler);
       return () => window.removeEventListener('beforeunload', handler);
     }
-  }, [isReadOnly, isSubmitted]);
+    return undefined;
+  }, [rowsLocked]);
 
   // ─── Handlers ───────────────
   const markUnsaved = () => { hasUnsavedRef.current = true; };
@@ -264,17 +270,29 @@ export default function AttendanceRegister({
   }, [selectedIds]);
 
   const handleMarkAllPresent = useCallback(() => {
+    // Never silently wipe absences, late marks or their reasons that were already entered
+    const overwritten = students.filter(s => s.status === 'absent' || s.status === 'late').length;
+    if (overwritten > 0) {
+      const proceed = window.confirm(
+        `${overwritten} student${overwritten > 1 ? 's are' : ' is'} already marked absent or late.\n\n` +
+        `Mark everyone present anyway? Their absent/late marks and reasons will be cleared.`
+      );
+      if (!proceed) return;
+    }
     setStudents(prev => prev.map(s => ({ ...s, status: 'present', reason: '', lateArrivalTime: '' })));
     setSelectedIds(new Set());
     markUnsaved();
     setNotification({ type: 'info', message: 'All students marked as Present.' });
-  }, []);
+  }, [students]);
 
   // ─── Filtered view ──────────
   const filteredStudents = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
     return students.filter(s => {
-      const matchesSearch = s.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.rollNumber.includes(searchQuery);
+      // Names and roll numbers come from the server and may be missing or numeric
+      const matchesSearch = !query ||
+        String(s.fullName ?? '').toLowerCase().includes(query) ||
+        String(s.rollNumber ?? '').toLowerCase().includes(query);
       const matchesFilter =
         filterStatus === 'all' ||
         (filterStatus === 'unmarked' ? !s.status : s.status === filterStatus);
@@ -312,7 +330,9 @@ export default function AttendanceRegister({
   };
 
   // ─── Build payload ──────────
-  const buildPayload = (statusOverride) => ({
+  // A draft keeps unmarked students (status null) so the teacher can finish later. A submitted
+  // register only carries students who were actually marked.
+  const buildPayload = ({ markedOnly = false } = {}) => ({
     // Academic context: prefer prop, fall back to schedule field, then empty stubs
     academicYearId: academicContext?.academicYearId ?? schedule?.academicContext?.academicYearId ?? '',
     academicYear:   academicContext?.academicYear   ?? schedule?.academicContext?.academicYear   ?? '',
@@ -324,15 +344,18 @@ export default function AttendanceRegister({
     periodId: schedule.periodId,
     // Lets the server apply the school's late-grace rule (arrival within N minutes counts as present)
     periodStartTime: toHHmm(schedule.timeSlot?.start),
-    teacherId: user?.id || 'tch_current',
+    teacherId: user?.id || user?.userId || 'tch_current',
     date: schedule.date ?? schoolDateKey(),
     attendanceId,
-    attendances: students.map(s => ({
-      studentId: s.studentId,
-      status: statusOverride || s.status,
-      reason: s.reason || '',
-      lateArrivalTime: s.lateArrivalTime || '',
-    })),
+    attendances: students
+      .filter(s => !markedOnly || s.status)
+      .map(s => ({
+        studentId: s.studentId,
+        status: s.status || null,
+        // A reason or arrival time only means something for the status it was entered under
+        reason: (s.status === 'absent' || s.status === 'late') ? (s.reason || '') : '',
+        lateArrivalTime: s.status === 'late' ? (s.lateArrivalTime || '') : '',
+      })),
   });
 
   // ─── Save draft ─────────────
@@ -357,6 +380,10 @@ export default function AttendanceRegister({
   // ─── Submit ─────────────────
   const handleSubmit = async () => {
     const unmarked = students.filter(s => !s.status);
+    if (students.length > 0 && unmarked.length === students.length) {
+      setNotification({ type: 'warning', message: 'Mark at least one student before submitting the register.' });
+      return;
+    }
     if (unmarked.length > 0) {
       const proceed = window.confirm(
         `${unmarked.length} student${unmarked.length > 1 ? 's are' : ' is'} not yet marked.\n\n` +
@@ -371,8 +398,10 @@ export default function AttendanceRegister({
     setIsSubmitting(true);
     setNotification(null);
     try {
-      const payload = buildPayload();
-      const res = (isAlreadySubmitted && isEditMode)
+      const payload = buildPayload({ markedOnly: true });
+      // Correcting a register that is already on record updates it; anything else is a first submission
+      const isUpdate = Boolean(isCorrecting && attendanceId);
+      const res = isUpdate
         ? await updateAttendance(attendanceId, payload)
         : await submitAttendance(payload);
 
@@ -382,7 +411,7 @@ export default function AttendanceRegister({
         // Update the attendanceId in case backend assigned a new one
         if (res.data.attendanceId) setAttendanceId(res.data.attendanceId);
         const s = res.data.summary;
-        const action = (isAlreadySubmitted && isEditMode) ? 'updated' : 'submitted';
+        const action = isUpdate ? 'updated' : 'submitted';
         setNotification({
           type: 'success',
           message: `Attendance ${action} — ${s?.present ?? '—'} present, ${s?.absent ?? '—'} absent, ${s?.late ?? '—'} late.`,
@@ -398,7 +427,7 @@ export default function AttendanceRegister({
 
   // ─── Back navigation ────────
   const handleBack = () => {
-    if (hasUnsavedRef.current && !isSubmitted) {
+    if (hasUnsavedRef.current && !rowsLocked) {
       const leave = window.confirm('You have unsaved changes. Leave without saving?');
       if (!leave) return;
     }
@@ -537,7 +566,7 @@ export default function AttendanceRegister({
       )}
 
       {/* ── Bulk actions ───── */}
-      {!isReadOnly && !isSubmitted && (
+      {!rowsLocked && (
         <div className="mb-3">
           <BulkActionsToolbar
             selectedCount={selectedIds.size}
@@ -551,7 +580,7 @@ export default function AttendanceRegister({
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden flex-1">
         {/* Column headers */}
         <div className="flex items-center gap-3 px-4 py-2.5 bg-gray-50 border-b border-gray-100 text-xs font-semibold text-gray-400 uppercase tracking-wide">
-          {!isReadOnly && !isSubmitted && (
+          {!rowsLocked && (
             <button
               onClick={handleSelectAll}
               className="w-4 h-4 flex items-center justify-center flex-shrink-0"
@@ -582,7 +611,7 @@ export default function AttendanceRegister({
                 key={student.studentId}
                 student={student}
                 isSelected={selectedIds.has(student.studentId)}
-                isReadOnly={isReadOnly || isSubmitted}
+                isReadOnly={rowsLocked}
                 onStatusChange={handleStatusChange}
                 onReasonChange={handleReasonChange}
                 onLateTimeChange={handleLateTimeChange}

@@ -3,7 +3,7 @@ import { BrandLoader } from '@/components/brand/BrandLoader.jsx';
 import { useAuth } from '../../../contexts/AuthContext.jsx';
 import React, { useState, useEffect } from 'react';
 import ParentLayout from "./components/layout/ParentLayout.jsx";
-import { pendingPaymentKey, readPendingPayments, writePendingPayments, getMyInvoices, verifyPayment } from "./services/parentFeeAPIs.js";
+import { pendingPaymentKey, readPendingPayments, writePendingPayments, getMyInvoices, verifyPayment, pendingAfterFailedCheck, freshPendingPayments } from "./services/parentFeeAPIs.js";
 import ReceiptModal from "./ReceiptModal.jsx";
 import PayPanel from "./PayPanel.jsx";
 import {
@@ -612,7 +612,9 @@ export default function FeesAndPayments() {
     useEffect(() => {
         const url = new URL(window.location.href);
         const callbackRef = url.searchParams.get('reference') || url.searchParams.get('trxref');
-        const pending = readPendingPayments(paymentKey);
+        // Forget checkouts abandoned long ago, and date the ones saved before dates were recorded
+        const pending = freshPendingPayments(readPendingPayments(paymentKey));
+        writePendingPayments(paymentKey, pending);
         const references = [...new Set([callbackRef, ...pending.map(item => item.reference)].filter(Boolean))];
         if (!references.length) return undefined;
         let active = true;
@@ -637,7 +639,19 @@ export default function FeesAndPayments() {
                     else if (res?.status === 'review') setNotice({ tone: 'warning', text: `Payment ${reference} needs review. Please contact the school office.` });
                     else setNotice({ tone: 'info', text: `Payment ${reference} is still being confirmed. Please refresh in a few minutes.` });
                 } catch (e) {
-                    if (active) setNotice({ tone: 'warning', text: `${e.message} Refresh to retry payment ${reference}.` });
+                    // Keep the reference for another try only while one could still succeed
+                    const before = readPendingPayments(paymentKey);
+                    const tracked = before.some(item => item.reference === reference) ? before : [...before, { reference, startedAt: Date.now() }];
+                    const remaining = pendingAfterFailedCheck(tracked, reference, e);
+                    writePendingPayments(paymentKey, remaining);
+                    const givenUp = !remaining.some(item => item.reference === reference);
+                    if (givenUp && reference === callbackRef) {
+                        url.searchParams.delete('reference'); url.searchParams.delete('trxref');
+                        window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+                    }
+                    if (!active) return;
+                    if (givenUp) setNotice({ tone: 'warning', text: `We could not confirm payment ${reference}. If you were charged, please contact the school office with this reference.` });
+                    else setNotice({ tone: 'warning', text: `${e.message} Refresh to retry payment ${reference}.` });
                 }
             }
         })();

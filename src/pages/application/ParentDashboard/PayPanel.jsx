@@ -57,7 +57,7 @@ export default function PayPanel({ fee, onPaid }) {
                 // does not send the parent straight back with the reference.
                 if (res.reference && paymentKey) {
                     const pending = readPendingPayments(paymentKey).filter(item => item.reference !== res.reference);
-                    writePendingPayments(paymentKey, [...pending, { reference: res.reference, invoiceId: fee.id }]);
+                    writePendingPayments(paymentKey, [...pending, { reference: res.reference, invoiceId: fee.id, startedAt: Date.now() }]);
                 }
                 window.location.assign(res.authorizationUrl);
                 return; // leaving the page; keep the button disabled

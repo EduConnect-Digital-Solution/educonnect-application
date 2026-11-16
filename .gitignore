@@ -25,4 +25,3 @@ dist-ssr
 *.sw?
 /generate-icons.mjs
 .vercel
-/eslint.config.js

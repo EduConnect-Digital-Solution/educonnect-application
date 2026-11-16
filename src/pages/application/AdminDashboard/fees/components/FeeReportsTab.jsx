@@ -6,6 +6,8 @@ import {
   formatNaira,
 } from '../../services/feeAPIs.js';
 import StudentLedgerModal from './StudentLedgerModal.jsx';
+import { toCsv, downloadCsv } from '../../../../../utils/csv.js';
+import { currencySymbol } from '../../../../../utils/schoolLocale.js';
 import { AlertTriangle, Download, BookText, TrendingUp, CalendarClock } from 'lucide-react';
 import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 
@@ -13,18 +15,20 @@ import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 function exportCsv(filename, rows) {
   if (!rows.length) return;
   const headers = Object.keys(rows[0]);
-  const csv = [
-    headers.join(','),
-    ...rows.map(r => headers.map(h => `"${String(r[h] ?? '').replace(/"/g, '""')}"`).join(',')),
-  ].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
+  downloadCsv(filename, toCsv([headers, ...rows.map(r => headers.map(h => r[h]))]));
 }
+
+// The API reports money in minor units (kobo). The export shows the same columns and whole-currency
+// figures as the table on screen, not the raw records.
+const toMajor = (minor) => (Number(minor) || 0) / 100;
+const outstandingExportRows = (students) => students.map(s => ({
+  'Student': s.studentName ?? '',
+  'Class': s.className ?? '',
+  [`Billed (${currencySymbol()})`]: toMajor(s.billed).toFixed(2),
+  [`Paid (${currencySymbol()})`]: toMajor(s.paid).toFixed(2),
+  [`Outstanding (${currencySymbol()})`]: toMajor(s.outstanding).toFixed(2),
+  'Days Overdue': s.daysOverdue > 0 ? s.daysOverdue : 0,
+}));
 
 export default function FeeReportsTab({ classes = [], currentYear, currentTerm }) {
   const [classFilter, setClassFilter] = useState('all');
@@ -148,7 +152,7 @@ export default function FeeReportsTab({ classes = [], currentYear, currentTerm }
                 </div>
                 <button
                   onClick={() =>
-                    exportCsv('outstanding-balances.csv', outstanding.students || [])
+                    exportCsv('outstanding-balances.csv', outstandingExportRows(outstanding.students || []))
                   }
                   disabled={!outstanding.students?.length}
                   className="px-3 py-1.5 text-xs font-semibold border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 disabled:opacity-40 flex items-center gap-1.5"

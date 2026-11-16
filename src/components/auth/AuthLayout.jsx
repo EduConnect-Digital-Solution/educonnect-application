@@ -25,7 +25,7 @@ export function AuthLayout() {
         }, 5000);
 
         return () => clearInterval(timer);
-    }, [currentIndex]);
+    }, [carouselImages.length]);
 
     return (
         <div className="min-h-screen flex bg-white">

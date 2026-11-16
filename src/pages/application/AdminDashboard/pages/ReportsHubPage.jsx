@@ -166,9 +166,12 @@ export default function ReportsHubPage() {
         setLoading(true); setError(null);
         try {
             const res = await getBoardReport(mode === 'term' ? { termId: effectiveTermId, sections: picked } : { from, to, sections: picked });
+            // A report needs its school and period to be drawn; anything less is reported as a failure
+            if (!res?.data?.school || !res?.data?.period) throw new Error('The report could not be generated. Please try again.');
             setReport(res.data);
         } catch (e) {
-            setError(e?.message);
+            setReport(null);
+            setError(e?.message || 'The report could not be generated. Please try again.');
         } finally {
             setLoading(false);
         }

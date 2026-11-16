@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ChevronLeft, Users, TrendingUp, AlertTriangle, BookOpen, ExternalLink, Calendar, CheckCircle2 } from 'lucide-react';
 import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
@@ -7,6 +7,7 @@ import { getStudentsByClassandSubject } from "../../auth/authAPIs.js";
 import { getEffectivePolicy } from './services/scoreEntryAPIs.js';
 import { listAssessmentEntries } from './services/assessmentEntryAPIs.js';
 import { useAcademic } from '../../../contexts/AcademicContext.jsx';
+import { buildStudentTotals } from './teacherUtils/gradingMath.js';
 
 function StatCard({ title, value, icon: Icon, className = '' }) {
     return (
@@ -32,14 +33,18 @@ export default function ClassStudents() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
+    const termId = currentTerm?.id || '';
+    const requestRef = useRef(0);
+
     const fetchData = useCallback(async () => {
+        const request = ++requestRef.current;
         setLoading(true);
         setError(null);
         try {
             const [stuRes, polRes, entRes] = await Promise.all([
                 getStudentsByClassandSubject(studentClass, subject),
                 getEffectivePolicy(studentClass, subject).catch(() => ({ data: { policy: null } })),
-                listAssessmentEntries(studentClass, subject, currentTerm?.id || '').catch(() => ({ data: { entries: [] } }))
+                listAssessmentEntries(studentClass, subject, termId).catch(() => ({ data: { entries: [] } }))
             ]);
 
             const rawStudents = stuRes.data?.students || [];
@@ -47,63 +52,26 @@ export default function ClassStudents() {
             const activePolicy = polRes.data?.policy;
             const assessmentEntries = entRes.data?.entries || [];
 
-            const pivotedStudents = rawStudents.map(student => {
-                const studentScores = {};
-                let currentTotal = 0;
-                let mostRecent = null;
+            // Each raw score is weighted to the points it earns toward its component before it is added up
+            const pivotedStudents = buildStudentTotals(rawStudents, assessmentEntries, activePolicy).map(student => ({
+                ...student,
+                // The API returns the grade as an object ({ letterGrade, percentage, ... }); show its label
+                displayGrade: student.grade?.letterGrade || 'Pending'
+            }));
 
-                // Initialize policy components with zero
-                activePolicy?.caComponents?.forEach(ca => {
-                    studentScores[ca.id] = 0;
-                });
-                studentScores['exam'] = 0;
-
-                // Sum up scores per component
-                assessmentEntries.forEach(entry => {
-                    const sScore = entry.scores?.find(s => s.studentId === student.id || s.studentName === student.fullName);
-                    if (sScore && sScore.scoreObtained != null) {
-                        const obtained = sScore.scoreObtained;
-                        
-                        if (entry.componentType === 'exam') {
-                            studentScores['exam'] += obtained;
-                        } else if (entry.policyComponentId) {
-                            studentScores[entry.policyComponentId] = (studentScores[entry.policyComponentId] || 0) + obtained;
-                        }
-                        
-                        currentTotal += obtained;
-
-                        // Find most recent assessment
-                        if (!mostRecent || new Date(entry.createdAt) > new Date(mostRecent.date)) {
-                            mostRecent = {
-                                title: entry.title,
-                                score: obtained,
-                                maxScore: entry.maxObtainableScore,
-                                date: entry.createdAt
-                            };
-                        }
-                    }
-                });
-
-                return {
-                    ...student,
-                    scores: studentScores,
-                    mostRecentAssessment: mostRecent,
-                    total: currentTotal,
-                    // The API returns the grade as an object ({ letterGrade, percentage, ... }); show its label
-                    displayGrade: student.grade?.letterGrade || 'Pending'
-                };
-            });
-
+            // A newer load (different class, subject or term) has started: drop this one
+            if (requestRef.current !== request) return;
             setStudents(pivotedStudents);
             setPolicy(activePolicy);
             setStats(rawStats);
         } catch (err) {
+            if (requestRef.current !== request) return;
             console.error('Failed to fetch class data:', err);
             setError(err?.message || 'Failed to load student data. Please try again.');
         } finally {
-            setLoading(false);
+            if (requestRef.current === request) setLoading(false);
         }
-    }, [studentClass, subject, currentTerm]);
+    }, [studentClass, subject, termId]);
 
     useEffect(() => {
         fetchData();

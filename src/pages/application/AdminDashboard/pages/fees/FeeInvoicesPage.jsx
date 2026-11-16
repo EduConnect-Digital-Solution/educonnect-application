@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import AdminLayout from '../../components/layout/AdminLayout.jsx';
 import ScopeBar from '../../components/ScopeBar.jsx';
 import { useAcademic } from '../../../../../contexts/AcademicContext.jsx';
@@ -22,7 +22,10 @@ function FeeInvoicesContent() {
             .catch(err => console.error('[FeeInvoices] classes failed:', err));
     }, []);
 
+    // Every fetch is numbered; when the year or term changes mid-flight the older answer is dropped
+    const requestRef = useRef(0);
     const fetchInvoicesAndStructures = async () => {
+        const request = ++requestRef.current;
         if (!currentYear?.id) {
             setLoadingData(false);
             return;
@@ -40,6 +43,7 @@ function FeeInvoicesContent() {
                     status: 'published',
                 }),
             ]);
+            if (requestRef.current !== request) return;
 
             if (invRes?.success) {
                 setInvoices(invRes.data?.invoices ?? []);
@@ -51,13 +55,15 @@ function FeeInvoicesContent() {
         } catch (err) {
             console.error('[FeeInvoices] fetch failed:', err);
         } finally {
-            setLoadingData(false);
+            if (requestRef.current === request) setLoadingData(false);
         }
     };
 
     useEffect(() => {
         if (scopeLoading) return;
         fetchInvoicesAndStructures();
+        // Refetch only when the academic scope changes; the fetcher reads that scope each time it runs
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentYear?.id, currentTerm?.id, scopeLoading]);
 
     return (

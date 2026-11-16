@@ -1,5 +1,8 @@
 import apiClient from '../../utils/axiosConfig';
 
+// Class and subject names are free text ("SS 2/A", "Food & Nutrition?"): encode them before they go into a URL path
+const seg = (value) => encodeURIComponent(String(value ?? ''));
+
 export async function RegSchool(payload) {
     try {
         const { data } = await apiClient.post('/api/school/auth/register', payload);
@@ -164,7 +167,7 @@ export async function getTeacherStudents() {
 export async function getSubjectsByClass(className) {
 
     try {
-        const { data } = await apiClient.get(`/api/teacher/classes/${className}/subjects`);
+        const { data } = await apiClient.get(`/api/teacher/classes/${seg(className)}/subjects`);
         return data;
     } catch (error) {
         throw error?.response?.data || error;
@@ -173,7 +176,7 @@ export async function getSubjectsByClass(className) {
 
 export async function getStudentsByClassandSubject(className, subjectName) {
     try {
-        const { data } = await apiClient.get(`/api/teacher/classes/${className}/subjects/${subjectName}/students`);
+        const { data } = await apiClient.get(`/api/teacher/classes/${seg(className)}/subjects/${seg(subjectName)}/students`);
         return data;
     } catch (error) {
         throw error?.response?.data || error;

@@ -3,6 +3,7 @@
  * and data import / export.
  */
 import apiClient from '../../../../utils/axiosConfig.js';
+import { LONG_REQUEST_TIMEOUT_MS } from '../../../../utils/authBridge.js';
 
 const unwrap = (err, fallback) => {
     const data = err?.response?.data;
@@ -59,11 +60,11 @@ const saveBlob = (blob, filename) => {
 
 const download = async (url, filename, params) => {
     try {
-        const { data } = await apiClient.get(url, { params, responseType: 'blob' });
+        const { data } = await apiClient.get(url, { params, responseType: 'blob', timeout: LONG_REQUEST_TIMEOUT_MS });
         saveBlob(data, filename);
     } catch (err) {
         // A blob error body must be read as text to show its message
-        let message = 'Download failed';
+        let message = err?.code === 'ECONNABORTED' ? 'The download took too long. Please try again.' : 'Download failed';
         try { message = JSON.parse(await err.response.data.text()).message || message; } catch { /* keep default */ }
         throw new Error(message);
     }
@@ -82,6 +83,7 @@ export async function importCsv(kind, file, { dryRun }) {
         const { data } = await apiClient.post(`/api/admin/data/import/${kind}`, form, {
             params: dryRun ? { dryRun: 'true' } : undefined,
             headers: { 'Content-Type': 'multipart/form-data' },
+            timeout: LONG_REQUEST_TIMEOUT_MS,
         });
         return data.data;
     } catch (err) { throw unwrap(err, 'The file could not be processed'); }

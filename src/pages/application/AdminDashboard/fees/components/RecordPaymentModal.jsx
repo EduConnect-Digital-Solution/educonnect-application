@@ -12,6 +12,58 @@ import {
 import { X, CreditCard, Banknote, ShieldCheck, Mail, ExternalLink, CheckCircle2, AlertCircle, RotateCcw, AlertTriangle } from 'lucide-react';
 import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 
+// ─── Gateway references started from this browser ────────────────────────────
+// Paystack sends the admin back with ?reference=… in the address bar. That reference belongs to ONE
+// invoice, so we remember which invoice each checkout was started for and never offer it to another.
+const GATEWAY_REFS_KEY = 'ec_admin_gateway_refs';
+const GATEWAY_REF_TTL_MS = 24 * 60 * 60 * 1000;
+
+function readGatewayRefs() {
+  try {
+    const list = JSON.parse(localStorage.getItem(GATEWAY_REFS_KEY));
+    if (!Array.isArray(list)) return [];
+    return list.filter(r => r?.reference && r?.invoiceId && Date.now() - (r.at || 0) < GATEWAY_REF_TTL_MS);
+  } catch { return []; }
+}
+function writeGatewayRefs(list) {
+  try {
+    if (list.length) localStorage.setItem(GATEWAY_REFS_KEY, JSON.stringify(list.slice(-20)));
+    else localStorage.removeItem(GATEWAY_REFS_KEY);
+  } catch { /* storage unavailable */ }
+}
+function rememberGatewayRef(reference, invoiceId) {
+  if (!reference || !invoiceId) return;
+  writeGatewayRefs([...readGatewayRefs().filter(r => r.reference !== reference), { reference, invoiceId, at: Date.now() }]);
+}
+function forgetGatewayRef(reference) {
+  if (!reference) return;
+  writeGatewayRefs(readGatewayRefs().filter(r => r.reference !== reference));
+}
+const urlGatewayRef = () => {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('trxref') || params.get('reference') || null;
+};
+/** Drop a finished/abandoned reference from the address bar so it is not picked up again. */
+function clearUrlGatewayRef(reference) {
+  try {
+    const url = new URL(window.location.href);
+    const current = url.searchParams.get('trxref') || url.searchParams.get('reference');
+    if (!current || (reference && current !== reference)) return;
+    url.searchParams.delete('trxref');
+    url.searchParams.delete('reference');
+    window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+  } catch { /* leave the address bar as it is */ }
+}
+/** The callback reference in the address bar, but only when it was started for this invoice. */
+function callbackRefFor(invoiceId) {
+  const reference = urlGatewayRef();
+  if (!reference || !invoiceId) return null;
+  const known = readGatewayRefs().find(r => r.reference === reference);
+  if (known) return known.invoiceId === invoiceId ? reference : null;
+  // Not started from this browser: only trust it on that invoice's own page
+  return window.location.pathname.split('/').includes(String(invoiceId)) ? reference : null;
+}
+
 /**
  * RecordPaymentModal
  * Handles BOTH manual recording (cash/bank/pos/cheque) and online gateway
@@ -27,7 +79,7 @@ export default function RecordPaymentModal({ invoice, onClose, onRecorded, showT
   const { user } = useAuth();
   const adminEmail = user?.email || user?.userEmail || '';
 
-  const due = invoice.amountDue ?? (invoice.amount - (invoice.amountPaid || 0));
+  const due = Math.max(0, Number(invoice.amountDue ?? ((invoice.amount || 0) - (invoice.amountPaid || 0))) || 0);
 
   const initialRegEmail =
     invoice.parentEmail ||
@@ -62,15 +114,31 @@ export default function RecordPaymentModal({ invoice, onClose, onRecorded, showT
 
   const effectiveEmail = emailMode === 'registered' ? registeredEmailInput.trim() : adminEmail.trim();
 
-  // Auto-detect reference from URL query params (trxref or reference) on mount
+  // Returning from Paystack: pick the reference up from the address bar, but only for the invoice it was started for
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const urlRef = params.get('trxref') || params.get('reference');
+    const urlRef = callbackRefFor(invoice.id);
     if (urlRef) {
       setGatewayRef(urlRef);
       setMethod('paystack');
     }
-  }, []);
+  }, [invoice.id]);
+
+  // An abandoned or finished reference must not follow the admin to the next invoice
+  const dropGatewayRef = (reference = gatewayRef) => {
+    forgetGatewayRef(reference);
+    clearUrlGatewayRef(reference);
+  };
+
+  /** The amount as minor units, or an error message when it cannot be accepted. */
+  const checkAmount = () => {
+    const value = Number(amount);
+    if (amount === '' || !Number.isFinite(value) || value <= 0) return { error: 'Enter a valid amount' };
+    const minor = toKobo(value);
+    if (minor < 1 || Math.abs(value * 100 - minor) > 1e-6) return { error: 'Enter an amount with at most two decimal places' };
+    if (due <= 0) return { error: 'This invoice has no outstanding balance' };
+    if (minor > due) return { error: `The amount cannot be more than the outstanding balance of ${formatNaira(due)}` };
+    return { minor };
+  };
 
   // Intercept exit triggers (close modal, backdrop click, method switch)
   const attemptClose = () => {
@@ -95,6 +163,7 @@ export default function RecordPaymentModal({ invoice, onClose, onRecorded, showT
 
   const confirmExitAction = () => {
     const action = pendingExit;
+    dropGatewayRef();
     setPendingExit(null);
     setGatewayRef(null);
     setAuthUrl('');
@@ -113,6 +182,7 @@ export default function RecordPaymentModal({ invoice, onClose, onRecorded, showT
   };
 
   const handleChangeAmount = () => {
+    dropGatewayRef();
     setGatewayRef(null);
     setAuthUrl('');
     setVerifyFailed(false);
@@ -120,19 +190,20 @@ export default function RecordPaymentModal({ invoice, onClose, onRecorded, showT
   };
 
   const handleManual = async () => {
-    if (!amount || Number(amount) <= 0) return showToast('Enter a valid amount', 'error');
+    const { minor, error } = checkAmount();
+    if (error) return showToast(error, 'error');
     setBusy(true);
     try {
       const res = await recordPayment(invoice.id, {
-        amount: toKobo(amount),
+        amount: minor,
         paymentMethod: method,
         referenceNumber: reference || undefined,
         note: note || undefined,
         paidAt: new Date().toISOString(),
       });
       if (res.success) {
-        const paid = (invoice.amountPaid || 0) + toKobo(amount);
-        const total = invoice.amount || toKobo(amount);
+        const paid = (invoice.amountPaid || 0) + minor;
+        const total = invoice.amount || minor;
         const status = paid >= total ? 'paid' : 'partial';
         onRecorded(
           { id: invoice.id, amountPaid: paid, amountDue: Math.max(0, total - paid), status },
@@ -149,7 +220,8 @@ export default function RecordPaymentModal({ invoice, onClose, onRecorded, showT
   };
 
   const handleGatewayInit = async () => {
-    if (!amount || Number(amount) <= 0) return showToast('Enter a valid amount', 'error');
+    const { minor, error } = checkAmount();
+    if (error) return showToast(error, 'error');
 
     if (!effectiveEmail) {
       return showToast('Please provide a valid email address for Paystack checkout', 'error');
@@ -165,7 +237,7 @@ export default function RecordPaymentModal({ invoice, onClose, onRecorded, showT
     try {
       const initPayload = {
         gateway: method,
-        amount: toKobo(amount),
+        amount: minor,
         email: effectiveEmail,
       };
 
@@ -173,7 +245,11 @@ export default function RecordPaymentModal({ invoice, onClose, onRecorded, showT
       // Omit callbackUrl when on localhost so backend defaults to FRONTEND_URL.
       const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       if (!isLocal && window.location.protocol === 'https:') {
-        initPayload.callbackUrl = window.location.href;
+        // Send the page itself, without any reference left over from an earlier checkout
+        const callback = new URL(window.location.href);
+        callback.searchParams.delete('trxref');
+        callback.searchParams.delete('reference');
+        initPayload.callbackUrl = callback.toString();
       }
 
       const res = await initializePayment(invoice.id, initPayload);
@@ -182,6 +258,7 @@ export default function RecordPaymentModal({ invoice, onClose, onRecorded, showT
         const ref = res.data.reference;
         const url = res.data.authorizationUrl;
 
+        rememberGatewayRef(ref, invoice.id);
         setGatewayRef(ref);
         setAuthUrl(url);
 
@@ -207,6 +284,16 @@ export default function RecordPaymentModal({ invoice, onClose, onRecorded, showT
     try {
       const res = await verifyPayment({ reference: gatewayRef, gateway: method });
       if (res.success && res.data?.status === 'confirmed') {
+        const reference = gatewayRef;
+        dropGatewayRef(reference);
+        // The server says which invoice the money went to. Never show it against a different one.
+        const paidInvoiceId = res.data.payment?.invoiceId ?? res.data.invoiceId ?? res.data.invoice?.id;
+        if (paidInvoiceId && paidInvoiceId !== invoice.id) {
+          setGatewayRef(null);
+          setAuthUrl('');
+          showToast(`Payment ${reference} was confirmed, but it belongs to a different invoice. Refresh the invoice list to see it.`, 'info');
+          return;
+        }
         const paidAmt = res.data.payment?.amount || toKobo(amount);
         const paid = (invoice.amountPaid || 0) + paidAmt;
         const total = invoice.amount || paidAmt;
@@ -302,8 +389,9 @@ export default function RecordPaymentModal({ invoice, onClose, onRecorded, showT
               </div>
               <input
                 type="number"
-                min="1"
-                step="any"
+                min="0.01"
+                max={due > 0 ? due / 100 : undefined}
+                step="0.01"
                 value={amount}
                 onChange={e => setAmount(e.target.value)}
                 disabled={isGateway && !!gatewayRef}
@@ -315,7 +403,7 @@ export default function RecordPaymentModal({ invoice, onClose, onRecorded, showT
               <p className="text-[11px] text-gray-400 mt-1">
                 {isGateway && gatewayRef
                   ? 'Amount is locked for active Paystack session. Click "Change Amount" to reset and create a new reference.'
-                  : 'Partial payments allowed — invoice status will update automatically.'}
+                  : `Partial payments allowed, up to the outstanding balance of ${formatNaira(due)}.`}
               </p>
             </div>
 

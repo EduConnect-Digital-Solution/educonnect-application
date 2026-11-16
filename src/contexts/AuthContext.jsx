@@ -1,8 +1,22 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from '../utils/apiConfig';
+import { setAuthBridge, REQUEST_TIMEOUT_MS } from '../utils/authBridge';
 
 const AuthContext = createContext();
+
+// Session calls go straight to the server (not through the token interceptors), always with the cookie
+const sessionHttp = axios.create({ baseURL: API_BASE_URL, withCredentials: true, timeout: REQUEST_TIMEOUT_MS });
+
+/** Read a JWT's payload. Tokens are base64url, which atob() alone cannot decode. */
+export const decodeJwtPayload = (token) => {
+    const part = String(token).split('.')[1];
+    if (!part) throw new Error('Not a JWT');
+    const base64 = part.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+    const bytes = Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
+    return JSON.parse(new TextDecoder().decode(bytes));
+};
 
 // ── Session limits ─────────────────────────────────────────────────────────────
 // The server enforces these too (idle + absolute). The app mirrors them so people are warned
@@ -37,8 +51,6 @@ export const AuthProvider = ({ children }) => {
     const policyRef = useRef({ idleMs: DEFAULT_IDLE_MINUTES * 60 * 1000, expiresAt: null });
     const [idleWarning, setIdleWarning] = useState(null); // seconds left, or null when not warning
 
-    const baseURL = API_BASE_URL;
-
     // Normalize user object to ensure name/fullName are available for UI
     const normalizeUser = (u) => {
         if (!u) return u;
@@ -53,8 +65,8 @@ export const AuthProvider = ({ children }) => {
     // Helper: decode JWT and get expiry timestamp (ms)
     const getTokenExpiry = (token) => {
         try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            return payload.exp * 1000;
+            const exp = Number(decodeJwtPayload(token).exp);
+            return Number.isFinite(exp) ? exp * 1000 : null;
         } catch (error) {
             console.error('Error decoding token:', error);
             return null;
@@ -91,8 +103,8 @@ export const AuthProvider = ({ children }) => {
 
     const postRefresh = () => {
         if (!refreshInFlightRef.current) {
-            refreshInFlightRef.current = axios
-                .post(`${baseURL}/api/school/auth/refresh-token`, {}, { withCredentials: true })
+            refreshInFlightRef.current = sessionHttp
+                .post('/api/school/auth/refresh-token', {})
                 .finally(() => { refreshInFlightRef.current = null; });
         }
         return refreshInFlightRef.current;
@@ -101,10 +113,7 @@ export const AuthProvider = ({ children }) => {
     // Check session via /auth/me — primary method on app load
     const checkAuthStatus = async () => {
         try {
-            const response = await axios.get(
-                `${baseURL}/api/user/auth/me`,
-                { withCredentials: true }
-            );
+            const response = await sessionHttp.get('/api/user/auth/me');
 
             if (response.data.success && response.data.user) {
                 const userData = response.data.user;
@@ -216,7 +225,7 @@ export const AuthProvider = ({ children }) => {
         // The login response carries the internal school id; /me returns the school's
         // human-readable code and details, so pull them in once in the background.
         try {
-            const me = await axios.get(`${baseURL}/api/user/auth/me`, { withCredentials: true });
+            const me = await sessionHttp.get('/api/user/auth/me');
             if (me.data?.success && me.data.user) {
                 applySessionInfo(me.data.session);
                 setUser((current) => normalizeUser({ ...(current || {}), ...me.data.user }));
@@ -229,11 +238,7 @@ export const AuthProvider = ({ children }) => {
     // Logout: invalidate server session and clear local state
     const logout = async () => {
         try {
-            await axios.post(
-                `${baseURL}/api/school/auth/logout`,
-                {},
-                { withCredentials: true }
-            );
+            await sessionHttp.post('/api/school/auth/logout', {});
         } catch (error) {
             console.error('Logout error:', error);
         } finally {
@@ -253,7 +258,7 @@ export const AuthProvider = ({ children }) => {
     const sendHeartbeat = async () => {
         lastHeartbeatRef.current = Date.now();
         try {
-            const res = await axios.get(`${baseURL}/api/user/auth/me`, { withCredentials: true });
+            const res = await sessionHttp.get('/api/user/auth/me');
             applySessionInfo(res.data?.session);
         } catch (error) {
             if (error.response?.status === 401) expireSession('expired');
@@ -302,6 +307,8 @@ export const AuthProvider = ({ children }) => {
             document.removeEventListener('visibilitychange', onVisible);
             clearInterval(timer);
         };
+        // expireSession and sendHeartbeat only read refs and call setters, so the copies captured here never go stale
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isSignedIn]);
 
     // On mount: verify session once
@@ -315,6 +322,8 @@ export const AuthProvider = ({ children }) => {
         return () => {
             if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
         };
+        // Runs once on mount by design: it restores the session from the cookie
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const value = {
@@ -329,6 +338,11 @@ export const AuthProvider = ({ children }) => {
         getValidAccessToken,
         isAuthenticated: !!user && !!accessToken,
     };
+
+    // Give the API interceptors the latest token helpers. Published during render (not in an effect) so a
+    // page that mounts in this same render already sees the signed-in session when its own effects fetch.
+    setAuthBridge(value);
+    useEffect(() => () => setAuthBridge(null), []);
 
     return (
         <AuthContext.Provider value={value}>

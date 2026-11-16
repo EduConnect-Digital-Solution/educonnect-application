@@ -62,19 +62,24 @@ export default function PublishResultsTab() {
             .finally(() => setLoadingClasses(false));
     }, []);
 
+    const termId = currentTerm?.id;
     useEffect(() => {
-        const request = ++requestRef.current;
-        generationRef.current++;
+        // These refs are counters, not DOM nodes: bumping them is how in-flight requests and PDF polls are cancelled
+        const requests = requestRef;
+        const generations = generationRef;
+        const request = ++requests.current;
+        generations.current++;
         clearTimeout(pollRef.current);
         setPdfJob(null); setGenerating(false); setStatus(null); setError(null); setConfirmOpen(false);
-        if (!classId || !currentTerm?.id) { setLoading(false); return undefined; }
+        if (!classId || !termId) { setLoading(false); return undefined; }
+        const scope = `${classId}:${termId}`;
         setLoading(true);
-        getPublishStatus(currentTerm.id, classId)
-            .then(res => { if (requestRef.current === request) setStatus(res.data); })
-            .catch(e => { if (requestRef.current === request) setError(e?.message || 'Failed to load publish status.'); })
-            .finally(() => { if (requestRef.current === request) { setStatusScope(targetScope); setLoading(false); } });
-        return () => { requestRef.current++; generationRef.current++; clearTimeout(pollRef.current); };
-    }, [classId, currentTerm?.id, retry]);
+        getPublishStatus(termId, classId)
+            .then(res => { if (requests.current === request) setStatus(res.data); })
+            .catch(e => { if (requests.current === request) setError(e?.message || 'Failed to load publish status.'); })
+            .finally(() => { if (requests.current === request) { setStatusScope(scope); setLoading(false); } });
+        return () => { requests.current++; generations.current++; clearTimeout(pollRef.current); };
+    }, [classId, termId, retry]);
 
     const checklist = status?.checklist;
     const allPass   = checklist && Object.values(checklist).every(c => c.passed);

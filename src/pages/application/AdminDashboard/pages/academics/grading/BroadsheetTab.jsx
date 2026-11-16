@@ -6,6 +6,7 @@ import { useAcademic } from '../../../../../../contexts/AcademicContext.jsx';
 import { getSchoolClasses } from '../../../services/classAPIs.js';
 import { getClassArms } from '../../../services/armAPIs.js';
 import { getBroadsheet, getBroadsheetOverview } from '../../../services/gradingAPIs.js';
+import { neutraliseFormula } from '../../../../../../utils/csv.js';
 
 // ─── Grade colour helper ────────────────────────────────────────────────────────
 
@@ -21,7 +22,8 @@ function gradeTone(grade) {
 // ─── Excel export (dependency-free .xls via HTML table) ─────────────────────────
 
 function exportBroadsheetToExcel({ armName, className, termName, subjects, students, detailed }) {
-    const esc = (v) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    // Excel runs formulas found in HTML tables too, so names are neutralised before being escaped
+    const esc = (v) => neutraliseFormula(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
     const subjHead = subjects.map(s =>
         detailed

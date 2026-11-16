@@ -179,7 +179,7 @@ function AuditContent() {
 
             {error ? <EmptyState variant="error" description={error} onRetry={() => setPage((p) => p)} />
                 : loading && !data ? <TableSkeleton />
-                : data.logs.length === 0 ? <EmptyState title="No entries" description="Nothing has been recorded for these filters yet. Actions such as publishing fees, changing grading or inviting users appear here." />
+                : !data?.logs?.length ? <EmptyState title="No entries" description="Nothing has been recorded for these filters yet. Actions such as publishing fees, changing grading or inviting users appear here." />
                 : (
                     <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
                         <div className="overflow-x-auto">
@@ -195,11 +195,11 @@ function AuditContent() {
                             </table>
                         </div>
                         <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 text-xs text-gray-500">
-                            <span>{data.pagination.total} entries</span>
+                            <span>{data.pagination?.total ?? data.logs.length} entries</span>
                             <div className="flex items-center gap-2">
                                 <button disabled={page <= 1 || loading} onClick={() => setPage((p) => p - 1)} className="px-3 py-1.5 rounded-lg border border-gray-200 font-semibold disabled:opacity-40">Previous</button>
-                                <span>Page {data.pagination.page} of {Math.max(data.pagination.pages, 1)}</span>
-                                <button disabled={page >= data.pagination.pages || loading} onClick={() => setPage((p) => p + 1)} className="px-3 py-1.5 rounded-lg border border-gray-200 font-semibold disabled:opacity-40">Next</button>
+                                <span>Page {data.pagination?.page ?? page} of {Math.max(data.pagination?.pages ?? 1, 1)}</span>
+                                <button disabled={page >= (data.pagination?.pages ?? 1) || loading} onClick={() => setPage((p) => p + 1)} className="px-3 py-1.5 rounded-lg border border-gray-200 font-semibold disabled:opacity-40">Next</button>
                             </div>
                         </div>
                     </div>

@@ -137,7 +137,10 @@ function AuditDrawer({ cell, termId, onClose }) {
     const [error,         setError]        = useState(null);
 
     useEffect(() => {
-        if (!cell) { setActivityData(null); return; }
+        if (!cell) { setActivityData(null); setError(null); setLoading(false); return undefined; }
+        // Only the cell that is open now may fill the drawer: a slow answer for a cell opened
+        // earlier must not replace it with another subject's grading activity.
+        let active = true;
         setLoading(true); setError(null); setActivityData(null);
 
         getSubjectGradingActivity(
@@ -146,11 +149,12 @@ function AuditDrawer({ cell, termId, onClose }) {
             cell.subjectName,
             termId ?? cell.termId ?? '',
         ).then(res => {
-            setActivityData(res.data);
+            if (active) setActivityData(res.data);
         }).catch(e => {
-            setError(e?.message || 'Failed to load grading activity.');
-        }).finally(() => setLoading(false));
-    }, [cell]);
+            if (active) setError(e?.message || 'Failed to load grading activity.');
+        }).finally(() => { if (active) setLoading(false); });
+        return () => { active = false; };
+    }, [cell, termId]);
 
     if (!cell) return null;
 

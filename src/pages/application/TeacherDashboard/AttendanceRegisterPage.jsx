@@ -97,6 +97,7 @@ export default function AttendanceRegisterPage() {
           initialStatus={sessionData.attendanceStatus}
           submittedAt={sessionData.submittedAt}
           academicContext={academicContext}
+          initialAttendanceId={sessionData.attendanceId}
         />
       </div>
     </TeacherLayout>

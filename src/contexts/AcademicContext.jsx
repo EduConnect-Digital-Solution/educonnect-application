@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import { useAuth } from './AuthContext.jsx';
 import { getAcademicYears, getAcademicProfile, getTerms } from '../pages/application/AdminDashboard/timetable/timetableAPIs.js';
 import { getTeacherDashboard } from '../pages/auth/authAPIs.js';
+import { pushToast } from '../components/patterns/toastBus.js';
 
 /**
  * ───────────────────────────────
@@ -42,31 +43,39 @@ function pickTerm(terms, profileTerm) {
 
 export function AcademicProvider({ children }) {
   const { user } = useAuth();
-  const isAdmin   = user?.role === 'admin';
-  const isTeacher = user?.role === 'teacher';
+  const role = user?.role ?? null;
+  // Who the scope belongs to. When this changes (sign in, sign out, another account) the scope is
+  // reset and reloaded in place, without remounting the pages underneath.
+  const identity = user ? JSON.stringify([user.id ?? user.userId ?? user.email, user.schoolId, role]) : null;
 
   const [loading, setLoading] = useState(true);
+  const [switchingYear, setSwitchingYear] = useState(false);
   const [academicYears, setAcademicYears] = useState([]);
   const [currentYear, setCurrentYear] = useState(null);
   const [terms, setTerms] = useState([]);
   const [currentTerm, setCurrentTerm] = useState(null);
 
   const mountedRef = useRef(true);
-  const loadedRef = useRef(false);
+  // Bumped whenever the signed-in identity changes: answers for an earlier identity are dropped
+  const generationRef = useRef(0);
+  // Bumped on every year switch: only the latest switch may apply its terms
+  const yearRequestRef = useRef(0);
 
   useEffect(() => {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
   }, []);
 
-  // Load (or reload) the system academic scope from the backend.
+  // Load (or reload) the system academic scope from the backend (admin).
   const load = useCallback(async () => {
+    const generation = generationRef.current;
+    const isCurrent = () => mountedRef.current && generationRef.current === generation;
     try {
       const [yearsRes, profileRes] = await Promise.all([
         getAcademicYears(),
         getAcademicProfile(),
       ]);
-      if (!mountedRef.current) return;
+      if (!isCurrent()) return;
 
       const years = yearsRes?.data?.years ?? [];
       const year = pickYear(years, profileRes?.data?.currentAcademicYear);
@@ -75,11 +84,14 @@ export function AcademicProvider({ children }) {
       let term = null;
       if (year) {
         const termsRes = await getTerms(year.id);
-        if (!mountedRef.current) return;
+        if (!isCurrent()) return;
         yearTerms = termsRes?.data?.terms ?? [];
         term = pickTerm(yearTerms, profileRes?.data?.currentTerm);
       }
 
+      // A full reload wins over any year switch still in flight
+      yearRequestRef.current++;
+      setSwitchingYear(false);
       setAcademicYears(years);
       setCurrentYear(year);
       setTerms(yearTerms);
@@ -87,60 +99,70 @@ export function AcademicProvider({ children }) {
     } catch (err) {
       console.error('[Academic] load failed:', err);
     } finally {
-      if (mountedRef.current) setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }, []);
 
-  // One-shot load for an authenticated admin.
-  useEffect(() => {
-    if (!isAdmin || loadedRef.current) return;
-    loadedRef.current = true;
-    load();
-  }, [isAdmin, load]);
-
-  // One-shot load for an authenticated teacher.
   // Teachers don't have access to the admin academic API, so we pull
   // currentAcademicYear and currentAcademicTerm from the teacher dashboard
   // instead (data.school.currentAcademicYear / currentAcademicTerm).
   const loadForTeacher = useCallback(async () => {
+    const generation = generationRef.current;
+    const isCurrent = () => mountedRef.current && generationRef.current === generation;
     try {
       const res = await getTeacherDashboard();
-      if (!mountedRef.current) return;
+      if (!isCurrent()) return;
       const school = res?.data?.school ?? {};
       const year   = school.currentAcademicYear ?? null;
       const term   = school.currentAcademicTerm ?? null;
       setCurrentYear(year);
       setCurrentTerm(term);
-      if (year) setAcademicYears([year]);
-      if (term) setTerms([term]);
+      setAcademicYears(year ? [year] : []);
+      setTerms(term ? [term] : []);
     } catch (err) {
       console.error('[Academic] teacher load failed:', err);
     } finally {
-      if (mountedRef.current) setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }, []);
 
+  // One load per signed-in identity. Signing out, or in as someone else, clears the previous scope first.
   useEffect(() => {
-    if (!isTeacher || loadedRef.current) return;
-    loadedRef.current = true;
-    loadForTeacher();
-  }, [isTeacher, loadForTeacher]);
+    generationRef.current++;
+    yearRequestRef.current++;
+    setSwitchingYear(false);
+    setAcademicYears([]);
+    setCurrentYear(null);
+    setTerms([]);
+    setCurrentTerm(null);
 
-  // Change the active year — fetches its terms and selects a sensible default term.
+    if (identity && role === 'admin') { setLoading(true); load(); }
+    else if (identity && role === 'teacher') { setLoading(true); loadForTeacher(); }
+    else setLoading(false); // parents and signed-out visitors have no academic scope to wait for
+  }, [identity, role, load, loadForTeacher]);
+
+  // Change the active year. The year and its term change together, once the new year's terms have
+  // arrived, so no page ever sees the new year paired with the previous year's term.
   const selectYear = useCallback(async (yearId) => {
     const year = academicYears.find(y => y.id === yearId);
     if (!year) return;
-    setCurrentYear(year);
+    const generation = generationRef.current;
+    const request = ++yearRequestRef.current;
+    const isCurrent = () => mountedRef.current && generationRef.current === generation && yearRequestRef.current === request;
+    setSwitchingYear(true);
     try {
       const res = await getTerms(yearId);
-      if (!mountedRef.current) return;
+      if (!isCurrent()) return;
       const yearTerms = res?.data?.terms ?? [];
+      setCurrentYear(year);
       setTerms(yearTerms);
       setCurrentTerm(pickTerm(yearTerms, null));
     } catch (err) {
       console.error('[Academic] selectYear failed:', err);
-      setTerms([]);
-      setCurrentTerm(null);
+      // Stay on the year that is still showing rather than leave pages with a year and no terms
+      if (isCurrent()) pushToast({ message: `Could not switch to ${year.name ?? year.year ?? 'that academic year'}. Please try again.`, type: 'error' });
+    } finally {
+      if (isCurrent()) setSwitchingYear(false);
     }
   }, [academicYears]);
 
@@ -151,6 +173,7 @@ export function AcademicProvider({ children }) {
 
   const value = {
     loading,
+    switchingYear,
     academicYears,
     currentYear,
     terms,

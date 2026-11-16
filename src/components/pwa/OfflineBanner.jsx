@@ -30,6 +30,9 @@ export function OfflineBanner() {
             }, 3000);
             return () => clearTimeout(t);
         }
+        return undefined;
+        // Reacts to connectivity changes only. Depending on `status` would cancel the hide timer this effect starts.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOnline]);
 
     if (status === 'idle' || dismissed) return null;

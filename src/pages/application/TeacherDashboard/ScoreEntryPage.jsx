@@ -19,20 +19,13 @@ import {
     deleteAssessmentEntry,
     ASSESSMENT_TYPES,
 } from './services/assessmentEntryAPIs.js';
+import { calcContribution as calcContrib, roundPoints, sumPoints } from './teacherUtils/gradingMath.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const fmtDate = (iso) => iso
     ? formatSchoolDate(iso)
     : '—';
-
-function calcContrib(rawScore, maxScore, contributionPoints) {
-    const s = Number(rawScore);
-    const m = Number(maxScore);
-    const c = Number(contributionPoints);
-    if (!m || !c || isNaN(s) || s < 0) return null;
-    return parseFloat(((s / m) * c).toFixed(2));
-}
 
 // Build unified component list from policy (CA components + exam as one entry)
 function buildComponents(policy) {
@@ -123,8 +116,8 @@ function PolicyBanner({ policy, loading, hasPermission }) {
 
 function ComponentCard({ component, entries, onAdd, onEdit, onDelete, onView }) {
     const compEntries = entries.filter(e => e.policyComponentId === component.id);
-    const usedPoints  = compEntries.reduce((s, e) => s + Number(e.contributionPoints), 0);
-    const remaining   = component.maxScore - usedPoints;
+    const usedPoints  = sumPoints(compEntries.map(e => e.contributionPoints));
+    const remaining   = roundPoints(component.maxScore - usedPoints);
     const pct         = component.maxScore > 0 ? Math.min(100, Math.round((usedPoints / component.maxScore) * 100)) : 0;
     const isComplete  = remaining <= 0;
 
@@ -393,6 +386,8 @@ function AssessmentDrawer({
     const isEdit    = mode === 'edit';
     const isView    = mode === 'view';
     const readOnly  = isView;
+    // An existing entry stays in the component it was created under; only its details and scores are editable
+    const componentLocked = readOnly || isEdit;
 
     // ── Form fields ──────────────────────────────────────────────────────────
     const [componentId,      setComponentId]      = useState('');
@@ -440,7 +435,7 @@ function AssessmentDrawer({
             (entry.scores ?? []).forEach(sc => { init[sc.studentId] = String(sc.scoreObtained ?? ''); });
             setScoreMap(init);
         }
-    }, [open, mode, entry, defaultComponentId, drawerStep, students]);
+    }, [open, isCreate, isEdit, isView, entry, defaultComponentId, drawerStep, students]);
 
     // ── Derived ──────────────────────────────────────────────────────────────
     const selectedComponent = allComponents.find(c => c.id === componentId);
@@ -448,14 +443,16 @@ function AssessmentDrawer({
 
     // Contribution remaining (exclude current entry if editing)
     const usedElsewhere = useMemo(() => {
-        return entries
+        return sumPoints(entries
             .filter(e => e.policyComponentId === componentId && e.id !== entry?.id)
-            .reduce((s, e) => s + Number(e.contributionPoints), 0);
+            .map(e => e.contributionPoints));
     }, [entries, componentId, entry?.id]);
 
-    const maxContribution  = selectedComponent ? (selectedComponent.maxScore - usedElsewhere) : 0;
+    const maxContribution  = selectedComponent ? Math.max(0, roundPoints(selectedComponent.maxScore - usedElsewhere)) : 0;
     const contribNum       = Number(contribution);
     const maxScoreNum      = Number(maxScore);
+    // A worked example for the hint, always within what the assessment is marked out of
+    const exampleScore     = maxScoreNum > 0 ? Math.max(1, Math.round(maxScoreNum * 0.75)) : 0;
     const contribValid     = contribNum > 0 && contribNum <= maxContribution;
     const detailsComplete  = componentId && title.trim() && effectiveType && maxScoreNum > 0 && contribValid;
     const gradedCount      = Object.values(scoreMap).filter(v => v !== '').length;
@@ -525,7 +522,7 @@ function AssessmentDrawer({
                     <select
                         value={componentId}
                         onChange={e => setComponentId(e.target.value)}
-                        disabled={readOnly}
+                        disabled={componentLocked}
                         className="w-full appearance-none px-3 py-2.5 pr-8 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300 bg-white disabled:bg-gray-50 disabled:text-gray-500"
                     >
                         <option value="">— select assessment component —</option>
@@ -535,8 +532,13 @@ function AssessmentDrawer({
                             </option>
                         ))}
                     </select>
-                    {!readOnly && <ChevronDown size={14} className="absolute right-3 top-3.5 text-gray-400 pointer-events-none" />}
+                    {!componentLocked && <ChevronDown size={14} className="absolute right-3 top-3.5 text-gray-400 pointer-events-none" />}
                 </div>
+                {isEdit && (
+                    <p className="mt-1.5 text-[11px] text-gray-400">
+                        The component cannot be changed after an assessment is created. To move it, delete it and record it again.
+                    </p>
+                )}
                 {selectedComponent && (
                     <p className="mt-1.5 text-[11px] text-gray-500">
                         <span className="font-semibold text-gray-700">{maxContribution} pts</span> available in this component
@@ -662,7 +664,7 @@ function AssessmentDrawer({
                         Student score ÷ {maxScoreNum} × {contribNum} = CA points earned
                     </p>
                     <p className="text-[11px] text-blue-500 mt-0.5">
-                        e.g. 52/{maxScoreNum} → {calcContrib(52, maxScoreNum, contribNum) ?? '?'} pts toward {selectedComponent?.name ?? 'component'}
+                        e.g. {exampleScore}/{maxScoreNum} → {calcContrib(exampleScore, maxScoreNum, contribNum) ?? '?'} pts toward {selectedComponent?.name ?? 'component'}
                     </p>
                 </div>
             )}
@@ -883,28 +885,38 @@ export default function ScoreEntryPage() {
             setSubjects([]); setSelectedSubject('');
             setPolicy(undefined); setHasPermission(false);
             setStudents([]); setEntries([]);
-            return;
+            setLoadingSubjects(false);
+            return undefined;
         }
+        // Ignore the answer if the teacher has already moved on to another class
+        let active = true;
         setLoadingSubjects(true);
+        setSubjects([]);
         setSelectedSubject('');
         setPolicy(undefined); setHasPermission(false);
         setStudents([]); setEntries([]);
 
         getSubjectsByClass(selectedClass)
             .then(res => {
+                if (!active) return;
                 const list = res.data?.subjects ?? [];
                 setSubjects(list);
                 const wanted = pendingSubjectRef.current;
                 pendingSubjectRef.current = '';
                 if (wanted && list.some(sub => (sub.name ?? sub) === wanted)) setSelectedSubject(wanted);
             })
-            .catch(() => pushToast({ message: 'Failed to load subjects.', type: 'error' }))
-            .finally(() => setLoadingSubjects(false));
+            .catch(() => { if (active) pushToast({ message: 'Failed to load subjects.', type: 'error' }); })
+            .finally(() => { if (active) setLoadingSubjects(false); });
+        return () => { active = false; };
     }, [selectedClass]);
 
     // ── Load policy, students, entries on subject change ──────────────────────
+    // Every load of the sheet gets a number; only the latest one may write to the page, so a slow
+    // answer for a class/subject the teacher has left can never land under the one now selected.
+    const sheetRequestRef = useRef(0);
     const loadSheetData = useCallback(async () => {
-        if (!selectedClass || !selectedSubject || !currentTerm?.id) return;
+        const request = ++sheetRequestRef.current;
+        if (!selectedClass || !selectedSubject || !currentTerm?.id) { setLoadingData(false); return; }
 
         setLoadingData(true);
         setPolicy(undefined); setHasPermission(false);
@@ -916,16 +928,18 @@ export default function ScoreEntryPage() {
                 getStudentsByClassandSubject(selectedClass, selectedSubject),
                 listAssessmentEntries(selectedClass, selectedSubject, currentTerm.id),
             ]);
+            if (sheetRequestRef.current !== request) return;
 
             setPolicy(policyRes.data?.policy ?? null);
             setHasPermission(policyRes.data?.hasPermission ?? false);
             setStudents(studentsRes.data?.students ?? []);
             setEntries(entriesRes.data?.entries ?? []);
         } catch {
+            if (sheetRequestRef.current !== request) return;
             pushToast({ message: 'Failed to load grading data. Please retry.', type: 'error' });
             setPolicy(null);
         } finally {
-            setLoadingData(false);
+            if (sheetRequestRef.current === request) setLoadingData(false);
         }
     }, [selectedClass, selectedSubject, currentTerm?.id]);
 
@@ -980,11 +994,12 @@ export default function ScoreEntryPage() {
     const handleSaved = useCallback(async () => {
         setDrawerOpen(false);
         // Reload entries to get fresh calculated contributions
+        const request = sheetRequestRef.current;
         try {
             const res = await listAssessmentEntries(selectedClass, selectedSubject, currentTerm?.id);
-            setEntries(res.data?.entries ?? []);
+            if (sheetRequestRef.current === request) setEntries(res.data?.entries ?? []);
         } catch {
-            await loadSheetData();
+            if (sheetRequestRef.current === request) await loadSheetData();
         }
     }, [selectedClass, selectedSubject, currentTerm?.id, loadSheetData]);
 

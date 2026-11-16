@@ -368,6 +368,8 @@ export const InviteTeacherModal = ({ onClose, showToast }) => {
             }
         };
         fetchSubjects();
+        // showToast is only used to report a failed load; it must not re-trigger the fetch
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // ── filtered dropdown options ────────
@@ -890,6 +892,8 @@ export const CreateStudentModal = ({ onClose, showToast, onStudentAdded }) => {
             }
         };
         fetchClasses();
+        // showToast is only used to report a failed load; it must not re-trigger the fetch
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const setField = (name, value) => {
@@ -1278,6 +1282,8 @@ export const ManageParentStudentLinkModal = ({ onClose, showToast, schoolId, par
             }
         };
         fetchParentsAndStudents();
+        // showToast is only used to report a failed load; it must not re-trigger the fetch
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedParent]);
 
     const filteredParents = parent ? [] : parentsList.filter(p =>

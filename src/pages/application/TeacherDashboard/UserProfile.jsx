@@ -39,7 +39,7 @@ const TeacherProfile = () => {
 
                 setTeacher(dashboardRes.data.teacher);
                 setTeacherSubjects(dashboardRes.data.teacher.subjects);
-                setClasses(classRes.data.classes);
+                setClasses(classRes?.data?.classes ?? []);
             } catch (err) {
                 console.error('Failed to fetch data:', err);
                 setError(err);
@@ -62,7 +62,7 @@ const TeacherProfile = () => {
         setLoadingSubjects(true);
         try {
             const response = await getSubjectsByClass(cls.name);
-            setSubjects(response.data.subjects);
+            setSubjects(response?.data?.subjects ?? []);
         } catch (error) {
             console.error("Failed to fetch subjects:", error);
         } finally {
@@ -199,7 +199,7 @@ const TeacherProfile = () => {
                                                 {subjects.map(subject => (
                                                     <Link
                                                         key={subject.name}
-                                                        to={`/dashboard/teacher/students/${selectedClass.name}/${subject.name}`}
+                                                        to={`/dashboard/teacher/students/${encodeURIComponent(selectedClass.name)}/${encodeURIComponent(subject.name)}`}
                                                         className="block w-full text-left p-3 bg-gray-100 rounded-md hover:bg-gray-200"
                                                     >
                                                         {subject.name} ({subject.studentCount} students)

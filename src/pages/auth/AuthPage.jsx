@@ -6,6 +6,10 @@ import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { Images } from '../../components/images';
 import { LoginSchool, LoginUser, ForgotPassword, ResetPassword, ForgotUserPassword, ResetUserPassword } from './authAPIs';
 import { useAuth } from '../../contexts/AuthContext.jsx';
+import { passwordProblem } from '../../utils/password.js';
+
+// School IDs are issued in capitals (e.g. NUM1234); send them the same way from every form
+const normaliseSchoolId = (value) => String(value ?? '').trim().toUpperCase();
 
 // ─── Role Selection Card ───────
 const RoleCard = ({ title, description, icon, onClick }) => (
@@ -81,13 +85,14 @@ export default function AuthPage() {
     };
 
     const handleLogin = async () => {
-        if (!formData.schoolId) return showToast('Please enter your School ID.');
-        if (!formData.email) return showToast('Please enter your email address.');
+        if (!formData.schoolId.trim()) return showToast('Please enter your School ID.');
+        if (!formData.email.trim()) return showToast('Please enter your email address.');
         if (!formData.password) return showToast('Please enter your password.');
+        if (isLoading) return; // Enter pressed again while the first attempt is still in flight
 
         setIsLoading(true);
         try {
-            const payload = { schoolId: formData.schoolId.trim(), email: formData.email.trim().toLowerCase(), password: formData.password };
+            const payload = { schoolId: normaliseSchoolId(formData.schoolId), email: formData.email.trim().toLowerCase(), password: formData.password };
 
             const res = selectedRole === 'admin' ? await LoginSchool(payload) : await LoginUser(payload);
             if (res.success) {
@@ -106,16 +111,16 @@ export default function AuthPage() {
     };
 
     const handleForgotPassword = async () => {
-        if (!forgotData.schoolId) return showToast('Please enter your School ID.');
-        if (!forgotData.email) return showToast('Please enter your email address.');
+        if (!forgotData.schoolId.trim()) return showToast('Please enter your School ID.');
+        if (!forgotData.email.trim()) return showToast('Please enter your email address.');
         setIsLoading(true);
         try {
-            const forgotPayload = { email: forgotData.email.trim().toLowerCase(), schoolId: forgotData.schoolId.trim().toUpperCase() };
+            const forgotPayload = { email: forgotData.email.trim().toLowerCase(), schoolId: normaliseSchoolId(forgotData.schoolId) };
             const data = await (selectedRole === 'admin' ? ForgotPassword : ForgotUserPassword)(forgotPayload);
             
             if (data.success) {
                 setResetIsAdmin(selectedRole === 'admin');
-                setResetData(p => ({ ...p, email: forgotData.email.trim().toLowerCase(), schoolId: forgotData.schoolId.trim().toUpperCase() }));
+                setResetData(p => ({ ...p, email: forgotPayload.email, schoolId: forgotPayload.schoolId }));
                 showToast('OTP sent! Check your email.', 'success');
                 setView('reset');
             } else {
@@ -129,16 +134,23 @@ export default function AuthPage() {
     };
 
     const handleResetPassword = async () => {
-        if (!resetData.otp) return showToast('Please enter the OTP sent to your email.');
+        const otp = resetData.otp.trim();
+        if (!otp) return showToast('Please enter the OTP sent to your email.');
+        if (!/^\d{6}$/.test(otp)) return showToast('The OTP is the 6-digit code sent to your email.');
         if (!resetData.newPassword) return showToast('Please enter a new password.');
+        const problem = passwordProblem(resetData.newPassword);
+        if (problem) return showToast(problem);
         if (resetData.newPassword !== resetData.confirmPassword) return showToast('Passwords do not match.');
         setIsLoading(true);
         try {
             const data = resetIsAdmin
-                ? await ResetPassword(resetData)
-                : await ResetUserPassword({ email: resetData.email, schoolId: resetData.schoolId, otp: resetData.otp, newPassword: resetData.newPassword });
+                ? await ResetPassword({ ...resetData, otp })
+                : await ResetUserPassword({ email: resetData.email, schoolId: resetData.schoolId, otp, newPassword: resetData.newPassword });
             
             if (data.success) {
+                // The new password must not linger in memory, and the sign-in form starts with the right school
+                setResetData({ otp: '', email: '', schoolId: '', newPassword: '', confirmPassword: '' });
+                setFormData(p => ({ ...p, schoolId: resetData.schoolId, email: resetData.email, password: '' }));
                 showToast('Password reset successfully!', 'success', 2000, () => setView('login'));
             } else {
                 showToast(data.errors?.[0]?.msg || data.message || 'Password reset failed.');
@@ -369,7 +381,7 @@ export default function AuthPage() {
                             </div>
                             <div className="px-8 py-6 space-y-4">
                                 <Field label="OTP Code" required>
-                                    <input type="text" value={resetData.otp} onChange={e => setResetData(p => ({ ...p, otp: e.target.value }))} placeholder="Enter 6-digit OTP" maxLength={6} className={inputCls + ' tracking-widest text-center text-lg font-mono'} />
+                                    <input type="text" value={resetData.otp} inputMode="numeric" autoComplete="one-time-code" onChange={e => setResetData(p => ({ ...p, otp: e.target.value.replace(/\D/g, '').slice(0, 6) }))} placeholder="Enter 6-digit OTP" maxLength={6} className={inputCls + ' tracking-widest text-center text-lg font-mono'} />
                                 </Field>
                                 <Field label="New Password" required>
                                     <div className="relative">

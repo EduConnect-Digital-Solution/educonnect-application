@@ -108,6 +108,7 @@ export function PWAProvider({ children }) {
         }
 
         let mounted = true;
+        let updateTimer = null;
 
         const registerSW = async () => {
             try {
@@ -118,7 +119,6 @@ export function PWAProvider({ children }) {
 
                 if (!mounted) return;
                 setSwRegistration(registration);
-                console.log('[PWA] Service Worker registered:', registration.scope);
 
                 // Detect update available (new SW waiting)
                 if (registration.waiting) {
@@ -137,7 +137,7 @@ export function PWAProvider({ children }) {
                 });
 
                 // Periodic update check (every 60 seconds while active)
-                const intervalId = setInterval(() => registration.update(), 60_000);
+                updateTimer = setInterval(() => { registration.update().catch(() => { /* offline: try again next time */ }); }, 60_000);
 
                 // Get SW version
                 const messageChannel = new MessageChannel();
@@ -148,8 +148,6 @@ export function PWAProvider({ children }) {
                     { type: 'GET_VERSION' },
                     [messageChannel.port2]
                 );
-
-                return () => clearInterval(intervalId);
             } catch (err) {
                 console.error('[PWA] SW registration failed:', err);
             }
@@ -167,6 +165,7 @@ export function PWAProvider({ children }) {
 
         return () => {
             mounted = false;
+            if (updateTimer) clearInterval(updateTimer);
             navigator.serviceWorker.removeEventListener('message', handleSWMessage);
         };
     }, []);
@@ -180,8 +179,6 @@ export function PWAProvider({ children }) {
             // If beforeinstallprompt fires, the app is explicitly NOT installed.
             setIsInstalled(false);
             localStorage.removeItem('educonnect_app_installed');
-
-            console.log('[PWA] Install prompt captured and deferred');
         };
 
         window.addEventListener('beforeinstallprompt', handler);
@@ -197,7 +194,6 @@ export function PWAProvider({ children }) {
             setShowInstallPrompt(false);
             setJustInstalled(true);
             setTimeout(() => setJustInstalled(false), 5000);
-            console.log('[PWA] App installed!');
         };
 
         window.addEventListener('appinstalled', handler);
@@ -245,7 +241,6 @@ export function PWAProvider({ children }) {
         setShowInstallPrompt(false);
         await installPromptEvent.prompt();
         const { outcome } = await installPromptEvent.userChoice;
-        console.log('[PWA] Install outcome:', outcome);
 
         if (outcome === 'accepted') {
             setIsInstalled(true);
@@ -259,7 +254,6 @@ export function PWAProvider({ children }) {
     const handleDismiss = useCallback(() => {
         setShowInstallPrompt(false);
         localStorage.setItem(INSTALL_DISMISS_KEY, Date.now().toString());
-        console.log('[PWA] Install prompt dismissed');
     }, []);
 
     /** Apply SW update – reload page after activation */
@@ -278,13 +272,21 @@ export function PWAProvider({ children }) {
 
     /** Clear user-specific cached data on logout */
     const clearUserCache = useCallback(() => {
-        if (!navigator.serviceWorker.controller) return;
+        const controller = navigator.serviceWorker?.controller;
+        if (!controller) return;
         const channel = new MessageChannel();
-        navigator.serviceWorker.controller.postMessage(
+        controller.postMessage(
             { type: 'CLEAR_USER_CACHE' },
             [channel.port2]
         );
     }, []);
+
+    // Signing out (or being signed out) clears what the service worker cached for that user
+    const wasAuthenticatedRef = useRef(isAuthenticated);
+    useEffect(() => {
+        if (wasAuthenticatedRef.current && !isAuthenticated) clearUserCache();
+        wasAuthenticatedRef.current = isAuthenticated;
+    }, [isAuthenticated, clearUserCache]);
 
     const pwa = {
         // State

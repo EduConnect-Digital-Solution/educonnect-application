@@ -1016,6 +1016,8 @@ export default function FeeStructuresTab({ showToast, classes = [], currentYear,
         );
       },
     },
+    // The row handlers only call state setters and the API, so the copies captured here stay correct
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [classes, loadingDetail, publishedCountByClass]);
 
   // ── WorkbenchTable Filters ──────────────────

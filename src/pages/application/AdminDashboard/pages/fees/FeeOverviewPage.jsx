@@ -22,10 +22,7 @@ function FeeOverviewContent() {
             academicYearId: currentYear.id,
             ...(currentTerm?.id ? { termId: currentTerm.id } : {}),
         })
-            .then(res => { if (!cancelled && res?.success) {
-                setAnalytics(res.data)
-                console.log(res.data)
-            } })
+            .then(res => { if (!cancelled && res?.success) setAnalytics(res.data); })
             .catch(err => console.error('[FeeOverview] analytics failed:', err))
             .finally(() => { if (!cancelled) setLoading(false); });
         return () => { cancelled = true; };

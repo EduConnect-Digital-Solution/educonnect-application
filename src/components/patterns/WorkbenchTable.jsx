@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import EmptyState from './EmptyState.jsx';
 import { TableSkeleton } from './Skeletons.jsx';
+import { toCsv, downloadCsv } from '../../utils/csv.js';
 
 /**
  * WorkbenchTable — THE list experience for the whole platform.
@@ -23,19 +24,11 @@ import { TableSkeleton } from './Skeletons.jsx';
 
 function defaultExportCSV(columns, rows, title) {
     const visible = columns.filter(c => c.accessor);
-    const head = visible.map(c => `"${c.header}"`).join(',');
-    const body = rows.map(r =>
-        visible.map(c => {
-            const v = c.accessor(r);
-            return `"${String(v ?? '').replace(/"/g, '""')}"`;
-        }).join(',')
-    ).join('\n');
-    const blob = new Blob([`${head}\n${body}`], { type: 'text/csv;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `${(title || 'export').toLowerCase().replace(/\s+/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    const csv = toCsv([
+        visible.map(c => (typeof c.header === 'string' ? c.header : c.id)),
+        ...rows.map(r => visible.map(c => c.accessor(r))),
+    ]);
+    downloadCsv(`${(title || 'export').toLowerCase().replace(/\s+/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv`, csv);
 }
 
 function loadJSON(key, fallback) {

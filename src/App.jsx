@@ -10,6 +10,7 @@ import { AcademicProvider } from './contexts/AcademicContext.jsx';
 
 // Components
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
+import { LocaleReadyContext } from "./contexts/LocaleReadyContext.js";
 import {AuthLayout} from "./components/auth/AuthLayout.jsx";
 import {
     PWAInstallPrompt,
@@ -94,20 +95,14 @@ const TeacherAssessmentPoliciesPage  = lazy(() => import("./pages/application/Te
 const LoadingFallback = () => <PageLoader />;
 
 /**
- * AuthContextBridge
+ * SchoolLocaleGate
  *
- * Makes auth context available to axios interceptors AND wires
- * clearUserCache from PWAContext so cache is cleared on logout.
+ * Loads the signed-in school's locale (currency, timezone, date format) and tells protected
+ * pages when it is ready, so money and dates are never first painted in the default format.
+ * It never unmounts what it wraps: the sign-in page keeps its state while the locale loads.
  */
-const AuthContextBridge = ({ children }) => {
+const SchoolLocaleGate = ({ children }) => {
     const auth = useAuth();
-
-    useEffect(() => {
-        window.authContext = auth;
-        return () => {
-            delete window.authContext;
-        };
-    }, [auth]);
 
     const user = auth.user;
     const identity = user ? JSON.stringify([user.id ?? user.userId ?? user.email, user.schoolId, user.role]) : null;
@@ -122,9 +117,9 @@ const AuthContextBridge = ({ children }) => {
             .finally(() => { if (alive) setLocaleIdentity(identity); });
         return () => { alive = false; };
     }, [identity]);
-    if (identity && localeIdentity !== identity) return <LoadingFallback />;
+    const ready = !identity || localeIdentity === identity;
 
-    return children;
+    return <LocaleReadyContext.Provider value={ready}>{children}</LocaleReadyContext.Provider>;
 };
 
 
@@ -261,21 +256,16 @@ function AppRoutes() {
     );
 }
 
-function ScopedAcademicProvider({ children }) {
-    const { user } = useAuth();
-    const identity = user ? JSON.stringify([user.id ?? user.userId ?? user.email, user.schoolId, user.role]) : 'signed-out';
-    return <AcademicProvider key={identity}>{children}</AcademicProvider>;
-}
-
 function App() {
     return (
         <AuthProvider>
             <PWAProvider>
-                <AuthContextBridge>
-                    <ScopedAcademicProvider>
+                <SchoolLocaleGate>
+                    {/* Resets itself when the signed-in account changes; it must not remount the routes below */}
+                    <AcademicProvider>
                         <AppRoutes />
-                    </ScopedAcademicProvider>
-                </AuthContextBridge>
+                    </AcademicProvider>
+                </SchoolLocaleGate>
             </PWAProvider>
         </AuthProvider>
     );

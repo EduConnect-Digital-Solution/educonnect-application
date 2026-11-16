@@ -41,7 +41,9 @@ export default function AttendanceOpsPage() {
         if (!quiet) { setLoading(true); setError(null); }
         try {
             const res = await getAttendanceOverview({ date });
-            if (id === requestRef.current) setData(res.data);
+            // An answer without the day's figures cannot be drawn: report it instead of crashing the page
+            if (!res?.data?.day) throw new Error('Attendance figures for this day are not available.');
+            if (id === requestRef.current) setData({ ...res.data, classes: res.data.classes ?? [], absentees: res.data.absentees ?? [], range: res.data.range ?? {} });
         } catch (e) {
             if (!quiet && id === requestRef.current) setError(e?.message || 'Could not load attendance.');
         } finally {
