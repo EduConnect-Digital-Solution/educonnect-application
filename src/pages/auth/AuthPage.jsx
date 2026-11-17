@@ -7,6 +7,7 @@ import { Images } from '../../components/images';
 import { LoginSchool, LoginUser, ForgotPassword, ResetPassword, ForgotUserPassword, ResetUserPassword } from './authAPIs';
 import { useAuth } from '../../contexts/AuthContext.jsx';
 import { passwordProblem } from '../../utils/password.js';
+import { takeReturnPath } from '../../utils/returnPath.js';
 
 // School IDs are issued in capitals (e.g. NUM1234); send them the same way from every form
 const normaliseSchoolId = (value) => String(value ?? '').trim().toUpperCase();
@@ -238,7 +239,7 @@ export default function AuthPage() {
 
                                     <div className={`flex flex-col`}>
                                         <button
-                                            onClick={() => navigate(`/dashboard/${user.role}`, { replace: true })}
+                                            onClick={() => navigate(takeReturnPath(user.role), { replace: true })}
                                             className="inline-flex items-center justify-center px-5 py-2.5 bg-gray-900 hover:bg-blue-700 text-white text-xs font-bold uppercase tracking-wider transition-all duration-200 rounded-sm w-full md:w-auto"
                                         >
                                             Enter Dashboard
@@ -296,10 +297,16 @@ export default function AuthPage() {
                             </div>
 
                             <div className="px-8 pb-8 text-center">
-                                <p className="text-sm text-gray-500">
-                                    New to EduConnect?{' '}
-                                    <NavLink to="/register/school" className="text-blue-600 font-semibold hover:underline">Create an account</NavLink>
-                                </p>
+                                {selectedRole === 'admin' ? (
+                                    <p className="text-sm text-gray-500">
+                                        New to EduConnect?{' '}
+                                        <NavLink to="/register/school" className="text-blue-600 font-semibold hover:underline">Register your school</NavLink>
+                                    </p>
+                                ) : (
+                                    <p className="text-sm text-gray-500">
+                                        Teachers and parents join through an invitation from their school.
+                                    </p>
+                                )}
                             </div>
                         </div>
                     )}
@@ -326,7 +333,7 @@ export default function AuthPage() {
 
                                     <div className={`flex flex-col`}>
                                         <button
-                                            onClick={() => navigate(`/dashboard/${user.role}`, { replace: true })}
+                                            onClick={() => navigate(takeReturnPath(user.role), { replace: true })}
                                             className="inline-flex items-center justify-center px-5 py-2.5 bg-gray-900 hover:bg-blue-700 text-white text-xs font-bold uppercase tracking-wider transition-all duration-200 rounded-sm w-full md:w-auto"
                                         >
                                             Enter Dashboard

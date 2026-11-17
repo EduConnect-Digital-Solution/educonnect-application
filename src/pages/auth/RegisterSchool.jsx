@@ -383,10 +383,7 @@ export function RegisterSchool() {
                 </p>
                 {step === 3 && (
                     <p className="text-xs text-gray-400 max-w-sm mx-auto leading-relaxed">
-                        By creating an account you agree to EduConnect's{' '}
-                        <NavLink to="/terms" className="text-[#002684] hover:underline">Terms of Service</NavLink>
-                        {' '}and{' '}
-                        <NavLink to="/privacy" className="text-[#002684] hover:underline">Privacy Policy</NavLink>
+                        By creating an account you agree to EduConnect's Terms of Service and Privacy Policy.
                     </p>
                 )}
             </div>

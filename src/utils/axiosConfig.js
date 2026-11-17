@@ -83,6 +83,11 @@ apiClient.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
+// The login page explains a sign-out the server forced (see AuthPage)
+const markSessionExpired = () => {
+    try { sessionStorage.setItem('ec_signout_reason', 'expired'); } catch { /* storage unavailable */ }
+};
+
 // Response interceptor to handle token refresh
 apiClient.interceptors.response.use(
     (response) => response,
@@ -110,6 +115,7 @@ apiClient.interceptors.response.use(
                 if (authContext && authContext.logout) {
                     await authContext.logout();
                 }
+                markSessionExpired();
                 window.location.href = '/';
                 return Promise.reject(error);
             }
@@ -163,6 +169,7 @@ apiClient.interceptors.response.use(
                     if (authContext && authContext.logout) {
                         await authContext.logout();
                     }
+                    markSessionExpired();
                     window.location.href = '/';
                 }
                 return Promise.reject(refreshError);
