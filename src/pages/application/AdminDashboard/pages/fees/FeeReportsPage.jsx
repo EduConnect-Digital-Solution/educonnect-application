@@ -3,6 +3,7 @@ import AdminLayout from '../../components/layout/AdminLayout.jsx';
 import ScopeBar from '../../components/ScopeBar.jsx';
 import { useAcademic } from '../../../../../contexts/AcademicContext.jsx';
 import { DashboardSkeleton } from '../../../../../components/patterns';
+import LoadErrorNotice from './LoadErrorNotice.jsx';
 import { getSchoolClasses } from '../../services/classAPIs.js';
 import FeeReportsTab from '../../fees/components/FeeReportsTab.jsx';
 
@@ -10,12 +11,15 @@ function FeeReportsContent() {
     const { loading: scopeLoading, currentYear, currentTerm } = useAcademic();
 
     const [classes, setClasses] = useState([]);
+    const [classesError, setClassesError] = useState(null);
+    const [classesAttempt, setClassesAttempt] = useState(0);
 
     useEffect(() => {
+        setClassesError(null);
         getSchoolClasses()
             .then(res => { if (res?.success) setClasses(res.data?.classes ?? []); })
-            .catch(err => console.error('[FeeReports] classes failed:', err));
-    }, []);
+            .catch(() => setClassesError('Classes could not be loaded, so the class filter is empty.'));
+    }, [classesAttempt]);
 
     if (scopeLoading) {
         return <DashboardSkeleton />;
@@ -30,6 +34,7 @@ function FeeReportsContent() {
                 </div>
                 <ScopeBar />
             </div>
+            {classesError && <LoadErrorNotice message={classesError} onRetry={() => setClassesAttempt(n => n + 1)} />}
             <FeeReportsTab classes={classes} currentYear={currentYear} currentTerm={currentTerm} />
         </div>
     );

@@ -24,13 +24,20 @@ export default function useSetupProgress() {
     });
     const [loading, setLoading] = useState(!state);
 
+    const [error, setError] = useState(null);
+
     const load = useCallback(async () => {
         try {
             const next = await getOnboardingState();
-            try { if (key) sessionStorage.setItem(key, JSON.stringify({ ts: Date.now(), state: next })); } catch { /* storage unavailable */ }
-            setState(next);
+            const partial = next.failedChecks?.length > 0;
+            // A partial answer is never cached, and never turns a school already known to be set up back to "not done"
+            if (!partial) {
+                try { if (key) sessionStorage.setItem(key, JSON.stringify({ ts: Date.now(), state: next })); } catch { /* storage unavailable */ }
+            }
+            setState(prev => (partial && prev?.complete ? { ...next, complete: true } : next));
+            setError(partial ? `Some setup checks could not be loaded (${next.failedChecks.join(', ')}).` : null);
         } catch {
-            /* leave previous state */
+            setError('The setup checklist could not be loaded.');
         } finally {
             setLoading(false);
         }
@@ -52,6 +59,8 @@ export default function useSetupProgress() {
         goLive: state?.goLive ?? null,
         logoUrl: state?.logoUrl ?? null,
         withinGoLiveWindow: isWithinGoLiveWindow(state?.goLive),
+        failedChecks: state?.failedChecks ?? [],
+        error,
         refresh: load,
     };
 }
