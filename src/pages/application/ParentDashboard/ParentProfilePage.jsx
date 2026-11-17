@@ -13,24 +13,25 @@ import {getParentProfile, updateParentProfile} from "../../auth/authAPIs.js";
 const ParentProfilePage = () => {
     const [loading, setLoading] = useState(true);
     const [parentInfo, setParentInfo] = useState();
-    const [, setError] = useState(null);
+    const [loadError, setLoadError] = useState(null);
+    const [attempt, setAttempt] = useState(0);
 
     useEffect(() => {
         const fetchProfile = async () => {
             try {
                 setLoading(true);
+                setLoadError(null);
                 const profileData = await getParentProfile();
                 setParentInfo(profileData.data.parent);
             } catch (err) {
-                console.error('Failed to fetch profile:', err);
-                setError(err);
+                setLoadError(err?.response?.data?.message || 'Please check your connection and try again.');
             } finally {
                 setLoading(false);
             }
         };
 
         fetchProfile();
-    }, []);
+    }, [attempt]);
 
     const [isEditing, setIsEditing] = useState(false);
 
@@ -45,10 +46,10 @@ const ParentProfilePage = () => {
         emergencyPhone: ""
     });
 
-    // Sync API data to form state when loaded
+    // Sync API data to form state when loaded (parentInfo is the parent record itself)
     useEffect(() => {
-        if (parentInfo?.parent) {
-            const p = parentInfo.parent;
+        if (parentInfo) {
+            const p = parentInfo;
             setFormData({
                 firstName: p.firstName || "",
                 lastName: p.lastName || "",
@@ -77,6 +78,8 @@ const ParentProfilePage = () => {
             );
             const updateProfile = await updateParentProfile(payload)
             showToast(`${updateProfile.message}`, 'success');
+            // Show the saved values straight away in view mode
+            setParentInfo((current) => ({ ...(current || {}), ...payload }));
             setIsEditing(false);
         } catch(error){
             const data = error.response?.data;
@@ -92,6 +95,21 @@ const ParentProfilePage = () => {
             <ParentLayout>
                 <div className="flex flex-col items-center justify-center h-screen bg-gray-50">
                     <BrandLoader label="Syncing Profile..." size={88} />
+                </div>
+            </ParentLayout>
+        );
+    }
+
+    if (loadError) {
+        return (
+            <ParentLayout>
+                <div className="max-w-md mx-auto mt-16 text-center bg-white border border-red-100 rounded-2xl p-8">
+                    <p className="font-semibold text-gray-900">We couldn't load your profile</p>
+                    <p className="text-sm text-gray-500 mt-1">{loadError}</p>
+                    <button onClick={() => setAttempt((n) => n + 1)}
+                        className="mt-4 px-4 py-2 text-sm font-medium text-white bg-[#002684] rounded-lg">
+                        Try again
+                    </button>
                 </div>
             </ParentLayout>
         );
