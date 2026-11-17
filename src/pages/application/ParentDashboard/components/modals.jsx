@@ -1,6 +1,7 @@
 import { formatSchoolDate } from '../../../../utils/schoolLocale.js';
 import React from 'react';
 import { X } from 'lucide-react';
+import ChildReportCards from './ChildReportCards.jsx';
 
 export const StudentInfoModal = ({ child, onClose }) => {
     if (!child) return null;
@@ -76,6 +77,12 @@ export const StudentInfoModal = ({ child, onClose }) => {
                                 <InfoBlock label="Date of Birth" value={new Date(child.dateOfBirth).toLocaleDateString('en-US', { dateStyle: 'medium' })} />
                                 <InfoBlock label="Address" value={child.address} />
                             </div>
+                        </div>
+
+                        {/* Report cards the school has released */}
+                        <div className="md:col-span-2">
+                            <SectionHeader title="Report Cards" />
+                            <ChildReportCards childId={child.id} childName={child.fullName} />
                         </div>
 
                         {/* Communication Data */}

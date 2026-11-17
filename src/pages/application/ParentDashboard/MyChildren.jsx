@@ -146,7 +146,8 @@ const ChildSelectionPage = () => {
                                 <button
                                     onClick={async () => {
                                         const childInfo = await getStudentInfo(child.id);
-                                        setSelectedChild(childInfo);
+                                        // Keep the id this page already has: the detail record is read by it
+                                        setSelectedChild({ ...childInfo, id: childInfo.id ?? child.id });
                                     }}
                                     className="hover:cursor-pointer text-nowrap flex items-center justify-center gap-2 "
                                 >
