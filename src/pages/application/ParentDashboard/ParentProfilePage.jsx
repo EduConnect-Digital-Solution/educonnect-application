@@ -7,6 +7,7 @@ import {
     Edit3, Briefcase, Save, X
 } from 'lucide-react';
 import ParentLayout from "./components/layout/ParentLayout.jsx";
+import ChangePasswordCard from "../../../components/account/ChangePasswordCard.jsx";
 import {getParentProfile, updateParentProfile} from "../../auth/authAPIs.js";
 // import { getParentProfile } from './services/parentService';
 
@@ -241,6 +242,9 @@ const ParentProfilePage = () => {
                         </div>
                     </div>
                 </form>
+
+                {/* Outside the profile form: a form cannot sit inside another */}
+                <ChangePasswordCard className="mt-6 max-w-xl" />
             </div>
         </ParentLayout>
     );

@@ -5,6 +5,7 @@ import Input from '../components/ui/Input';
 import {updateAdminProfile} from "../../../auth/authAPIs.js";
 import { pushToast, ImageUploadField } from '../../../../components/patterns';
 import { useAuth } from '../../../../contexts/AuthContext.jsx';
+import ChangePasswordCard from '../../../../components/account/ChangePasswordCard.jsx';
 
 const AdminProfilePage = () => {
     const { user } = useAuth();
@@ -95,6 +96,8 @@ const AdminProfilePage = () => {
                         </button>
                     </div>
                 </form>
+
+                <ChangePasswordCard />
             </div>
         </AdminLayout>
     );
