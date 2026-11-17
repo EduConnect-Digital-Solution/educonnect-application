@@ -168,7 +168,7 @@ export const PAGE_INDEX = [
     { label: 'Fee Structures',      group: 'Navigation', route: ROUTES.feeStructures,    keywords: 'fees tuition billing setup' },
     { label: 'Invoices',            group: 'Navigation', route: ROUTES.invoices,         keywords: 'fees bills billing' },
     { label: 'Payments',            group: 'Navigation', route: ROUTES.payments,         keywords: 'fees ledger receipts transactions' },
-    { label: 'Defaulters',          group: 'Navigation', route: ROUTES.defaulters,       keywords: 'fees owing overdue debtors' },
+    // Defaulters has no page yet (its route is switched off in App.jsx), so it is not offered here
     { label: 'Finance Reports',     group: 'Navigation', route: ROUTES.financeReports,   keywords: 'fees aging collections reconciliation' },
     { label: 'Announcements',       group: 'Navigation', route: ROUTES.announcements,    keywords: 'broadcast circular message communication' },
     { label: 'Events',              group: 'Navigation', route: ROUTES.events,           keywords: 'events planner calendar communication' },
