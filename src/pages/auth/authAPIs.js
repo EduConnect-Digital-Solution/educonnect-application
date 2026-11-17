@@ -183,42 +183,6 @@ export async function getStudentsByClassandSubject(className, subjectName) {
     }
 }
 
-export async function assignGrade(payload) {
-    try {
-        const { data } = await apiClient.post(`/api/teacher/grades`, payload);
-        return data;
-    } catch (error) {
-        throw error?.response?.data || error;
-    }
-}
-
-export async function publishGrade(payload) {
-    try {
-        const { data } = await apiClient.post(`/api/teacher/grades/publish`, payload);
-        return data;
-    } catch (error) {
-        throw error?.response?.data || error;
-    }
-}
-
-export async function updateGrade(payload, gradeId) {
-    try {
-        const { data } = await apiClient.put(`/api/teacher/grades/${gradeId}`, payload);
-        return data;
-    } catch (error) {
-        throw error?.response?.data || error;
-    }
-}
-
-export async function viewGrade(studentId) {
-    try {
-        const { data } = await apiClient.get(`/api/teacher/students/${studentId}/grades`);
-        return data;
-    } catch (error) {
-        throw error?.response?.data || error;
-    }
-}
-
 export async function getDashboardUsers(role = '', status = '') {
     try {
         return await fetchAllPages('/api/admin/dashboard/users', {
@@ -354,15 +318,6 @@ export async function reactivateSchool(payload) {
     }
 }
 
-export async function verifySession() {
-    try {
-        const { data } = await apiClient.get('/api/user/auth/me');
-        return data;
-    } catch (error) {
-        throw error?.response?.data || error;
-    }
-}
-
 export async function updateStudent(studentId, payload) {
     try {
         const { data } = await apiClient.put(`/api/students/${studentId}`, payload);
@@ -411,15 +366,6 @@ export async function deleteUser(payload) {
 export async function deleteStudent(payload) {
     try {
         const { data } = await apiClient.delete(`/api/students/remove`, {data: payload});
-        return data;
-    } catch (error) {
-        throw error?.response?.data || error;
-    }
-}
-
-export async function deleteGrade(payload, studentId) {
-    try {
-        const { data } = await apiClient.delete(`/api/teacher/grades/${studentId}`, {data: payload});
         return data;
     } catch (error) {
         throw error?.response?.data || error;
@@ -476,36 +422,6 @@ export async function completeRegistration(payload) {
     }
 }
 
-export async function assignStudenttoTeacher(payload) {
-    try {
-        const { data } = await apiClient.post(`/api/admin/assign-teacher`,
-            payload);
-        return data;
-    } catch (error) {
-        throw error?.response?.data || error;
-    }
-}
-
-export async function bulkAssignStudentToTeacher(payload) {
-    try {
-        const { data } = await apiClient.post(`/api/admin/assign-teachers-bulk`,
-            payload);
-        return data;
-    } catch (error) {
-        throw error?.response?.data || error;
-    }
-}
-
-export async function unassignStudentToTeacher(payload) {
-    try {
-        const { data } = await apiClient.post(`/api/admin/unassign-teacher`,
-            payload);
-        return data;
-    } catch (error) {
-        throw error?.response?.data || error;
-    }
-}
-
 export async function assignClasses(payload) {
     try {
         const { data } = await apiClient.post(`/api/admin/teachers/assign-classes`,
@@ -539,16 +455,6 @@ export async function updateAdminProfile(payload) {
 export async function getParentDetails(parentId) {
     try {
         const { data } = await apiClient.get(`/api/parent-management/parents/${parentId}`);
-        return data;
-    } catch (error) {
-        throw error?.response?.data || error;
-    }
-}
-
-
-export async function getTeacherDetails() {
-    try {
-        const { data } = await apiClient.get(`/api/teacher/profile`);
         return data;
     } catch (error) {
         throw error?.response?.data || error;
