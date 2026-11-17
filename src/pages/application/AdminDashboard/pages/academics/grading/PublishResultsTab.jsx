@@ -8,6 +8,7 @@ import { getSchoolClasses } from '../../../services/classAPIs.js';
 import {
     getPublishStatus, publishResults, generateResultPdfs, getPdfJob,
 } from '../../../services/gradingAPIs.js';
+import { openPdfJobFile } from '../../../services/pdfJobDownload.js';
 
 // ─── Checklist row ───────────────────────────────────────────────────────────────
 
@@ -48,8 +49,20 @@ export default function PublishResultsTab() {
     const [confirmOpen, setConfirmOpen] = useState(false);
 
     // PDF job state
-    const [pdfJob, setPdfJob]     = useState(null); // { jobId, status, progress, downloadUrl }
+    const [pdfJob, setPdfJob]     = useState(null); // { jobId, status, progress, hasFile }
     const [generating, setGenerating] = useState(false);
+    const [opening, setOpening]   = useState(false);
+
+    // The file is private: ask for a fresh link each time it is opened
+    const openPdf = async () => {
+        setOpening(true);
+        try { await openPdfJobFile(pdfJob.jobId); }
+        catch (e) {
+            pushToast({ message: e.message, type: 'error' });
+            if (e.gone) setPdfJob(j => (j ? { ...j, hasFile: false } : j));
+        }
+        finally { setOpening(false); }
+    };
     const pollRef = useRef(null);
     const requestRef = useRef(0);
     const generationRef = useRef(0);
@@ -103,7 +116,7 @@ export default function PublishResultsTab() {
             const res = await generateResultPdfs({ termId: currentTerm.id, classId });
             if (generation !== generationRef.current) return;
             const jobId = res.data.jobId;
-            setPdfJob({ jobId, status: 'processing', progress: 0, downloadUrl: null });
+            setPdfJob({ jobId, status: 'processing', progress: 0, hasFile: false });
             const poll = async () => {
                 try {
                     const jobRes = await getPdfJob(jobId);
@@ -263,19 +276,29 @@ export default function PublishResultsTab() {
                                 </div>
                             )}
 
-                            {pdfJob && pdfJob.status === 'completed' && !pdfJob.downloadUrl ? (
-                                <p role="alert" className="text-sm text-red-600">
-                                    The PDFs were generated but no download link was returned. File storage may not be set up. Please try again, or contact support.
-                                </p>
+                            {pdfJob && pdfJob.status === 'completed' && !pdfJob.hasFile ? (
+                                <div>
+                                    <p role="alert" className="text-sm text-red-600 mb-3">
+                                        The PDFs were generated but the file is not available. Generate them again.
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={startPdfGeneration}
+                                        disabled={generating}
+                                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-sm font-semibold text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 disabled:opacity-50 transition-colors"
+                                    >
+                                        <FileDown size={15} /> Generate again
+                                    </button>
+                                </div>
                             ) : pdfJob && pdfJob.status === 'completed' ? (
-                                <a
-                                    href={pdfJob.downloadUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors"
+                                <button
+                                    type="button"
+                                    onClick={openPdf}
+                                    disabled={opening}
+                                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors"
                                 >
-                                    <FileDown size={15} /> Download all PDFs
-                                </a>
+                                    {opening ? <Loader2 size={15} className="animate-spin" /> : <FileDown size={15} />} Download all PDFs
+                                </button>
                             ) : (
                                 <button
                                     type="button"

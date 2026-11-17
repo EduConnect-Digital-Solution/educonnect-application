@@ -625,7 +625,8 @@ export async function generateResultPdfs(payload) {
  * GET /api/admin/results/pdf-jobs/:jobId
  * Poll for bulk-PDF progress. The frontend polls until status = 'completed'.
  *
- * Response: { success, data: { jobId, status: 'processing'|'completed'|'failed', progress, downloadUrl } }
+ * Response: { success, data: { jobId, status: 'processing'|'completed'|'failed', progress, hasFile } }
+ * The file itself is opened with openPdfJobFile (services/pdfJobDownload.js).
  */
 export async function getPdfJob(jobId) {
     try {
@@ -723,7 +724,7 @@ export async function saveReportCardComment(studentId, payload) {
  * Where an arm's report cards got to, so the release page can restore itself after a refresh.
  *
  * Response: { success, data: { signedOff, signedAt, released, releasedAt, publishedCount,
- *   latestJob: { jobId, status, progress, downloadUrl, createdAt } | null } }
+ *   latestJob: { jobId, status, progress, hasFile, createdAt } | null } }
  */
 export async function getReportCardStatus(armId, termId) {
     try {
