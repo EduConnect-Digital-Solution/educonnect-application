@@ -24,7 +24,8 @@ const ParentProfilePage = () => {
                 const profileData = await getParentProfile();
                 setParentInfo(profileData.data.parent);
             } catch (err) {
-                setLoadError(err?.response?.data?.message || 'Please check your connection and try again.');
+                // getParentProfile throws the server's answer itself, not an axios error
+                setLoadError(err?.message || 'Please check your connection and try again.');
             } finally {
                 setLoading(false);
             }
