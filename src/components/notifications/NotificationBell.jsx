@@ -8,7 +8,7 @@ import { listNotifications, markNotificationRead, markAllNotificationsRead } fro
 const REFRESH_MS = 2 * 60 * 1000;
 
 // Only a path inside this app is followed: never another site (//x or /\x both leave the site)
-const isInAppPath = (link) => typeof link === 'string' && /^\/(?![\/\\])[^\s\\]*$/.test(link);
+const isInAppPath = (link) => typeof link === 'string' && /^\/(?![/\\])[^\s\\]*$/.test(link);
 
 /** The signed-in person's notifications (admin, teacher or parent), in a bell with a dropdown. */
 export default function NotificationBell() {
