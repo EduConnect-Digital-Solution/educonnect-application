@@ -2,7 +2,7 @@ import { BrandLoader } from '@/components/brand/BrandLoader.jsx';
 import React, { useState, useEffect } from 'react';
 import {AnalyticsAndActions, ChildListandNotification, ParentsOverviewDashboard} from "./parentUtils/p_utils.jsx";
 import ParentLayout from "./components/layout/ParentLayout.jsx";
-import {getParentDashboard, getParentProfile} from "../../auth/authAPIs.js";
+import {getParentDashboard} from "../../auth/authAPIs.js";
 // import { getParentDashboard, getParentProfile } from './services/parentService';
 
 
@@ -17,7 +17,6 @@ export default function ParentDashboard() {
 
     const [children, setChildren] = useState();
     const [notifications, setNotifications] = useState();
-    const [, setParentInfo] = useState();
 
 
     const [error, setError] = useState(null);
@@ -27,13 +26,11 @@ export default function ParentDashboard() {
             try {
                 setLoading(true);
                 const analyticsData = await getParentDashboard();
-                const profileData = await getParentProfile();
 
                 const totalStudents = analyticsData.data.children;
                 const totalNotifications = analyticsData.data.notifications;
 
                 // Setting Parent Related Analytics Variables
-                setParentInfo(profileData.data.parent);
                 setOverview(analyticsData.data.statistics);
                 setChildren(totalStudents.map(child => ({
                     id: child.id,
