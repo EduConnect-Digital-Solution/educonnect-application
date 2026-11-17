@@ -85,7 +85,8 @@ apiClient.interceptors.request.use(
 
 // The login page explains a sign-out the server forced (see AuthPage)
 const markSessionExpired = () => {
-    try { sessionStorage.setItem('ec_signout_reason', 'expired'); } catch { /* storage unavailable */ }
+    // Keep a reason already given (idle, signed out); only fill in one that is missing
+    try { if (!sessionStorage.getItem('ec_signout_reason')) sessionStorage.setItem('ec_signout_reason', 'expired'); } catch { /* storage unavailable */ }
 };
 
 // Response interceptor to handle token refresh
