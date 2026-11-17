@@ -4,7 +4,7 @@ import AdminLayout from '../components/layout/AdminLayout';
 import Input from '../components/ui/Input';
 import {getSchoolProfile, updateSchool, deactivateSchool, reactivateSchool} from "../../../auth/authAPIs.js";
 import SettingsBreadcrumb from '../components/ui/SettingsBreadcrumb.jsx';
-import { pushToast, DetailSkeleton, ImageUploadField } from '../../../../components/patterns';
+import { pushToast, DetailSkeleton, ImageUploadField, EmptyState } from '../../../../components/patterns';
 import { getSchoolSettings, saveSchoolLogo } from '../services/onboardingAPIs.js';
 
 const Field = ({ label, value, icon: Icon, editable, name, onChange }) => (
@@ -33,6 +33,7 @@ const SchoolProfilePage = () => {
     const [showStatusModal, setShowStatusModal] = useState(false);
     const [statusReason, setStatusReason] = useState('');
     const [loading, setLoading] = useState(false);
+    const [loadError, setLoadError] = useState(null);
     const [school, setSchool] = useState({});
     const [logoUrl, setLogoUrl] = useState(null);
 
@@ -69,6 +70,7 @@ const SchoolProfilePage = () => {
     };
 
     const fetchSchoolProfile = async () => {
+        setLoadError(null);
         try {
             setLoading(true);
             const response = await getSchoolProfile();
@@ -97,8 +99,8 @@ const SchoolProfilePage = () => {
                 description: schoolInformation.description || '',
             });
         } catch (error) {
-            console.error(error)
-            showToast(error.message || 'Failed to fetch school profile.', 'error');
+            // Shown in place of the form: an empty form would invite saving blank details over the real ones
+            setLoadError(error?.response?.data?.message || error.message || 'Failed to load the school profile.');
         } finally {
             setLoading(false);
         }
@@ -161,6 +163,15 @@ const SchoolProfilePage = () => {
             <AdminLayout>
                 <SettingsBreadcrumb section="Identity & Branding" />
                 <DetailSkeleton />
+            </AdminLayout>
+        );
+    }
+
+    if (loadError) {
+        return (
+            <AdminLayout>
+                <SettingsBreadcrumb section="Identity & Branding" />
+                <EmptyState variant="error" description={loadError} onRetry={fetchSchoolProfile} />
             </AdminLayout>
         );
     }

@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import AdminLayout from '../../components/layout/AdminLayout.jsx';
 import ScopeBar from '../../components/ScopeBar.jsx';
 import { useAcademic } from '../../../../../contexts/AcademicContext.jsx';
-import { FinanceTableSkeleton } from '../../../../../components/patterns';
+import { FinanceTableSkeleton, EmptyState } from '../../../../../components/patterns';
+import LoadErrorNotice from './LoadErrorNotice.jsx';
 import { getSchoolClasses } from '../../services/classAPIs.js';
 import { getInvoices, getFeeStructures } from '../../services/feeAPIs.js';
 import FeeInvoicesTab from '../../fees/components/FeeInvoicesTab.jsx';
@@ -15,12 +16,16 @@ function FeeInvoicesContent() {
     const [invoices, setInvoices] = useState([]);
     const [summary, setSummary] = useState({ totalBilled: 0, totalPaid: 0, totalOutstanding: 0 });
     const [loadingData, setLoadingData] = useState(true);
+    const [loadError, setLoadError] = useState(null);
+    const [classesError, setClassesError] = useState(null);
+    const [classesAttempt, setClassesAttempt] = useState(0);
 
     useEffect(() => {
+        setClassesError(null);
         getSchoolClasses()
             .then(res => { if (res?.success) setClasses(res.data?.classes ?? []); })
-            .catch(err => console.error('[FeeInvoices] classes failed:', err));
-    }, []);
+            .catch(() => setClassesError('Classes could not be loaded, so class lists below are empty.'));
+    }, [classesAttempt]);
 
     // Every fetch is numbered; when the year or term changes mid-flight the older answer is dropped
     const requestRef = useRef(0);
@@ -31,6 +36,7 @@ function FeeInvoicesContent() {
             return;
         }
         setLoadingData(true);
+        setLoadError(null);
         try {
             const [invRes, structRes] = await Promise.all([
                 getInvoices({
@@ -53,7 +59,7 @@ function FeeInvoicesContent() {
                 setStructures(structRes.data?.feeStructures ?? []);
             }
         } catch (err) {
-            console.error('[FeeInvoices] fetch failed:', err);
+            if (requestRef.current === request) setLoadError(err?.response?.data?.message || err?.message || 'Could not load invoices.');
         } finally {
             if (requestRef.current === request) setLoadingData(false);
         }
@@ -75,8 +81,11 @@ function FeeInvoicesContent() {
                 </div>
                 <ScopeBar />
             </div>
+            {classesError && <LoadErrorNotice message={classesError} onRetry={() => setClassesAttempt(n => n + 1)} />}
             {(scopeLoading || loadingData) ? (
                 <FinanceTableSkeleton />
+            ) : loadError ? (
+                <EmptyState variant="error" description={loadError} onRetry={fetchInvoicesAndStructures} />
             ) : (
                 <FeeInvoicesTab
                     classes={classes}

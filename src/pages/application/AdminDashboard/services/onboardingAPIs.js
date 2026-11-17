@@ -159,6 +159,10 @@ export async function getOnboardingState() {
         listGradingScales(),
     ]);
     const val = (r) => (r.status === 'fulfilled' ? r.value : null);
+    // Steps whose check could not run: they are not known to be undone, so say so instead of showing them as to-do
+    const checks = { 'academic-calendar': yearsRes, 'school-structure': classesRes, subjects: subjectsRes, staff: staffRes,
+        students: studentsRes, fees: feesRes, timetable: timetablesRes, grading: gradingRes };
+    const failedChecks = Object.entries(checks).filter(([, r]) => r.status === 'rejected').map(([id]) => id);
 
     const years = val(yearsRes)?.data?.years ?? val(yearsRes)?.data?.academicYears ?? [];
     // Calendar counts as done only once the chosen year actually has terms.
@@ -168,7 +172,7 @@ export async function getOnboardingState() {
         try {
             const termsRes = await getTerms(activeYear.id);
             hasTerms = (termsRes?.data?.terms ?? []).length > 0;
-        } catch { hasTerms = false; }
+        } catch { hasTerms = false; failedChecks.push('academic-calendar'); }
     }
 
     const realDone = {
@@ -204,6 +208,7 @@ export async function getOnboardingState() {
 
     return {
         steps,
+        failedChecks: [...new Set(failedChecks)].map(id => ONBOARDING_STEPS.find(s => s.id === id)?.title ?? id),
         doneCount,
         total: steps.length,
         percent,
