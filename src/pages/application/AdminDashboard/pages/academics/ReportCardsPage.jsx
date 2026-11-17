@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { LayoutTemplate, MessageSquareText, Send, GripVertical, Eye, EyeOff, ArrowUp, ArrowDown, Save, CheckCircle2, XCircle, Lock, FileText, ShieldCheck, Users, Star } from 'lucide-react';
+import { LayoutTemplate, MessageSquareText, Send, GripVertical, Eye, EyeOff, ArrowUp, ArrowDown, Save, CheckCircle2, XCircle, Lock, FileText, FileDown, ShieldCheck, Users, Star } from 'lucide-react';
 import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import AdminLayout from '../../components/layout/AdminLayout.jsx';
 import {
@@ -13,6 +13,7 @@ import {
     getReportCardComments, saveReportCardComment, REPORT_CARD_TRAITS, getPublishStatus,
     generateReportCards, getPdfJob, signOffReportCards, publishReportCardsToParents, getReportCardStatus,
 } from '../../services/gradingAPIs.js';
+import { openPdfJobFile } from '../../services/pdfJobDownload.js';
 
 const TABS = [
     { id: 'template', label: 'Template Builder',  icon: LayoutTemplate },
@@ -658,7 +659,7 @@ function GenerateReleaseTab() {
                 } else if (stuck || latest.status === 'failed') {
                     setJob({ status: 'failed', progress: 0, interrupted: stuck });
                 } else {
-                    setJob({ status: latest.status, progress: latest.progress ?? 100, downloadUrl: latest.downloadUrl });
+                    setJob({ jobId: latest.jobId, status: latest.status, progress: latest.progress ?? 100, hasFile: latest.hasFile });
                 }
             }
         }).catch((e) => {
@@ -706,6 +707,18 @@ function GenerateReleaseTab() {
     ];
     const allPrereq = !checks.loading && !checks.error && prereqs.filter(p => !p.optional).every(p => p.passed);
 
+    // The cards are private files: each open asks the server for a link that lasts a minute
+    const [opening, setOpening] = useState(false);
+    const openCards = async () => {
+        setOpening(true);
+        try { await openPdfJobFile(job.jobId); }
+        catch (e) {
+            pushToast({ message: e.message, type: 'error' });
+            if (e.gone) setJob(j => (j ? { ...j, hasFile: false } : j));
+        }
+        finally { setOpening(false); }
+    };
+
     const pollJob = (jobId, generation) => {
         const poll = async () => {
             try {
@@ -713,7 +726,8 @@ function GenerateReleaseTab() {
                 if (generation !== generationRef.current) return;
                 setJob(jr.data);
                 if (jr.data.status === 'completed') {
-                    setBusy(false); setStage('generated');
+                    // Generating again after sign-off or release must not move the pipeline backwards
+                    setBusy(false); setStage(st => (st === 'idle' ? 'generated' : st));
                     pushToast({ message: 'Report cards generated.', type: 'success' });
                 } else if (jr.data.status === 'failed') {
                     setBusy(false); pushToast({ message: jr.data.error || 'Report card generation failed.', type: 'error' });
@@ -834,6 +848,23 @@ function GenerateReleaseTab() {
                                 <p role="status" className="mb-2 text-xs text-red-600">
                                     {job.interrupted ? 'The last generation was interrupted.' : 'The last generation failed.'} Generate again to retry.
                                 </p>
+                            )}
+                            {stage !== 'idle' && job?.status === 'completed' && job.hasFile && job.jobId && (
+                                <button type="button" onClick={openCards} disabled={opening}
+                                    className="px-4 py-2 bg-white border border-gray-200 text-sm font-semibold text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors flex items-center gap-2">
+                                    {opening ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />} Open report cards
+                                </button>
+                            )}
+                            {stage !== 'idle' && job?.status === 'completed' && !job.hasFile && (
+                                <div>
+                                    <p role="status" className="mb-2 text-xs text-red-600">
+                                        The generated file is no longer available. Generate the cards again to open them.
+                                    </p>
+                                    <button type="button" onClick={handleGenerate} disabled={busy || restoring}
+                                        className="px-4 py-2 bg-white border border-gray-200 text-sm font-semibold text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors flex items-center gap-2">
+                                        <FileText size={14} /> Generate again
+                                    </button>
+                                </div>
                             )}
                             {stage === 'idle' && (!job || job.status !== 'processing') && (
                                 <button type="button" onClick={handleGenerate} disabled={!allPrereq || busy || restoring}
