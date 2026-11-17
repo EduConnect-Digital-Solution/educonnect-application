@@ -4,6 +4,7 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocaleReady } from '../contexts/LocaleReadyContext.js';
+import { rememberReturnPath } from '../utils/returnPath.js';
 
 
 const ProtectedRoute = ({ children, requiredRole = null }) => {
@@ -18,7 +19,8 @@ const ProtectedRoute = ({ children, requiredRole = null }) => {
     }
 
     if (!isAuthenticated) {
-        // Redirect to login with return URL
+        // Remember the page so sign-in can return to it (sessionStorage survives the reload a sign-out does)
+        rememberReturnPath(`${location.pathname}${location.search}`);
         return <Navigate to="/" state={{ from: location }} replace />;
     }
 
