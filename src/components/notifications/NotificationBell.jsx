@@ -7,6 +7,9 @@ import { listNotifications, markNotificationRead, markAllNotificationsRead } fro
 
 const REFRESH_MS = 2 * 60 * 1000;
 
+// Only a path inside this app is followed: never another site (//x or /\x both leave the site)
+const isInAppPath = (link) => typeof link === 'string' && /^\/(?![\/\\])[^\s\\]*$/.test(link);
+
 /** The signed-in person's notifications (admin, teacher or parent), in a bell with a dropdown. */
 export default function NotificationBell() {
     const navigate = useNavigate();
@@ -16,18 +19,22 @@ export default function NotificationBell() {
     const [unread, setUnread] = useState(0);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    // Every load is numbered; an answer that arrives after a newer load, or after a change made here, is dropped
+    const requestRef = useRef(0);
 
     const load = useCallback(async () => {
+        const request = ++requestRef.current;
         setLoading(true);
         try {
             const data = await listNotifications({ limit: 10 });
+            if (request !== requestRef.current) return;
             setItems(data.notifications);
             setUnread(data.unreadCount);
             setError(null);
         } catch (e) {
-            setError(e.message);
+            if (request === requestRef.current) setError(e.message);
         } finally {
-            setLoading(false);
+            if (request === requestRef.current) setLoading(false);
         }
     }, []);
 
@@ -50,18 +57,22 @@ export default function NotificationBell() {
     };
 
     const openItem = async (item) => {
+        requestRef.current += 1; // a load already in flight must not undo this
+        setLoading(false);
         if (!item.isRead) {
             setItems((list) => list.map((n) => (n.id === item.id ? { ...n, isRead: true } : n)));
             setUnread((n) => Math.max(n - 1, 0));
             markNotificationRead(item.id).catch(() => load());
         }
-        if (item.link) {
+        if (isInAppPath(item.link)) {
             setOpen(false);
             navigate(item.link);
         }
     };
 
     const markAll = async () => {
+        requestRef.current += 1; // a load already in flight must not undo this
+        setLoading(false);
         const before = { items, unread };
         setItems((list) => list.map((n) => ({ ...n, isRead: true })));
         setUnread(0);
