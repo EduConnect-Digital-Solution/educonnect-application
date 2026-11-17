@@ -18,6 +18,7 @@ import { Dialog, Transition } from '@headlessui/react';
 import {getSubjectsByClass, getTeacherClasses, getTeacherDashboard} from "../../auth/authAPIs.js";
 import {Link} from "react-router-dom";
 import {useAuth} from "../../../contexts/AuthContext.jsx";
+import ChangePasswordCard from "../../../components/account/ChangePasswordCard.jsx";
 // import {getTeacherDashboard, getTeacherClasses} from '../services/teacherService.jsx';
 
 const TeacherProfile = () => {
@@ -152,6 +153,7 @@ const TeacherProfile = () => {
                         rail={
                             <div className="mt-2">
                                 <AccountInfo role={user.role} />
+                                <ChangePasswordCard className="mt-4" />
                             </div>
                         }
                     />
