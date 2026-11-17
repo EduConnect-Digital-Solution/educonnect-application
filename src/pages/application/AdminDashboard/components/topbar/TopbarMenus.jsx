@@ -2,7 +2,7 @@ import PushToggle from '../../../../../components/pwa/PushToggle.jsx';
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    Bell, CheckCheck, ClipboardCheck, CheckCircle2,
+    ClipboardCheck, CheckCircle2,
     User, Moon, Sun, LogOut, Settings2, Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../../../../../contexts/AuthContext.jsx';
@@ -33,70 +33,9 @@ const Panel = ({ children, width = 'w-80' }) => (
     </div>
 );
 
-const PanelHeader = ({ title, sub, action }) => (
-    <div className="flex items-start justify-between px-4 py-3 border-b border-gray-100">
-        <div>
-            <p className="text-xs font-bold text-gray-900">{title}</p>
-            {sub && <p className="text-[11px] text-gray-400 mt-0.5">{sub}</p>}
-        </div>
-        {action}
-    </div>
-);
-
 /* ─── Notification bell ──────── */
-export function NotificationBell() {
-    const { open, setOpen, ref } = usePopover();
-    // Notification feed wiring lands with the platform notification engine;
-    // until then the bell renders an honest all-caught-up state — never fake items.
-    const notifications = [];
-    const unread = notifications.filter(n => !n.read).length;
-
-    return (
-        <div className="relative" ref={ref}>
-            <button
-                onClick={() => setOpen(o => !o)}
-                className="relative p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-                title="Notifications"
-            >
-                <Bell size={17} />
-                {unread > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white ring-2 ring-white">
-                        {unread}
-                    </span>
-                )}
-            </button>
-
-            {open && (
-                <Panel>
-                    <PanelHeader
-                        title="Notifications"
-                        sub="Alerts from across your school"
-                        action={unread > 0 && (
-                            <button className="flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700">
-                                <CheckCheck size={12} /> Mark all read
-                            </button>
-                        )}
-                    />
-                    {notifications.length === 0 ? (
-                        <div className="px-4 py-10 text-center">
-                            <div className="mx-auto w-10 h-10 rounded-full bg-green-50 flex items-center justify-center mb-3">
-                                <CheckCheck size={18} className="text-green-500" />
-                            </div>
-                            <p className="text-sm font-semibold text-gray-700">You're all caught up</p>
-                            <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">
-                                Attendance, payment, and results alerts will land here as those modules go live.
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="max-h-80 overflow-y-auto divide-y divide-gray-50">
-                            {/* notification rows render here once the feed is wired */}
-                        </div>
-                    )}
-                </Panel>
-            )}
-        </div>
-    );
-}
+// The same bell teachers and parents have; it reads the signed-in admin's own notifications
+export { default as NotificationBell } from '../../../../../components/notifications/NotificationBell.jsx';
 
 /* ─── Approvals chip — navigates to the Approvals destination ──────────────── */
 export function ApprovalsChip() {
