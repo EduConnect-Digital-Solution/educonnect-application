@@ -83,3 +83,56 @@ export function Drawer({ open, onClose, title, subtitle, children, footer, width
         document.body
     );
 }
+
+/* ── Leaving a half-filled form ────────────────────────────────────────────────
+ * Shown instead of closing when the form has unsaved entries. The draft is already
+ * kept on this device, so "Close" is safe; "Discard" is the only way to lose it.
+ */
+export function LeaveFormPrompt({ open, onKeepEditing, onClose, onDiscard, hasDraft = true }) {
+    useEffect(() => {
+        if (!open) return;
+        const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); onKeepEditing?.(); } };
+        window.addEventListener('keydown', onKey, true);
+        return () => window.removeEventListener('keydown', onKey, true);
+    }, [open, onKeepEditing]);
+
+    if (!open) return null;
+    return createPortal(
+        <div className="fixed inset-0 z-[95] flex items-center justify-center p-4" role="alertdialog" aria-modal="true" aria-labelledby="leave-form-title">
+            <div className="absolute inset-0 bg-gray-900/30" onClick={onKeepEditing} />
+            <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl p-5">
+                <h2 id="leave-form-title" className="text-[15px] font-bold text-gray-900">Leave this form?</h2>
+                <p className="text-[13px] text-gray-500 mt-1.5">
+                    {hasDraft
+                        ? 'What you typed is kept as a draft on this device for 7 days. It will be here when you open the form again.'
+                        : 'What you typed has not been saved.'}
+                </p>
+                <div className="flex flex-col-reverse sm:flex-row gap-2 mt-5">
+                    <button type="button" onClick={onDiscard} className="sm:mr-auto px-3 py-2 text-sm font-semibold rounded-lg text-red-600 hover:bg-red-50">
+                        Discard
+                    </button>
+                    {hasDraft && (
+                        <button type="button" onClick={onClose} className="px-3 py-2 text-sm font-semibold rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50">
+                            Close, keep draft
+                        </button>
+                    )}
+                    <button type="button" autoFocus onClick={onKeepEditing} className="px-3 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700">
+                        Keep editing
+                    </button>
+                </div>
+            </div>
+        </div>,
+        document.body
+    );
+}
+
+/** Notice at the top of a form that was reopened from a saved draft. */
+export function DraftRestoredNotice({ savedAtLabel, onStartOver }) {
+    return (
+        <div role="status" className="flex items-center justify-between gap-3 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+            <span>Restored your unsaved draft from {savedAtLabel}.</span>
+            <button type="button" onClick={onStartOver} className="shrink-0 font-semibold underline">Start over</button>
+        </div>
+    );
+}
+

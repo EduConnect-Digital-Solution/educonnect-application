@@ -4,7 +4,9 @@ import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import AdminLayout from '../../components/layout/AdminLayout.jsx';
 import {
     pushToast, Field, Drawer, ConfirmDestructiveDialog, EmptyState, StatusChip, inputClass, useFieldErrors,
+    LeaveFormPrompt, DraftRestoredNotice, formDraftKey, readFormDraft, writeFormDraft, clearFormDraft, isSameForm, draftTimeLabel,
 } from '../../../../../components/patterns';
+import { useAuth } from '../../../../../contexts/AuthContext.jsx';
 import {
     listApplicants, createApplicant, updateApplicant, setApplicantStatus, admitApplicant, deleteApplicant,
 } from '../../services/admissionsAPI.js';
@@ -63,6 +65,17 @@ export default function AdmissionsPage() {
     const [formError, setFormError] = useState(null);
     const v = useFieldErrors(validators);
 
+    // A new applicant's details are kept as a local draft until saved (edits are not: the record exists).
+    const { user } = useAuth();
+    const [draftKey, setDraftKey] = useState(null); // fixed when the drawer opens (null: no draft this time)
+    const [restored, setRestored] = useState(null);
+    const [leaving, setLeaving] = useState(false);
+    const formBaseline = useRef(EMPTY_FORM); // what the form held when opened, to tell if anything changed
+    const formDirty = formOpen && !isSameForm(form, formBaseline.current);
+    useEffect(() => {
+        if (formOpen && !editing) writeFormDraft(draftKey, form, EMPTY_FORM);
+    }, [formOpen, editing, draftKey, form]);
+
     // Decision drawer (offer / decline), admit drawer, delete dialog
     const [decision, setDecision]   = useState(null); // { applicant, status }
     const [note, setNote]           = useState('');
@@ -105,18 +118,37 @@ export default function AdmissionsPage() {
     const total = Object.values(counts).reduce((a, b) => a + b, 0);
 
     // ── Add / edit ──
-    const openCreate = () => { setEditing(null); setForm(EMPTY_FORM); v.clearErrors(); setFormError(null); setFormOpen(true); };
+    const openCreate = () => {
+        const key = formDraftKey(user, 'add-applicant');
+        const draft = readFormDraft(key);
+        setDraftKey(key);
+        setRestored(draft);
+        setEditing(null);
+        const values = { ...EMPTY_FORM, ...draft?.data };
+        // A class chosen in the draft may have been removed since.
+        if (values.applyingClassId && classes.length > 0 && !classes.some(c => c.id === values.applyingClassId)) values.applyingClassId = '';
+        setForm(values);
+        formBaseline.current = EMPTY_FORM;
+        v.clearErrors(); setFormError(null); setFormOpen(true);
+    };
+    const startOver = () => { clearFormDraft(draftKey); setRestored(null); setForm(EMPTY_FORM); v.clearErrors(); setFormError(null); };
     const openEdit = (a) => {
         setEditing(a);
-        setForm({
+        setRestored(null);
+        const values = {
             firstName: a.firstName, lastName: a.lastName, dateOfBirth: a.dateOfBirth ? a.dateOfBirth.slice(0, 10) : '',
             gender: a.gender || '', applyingClassId: a.applyingClassId || '', guardianName: a.guardianName,
             guardianEmail: a.guardianEmail || '', guardianPhone: a.guardianPhone || '',
             previousSchool: a.previousSchool || '', notes: a.notes || '',
-        });
+        };
+        setForm(values);
+        formBaseline.current = values;
         v.clearErrors(); setFormError(null); setFormOpen(true);
     };
     const closeForm = () => { if (!saving) setFormOpen(false); };
+    // X, Cancel, Escape and the backdrop come here: ask first when something was typed.
+    const requestCloseForm = () => { if (saving) return; if (formDirty) setLeaving(true); else closeForm(); };
+    const discardForm = () => { if (!editing) clearFormDraft(draftKey); setLeaving(false); closeForm(); };
     const setField = (name, value) => {
         const next = { ...form, [name]: value };
         setForm(next);
@@ -132,6 +164,7 @@ export default function AdmissionsPage() {
                 pushToast({ message: `${form.firstName} ${form.lastName}'s application was updated.`, type: 'success' });
             } else {
                 await createApplicant(form);
+                clearFormDraft(draftKey);
                 pushToast({ message: `${form.firstName} ${form.lastName} was added as an applicant.`, type: 'success' });
             }
             setFormOpen(false);
@@ -373,11 +406,12 @@ export default function AdmissionsPage() {
             {/* Add / edit applicant */}
             <Drawer
                 open={formOpen}
-                onClose={closeForm}
+                onClose={requestCloseForm}
                 title={editing ? 'Edit application' : 'Add applicant'}
                 subtitle="Basic details are enough to start. You can add more later."
-                footer={footer(closeForm, handleSave, saving, editing ? 'Save changes' : 'Add applicant')}
+                footer={footer(requestCloseForm, handleSave, saving, editing ? 'Save changes' : 'Add applicant')}
             >
+                {restored && !editing && <DraftRestoredNotice savedAtLabel={draftTimeLabel(restored.savedAt)} onStartOver={startOver} />}
                 {serverBanner('This application could not be saved', formError)}
                 <div className="grid grid-cols-2 gap-3">
                     <Field label="First name" required htmlFor="ap-first" error={v.errors.firstName}>
@@ -428,6 +462,13 @@ export default function AdmissionsPage() {
                 </Field>
                 <p className="text-[12px] text-gray-400"><span className="text-red-400">*</span> Required</p>
             </Drawer>
+            <LeaveFormPrompt
+                open={leaving}
+                hasDraft={!editing}
+                onKeepEditing={() => setLeaving(false)}
+                onClose={() => { setLeaving(false); closeForm(); }}
+                onDiscard={discardForm}
+            />
 
             {/* Offer / decline */}
             <Drawer

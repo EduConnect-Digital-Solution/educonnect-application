@@ -67,3 +67,65 @@ export function useFormDraft(storageKey, initial) {
 
     return { data, update, clearDraft };
 }
+
+/* ── Local drafts for "add" forms ─────────────────────────────────────────────
+ * A half-filled form is kept in this browser until it is sent, so closing it by
+ * mistake (or a refresh) never loses what was typed. Nothing reaches the server
+ * before Submit. Drafts are keyed per school and per signed-in user, expire after
+ * DRAFT_TTL_DAYS, and are wiped on sign-out (shared school computers).
+ */
+const DRAFT_PREFIX = 'form-draft:';
+const DRAFT_TTL_DAYS = 7;
+
+/**
+ * Storage key for one form, scoped to the signed-in account. Keyed by e-mail because it is the same in the
+ * login, /me and refresh payloads (ids are not always). Null when nobody is signed in: then nothing is stored.
+ */
+export const formDraftKey = (user, formName) => {
+    const who = String(user?.email ?? '').trim().toLowerCase();
+    return who ? `${DRAFT_PREFIX}${who}:${formName}` : null;
+};
+
+/** Returns { data, savedAt } or null. Expired or unreadable drafts are removed. */
+export function readFormDraft(key) {
+    if (!key) return null;
+    try {
+        const saved = JSON.parse(localStorage.getItem(key));
+        if (!saved || typeof saved.at !== 'number') return null;
+        if (Date.now() - saved.at > DRAFT_TTL_DAYS * 864e5) { localStorage.removeItem(key); return null; }
+        return { data: saved.data, savedAt: saved.at };
+    } catch { return null; }
+}
+
+/** Saves `data`, or removes the draft when it is back to the empty form. */
+export function writeFormDraft(key, data, empty) {
+    if (!key) return;
+    try {
+        if (isSameForm(data, empty)) localStorage.removeItem(key);
+        else localStorage.setItem(key, JSON.stringify({ data, at: Date.now() }));
+    } catch { /* storage full or blocked: the form still works, just without a draft */ }
+}
+
+export function clearFormDraft(key) {
+    if (!key) return;
+    try { localStorage.removeItem(key); } catch { /* ignore */ }
+}
+
+/** Removes every form draft in this browser (called on sign-out). */
+export function clearAllFormDrafts() {
+    try {
+        Object.keys(localStorage).filter(k => k.startsWith(DRAFT_PREFIX)).forEach(k => localStorage.removeItem(k));
+    } catch { /* ignore */ }
+}
+
+/** True when two form states hold the same values (drafts are small, plain objects). */
+export const isSameForm = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+/** "today at 14:05" / "on 18 Nov at 09:12", for the restored-draft notice. */
+export const draftTimeLabel = (ms) => {
+    const d = new Date(ms);
+    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return d.toDateString() === new Date().toDateString()
+        ? `today at ${time}`
+        : `on ${d.toLocaleDateString([], { day: 'numeric', month: 'short' })} at ${time}`;
+};
