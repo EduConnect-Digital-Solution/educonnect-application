@@ -1,16 +1,26 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { DAYS } from '../TimetableContext';
 import PeriodCell from './PeriodCell';
 import { useTimetable } from '../TimetableContext';
+import useMediaQuery from '@/components/patterns/useMediaQuery.js';
+
+// Today if it is a school day, otherwise Monday.
+const todayOrMonday = () => {
+  const name = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+  return DAYS.includes(name) ? name : DAYS[0];
+};
 
 /**
  * WeeklyGrid
  * ───────────────────────────────
  * The main canvas of the builder. Renders the time matrix (Periods × Days).
  * Maps local `schedules` state to correct cells.
+ * On phones (below 768px) it shows one day at a time with day tabs, so cells stay big enough to tap.
  */
 export default function WeeklyGrid({ activeDragData }) {
-  const { state, scheduleByCell } = useTimetable();
+  const { state, scheduleByCell, conflictedIds } = useTimetable();
+  const isPhone = useMediaQuery('(max-width: 767px)');
+  const [activeDay, setActiveDay] = useState(todayOrMonday);
 
   // If no class is selected, show empty placeholder
   if (!state.selectedClass) {
@@ -31,25 +41,47 @@ export default function WeeklyGrid({ activeDragData }) {
   const isDraggingPaletteSubject = activeDragData?.type === 'SUBJECT';
   const isDraggingPlacedBlock = activeDragData?.type === 'PLACED_BLOCK';
 
+  const days = isPhone ? [activeDay] : DAYS;
+  const cols = isPhone ? 'grid-cols-[64px_1fr]' : 'grid-cols-[80px_repeat(5,1fr)]';
+  const dayHasConflict = (day) => (state.schedules || []).some(s => s.dayOfWeek === day && conflictedIds.has(s.id));
+
   return (
-    <div className="flex-1 bg-white flex flex-col overflow-hidden relative group/grid">
+    <div data-timetable-grid className="flex-1 bg-white flex flex-col overflow-hidden relative group/grid">
       
-      {/* Grid Header (Days) */}
-      <div className="grid grid-cols-[80px_repeat(5,1fr)] border-b border-gray-200 bg-gray-50 shrink-0 sticky top-0 z-10">
-        <div className="p-3 border-r border-gray-200 flex items-end justify-end">
-          <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Time</span>
+      {/* Grid Header (Days) — tabs on phones */}
+      {isPhone ? (
+        <div role="tablist" aria-label="Day" className="flex border-b border-gray-200 bg-gray-50 shrink-0 sticky top-0 z-10">
+          {DAYS.map(day => (
+            <button
+              key={day}
+              type="button"
+              role="tab"
+              aria-selected={day === activeDay}
+              onClick={() => setActiveDay(day)}
+              className={`relative flex-1 py-3 text-xs font-bold ${day === activeDay ? 'text-blue-700 border-b-2 border-blue-600 bg-white' : 'text-gray-500'}`}
+            >
+              {day.slice(0, 3)}
+              {dayHasConflict(day) && <span className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-red-500" aria-label="has conflicts" />}
+            </button>
+          ))}
         </div>
-        {DAYS.map(day => (
-          <div key={day} className="p-3 border-r border-gray-200 text-sm font-bold text-gray-700 text-center">
-            {day}
+      ) : (
+        <div className={`grid ${cols} border-b border-gray-200 bg-gray-50 shrink-0 sticky top-0 z-10`}>
+          <div className="p-3 border-r border-gray-200 flex items-end justify-end">
+            <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Time</span>
           </div>
-        ))}
-      </div>
+          {DAYS.map(day => (
+            <div key={day} className="p-3 border-r border-gray-200 text-sm font-bold text-gray-700 text-center">
+              {day}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Grid Body (Periods) */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         {state.periods.map(period => (
-          <div key={period.id} className="grid grid-cols-[80px_repeat(5,1fr)] min-h-[70px]">
+          <div key={period.id} className={`grid ${cols} min-h-[70px]`}>
             
             {/* Context/Time Label axis */}
             <div className="p-2 border-r border-b border-gray-100 bg-gray-50/50 flex flex-col justify-center items-center shrink-0">
@@ -66,12 +98,12 @@ export default function WeeklyGrid({ activeDragData }) {
             {/* Matrix Cells */}
             {period.isBreak ? (
               // Break row (spans across)
-              <div className="col-span-5 border-b border-gray-100 bg-gray-50/30 flex items-center justify-center flex-col">
+              <div className={`${isPhone ? 'col-span-1' : 'col-span-5'} border-b border-gray-100 bg-gray-50/30 flex items-center justify-center flex-col`}>
                 <div className="w-full max-w-sm h-px bg-gray-200" />
               </div>
             ) : (
               // Standard period cells
-              DAYS.map(day => {
+              days.map(day => {
                 const cellId = `${day}__${period.id}`;
                 const entriesForCell = scheduleByCell[cellId] || [];
                 return (
@@ -89,8 +121,8 @@ export default function WeeklyGrid({ activeDragData }) {
 
           </div>
         ))}
-        {/* Bottom padding for scroll */}
-        <div className="h-16" />
+        {/* Bottom padding for scroll (taller below lg, where the tray covers the bottom) */}
+        <div className="h-16 max-lg:h-40" />
       </div>
     </div>
   );

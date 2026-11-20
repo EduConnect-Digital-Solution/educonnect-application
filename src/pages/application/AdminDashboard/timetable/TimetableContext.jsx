@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useReducer, useMemo } from 'react';
+import React, { createContext, useContext, useReducer, useMemo, useRef, useEffect, useCallback } from 'react';
 import { detectConflicts, getConflictedEntryIds, getWarnedEntryIds, hasBlockingConflicts } from './conflictEngine';
+import { pushToast } from '@/components/patterns/toastBus.js';
 
 // Periods are now dynamic and configured per draft.
 
@@ -32,6 +33,36 @@ export function getSubjectColor(subjectId) {
 /** Lightweight unique ID with no external dependency. */
 export const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-4);
 
+/** A new schedule entry for `subject` in one cell ({ day, periodId, periodNumber, startTime, endTime }). */
+export function makeScheduleEntry(state, subject, cell) {
+  return {
+    id: uid(),
+    classId: state.selectedClass.id,
+    className: state.selectedClass.name,
+    armId: state.selectedArm?.id ?? null,
+    armName: state.selectedArm?.name ?? null,
+    dayOfWeek: cell.day,
+    periodId: cell.periodId,
+    periodNumber: cell.periodNumber,
+    startTime: cell.startTime,
+    endTime: cell.endTime,
+    subjectId: subject.id,
+    subjectName: subject.name,
+    teacherId: null,
+    teacherName: null,
+  };
+}
+
+/** True when `entry` can go back into the timetable currently open (same class, arm and period grid). */
+export function canRestoreEntry(state, entry, scopeVersion) {
+  return !state.isPublished
+    && state.scopeVersion === scopeVersion
+    && state.selectedClass?.id === entry.classId
+    && (state.selectedArm?.id ?? null) === (entry.armId ?? null)
+    && state.periods.some(p => p.id === entry.periodId)
+    && !state.schedules.some(s => s.id === entry.id);
+}
+
 // ─── State ──
 // NOTE: Academic scope (year + term) is NOT held here — it lives in the global
 // AcademicContext. This reducer owns only the timetable *editor* working state.
@@ -50,6 +81,13 @@ const initialState = {
 
   // Selection
   selectedEntryId: null,
+  // Tap-to-place on touch screens: { mode: 'place', subject } | { mode: 'move', entry } | null
+  tapMode: null,
+  // Below xl the inspector opens as a sheet, only when the user asks (tapping a lesson or Details).
+  detailsOpen: false,
+  // Bumped whenever a different timetable (class, arm, term draft) is swapped in or the grid is cleared,
+  // so an Undo from before can never restore into it.
+  scopeVersion: 0,
 
   // Draft save
   lastSavedAt: null,
@@ -70,13 +108,13 @@ function timetableReducer(state, action) {
     // ── Class selection ─────────
     // Changing class resets arm, periods, schedules and draft state.
     case 'SELECT_CLASS':
-      return { ...state, selectedClass: action.payload, selectedArm: null, periods: [], schedules: [], draftId: null, selectedEntryId: null, isPublished: false, loadedScope: null, otherSchedules: [] };
+      return { ...state, scopeVersion: state.scopeVersion + 1, selectedClass: action.payload, selectedArm: null, periods: [], schedules: [], draftId: null, selectedEntryId: null, tapMode: null, isPublished: false, loadedScope: null, otherSchedules: [] };
 
     // ── Arm selection ───────────
     // Changing arm resets draft state so the new arm's timetable loads fresh.
     // Passing null means "whole class" (class has no arms).
     case 'SELECT_ARM':
-      return { ...state, selectedArm: action.payload, periods: [], schedules: [], draftId: null, selectedEntryId: null, isPublished: false, loadedScope: null, otherSchedules: [] };
+      return { ...state, scopeVersion: state.scopeVersion + 1, selectedArm: action.payload, periods: [], schedules: [], draftId: null, selectedEntryId: null, tapMode: null, isPublished: false, loadedScope: null, otherSchedules: [] };
 
     // ── Periods config ──────────
     case 'SET_PERIODS':
@@ -87,10 +125,14 @@ function timetableReducer(state, action) {
 
     // ── Schedule entries ────────
     case 'SET_DRAFT':
-      return { ...state, schedules: action.schedules, periods: action.periods ?? state.periods, draftId: action.draftId, isDraft: true, isPublished: false };
+      return { ...state, scopeVersion: state.scopeVersion + 1, tapMode: null, schedules: action.schedules, periods: action.periods ?? state.periods, draftId: action.draftId, isDraft: true, isPublished: false };
 
     case 'ADD_SCHEDULE_ENTRY':
       return { ...state, schedules: [...state.schedules, action.payload] };
+
+    // Undo of a removal. Ignored unless the same timetable is still open, so it can never land in another class.
+    case 'RESTORE_SCHEDULE_ENTRY':
+      return canRestoreEntry(state, action.entry, action.scopeVersion) ? { ...state, schedules: [...state.schedules, action.entry] } : state;
 
     case 'UPDATE_SCHEDULE_ENTRY':
       return {
@@ -118,10 +160,10 @@ function timetableReducer(state, action) {
       };
 
     case 'CLEAR_SCHEDULES':
-      return { ...state, schedules: [], selectedEntryId: null };
+      return { ...state, scopeVersion: state.scopeVersion + 1, schedules: [], selectedEntryId: null, tapMode: null };
 
     case 'CLEAR_PERIODS_AND_SCHEDULES':
-      return { ...state, periods: [], schedules: [], selectedEntryId: null, draftId: null, isPublished: false, lastSavedAt: null };
+      return { ...state, scopeVersion: state.scopeVersion + 1, periods: [], schedules: [], selectedEntryId: null, tapMode: null, draftId: null, isPublished: false, lastSavedAt: null };
 
     // ── Copy from another class/arm (bulk) ───────────────────────────────────
     case 'PASTE_SCHEDULES': {
@@ -138,7 +180,7 @@ function timetableReducer(state, action) {
         teacherId: null,
         teacherName: null,
       }));
-      return { ...state, schedules: stampedEntries };
+      return { ...state, scopeVersion: state.scopeVersion + 1, schedules: stampedEntries };
     }
 
     case 'SET_SCOPE':
@@ -150,13 +192,23 @@ function timetableReducer(state, action) {
 
     // ── Published ───────────────
     case 'SET_PUBLISHED':
-      return { ...state, isPublished: true, isDraft: false, publishedAt: action.publishedAt };
+      return { ...state, isPublished: true, isDraft: false, publishedAt: action.publishedAt, tapMode: null };
 
     // ── UI selection ────────────
     case 'SELECT_ENTRY':
-      return { ...state, selectedEntryId: action.id };
+      return { ...state, selectedEntryId: action.id, detailsOpen: action.openDetails ? true : state.detailsOpen };
     case 'DESELECT_ENTRY':
       return { ...state, selectedEntryId: null };
+    case 'OPEN_DETAILS':
+      return { ...state, detailsOpen: true };
+    case 'CLOSE_DETAILS':
+      return { ...state, detailsOpen: false, selectedEntryId: null };
+    case 'HIDE_DETAILS': // the screen grew to xl, where the inspector column shows instead
+      return { ...state, detailsOpen: false };
+    case 'SET_TAP_MODE':
+      return { ...state, tapMode: action.tapMode, selectedEntryId: null, detailsOpen: false };
+    case 'CLEAR_TAP_MODE':
+      return { ...state, tapMode: null };
 
     // ── Draft save state ────────
     case 'SET_SAVING':
@@ -202,9 +254,29 @@ export function TimetableProvider({ children }) {
     return map;
   }, [state.schedules]);
 
+  // Remove a lesson and offer Undo. The undo re-checks the open timetable at click time (via the ref),
+  // so switching class, publishing or starting afresh in the meantime makes it a harmless no-op.
+  const stateRef = useRef(state);
+  useEffect(() => { stateRef.current = state; }, [state]);
+  const removeWithUndo = useCallback((entry) => {
+    const { scopeVersion } = stateRef.current;
+    dispatch({ type: 'REMOVE_SCHEDULE_ENTRY', id: entry.id });
+    pushToast({
+      message: `${entry.subjectName} removed from ${entry.dayOfWeek} ${entry.startTime}`,
+      undo: () => {
+        if (!canRestoreEntry(stateRef.current, entry, scopeVersion)) {
+          pushToast({ message: 'That lesson can no longer be restored here.', type: 'info' });
+          return;
+        }
+        dispatch({ type: 'RESTORE_SCHEDULE_ENTRY', entry, scopeVersion });
+      },
+    });
+  }, []);
+
   const value = {
     state,
     dispatch,
+    removeWithUndo,
     // Derived
     conflicts,
     conflictedIds,

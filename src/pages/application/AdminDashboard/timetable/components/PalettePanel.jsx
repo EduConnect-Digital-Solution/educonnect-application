@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useDraggable } from '@dnd-kit/core';
-import { Search, ChevronDown, ChevronRight, BookOpen, User, Layers, Users } from 'lucide-react';
+import { useDraggable, useDroppable, useDndContext } from '@dnd-kit/core';
+import { Search, ChevronDown, ChevronRight, BookOpen, User, Users, Trash2 } from 'lucide-react';
 import { useTimetable } from '../TimetableContext';
 import { getSubjectColor } from '../TimetableContext';
 
@@ -8,6 +8,7 @@ import { getSubjectColor } from '../TimetableContext';
  * PalettePanel
  * ───────────────────────────────
  * Left sidebar containing draggable entities (Subjects, Teachers, Rooms).
+ * While a placed lesson is being dragged it doubles as a "drop here to remove" zone.
  */
 export default function PalettePanel({ resources }) {
   const { subjects, teachers, arms } = resources;
@@ -27,9 +28,18 @@ export default function PalettePanel({ resources }) {
   const filteredSubjects = subjects.filter(s => s.name.toLowerCase().includes(term));
   const filteredTeachers = teachers.filter(t => t.name.toLowerCase().includes(term));
 
+  const { active } = useDndContext();
+  const draggingPlaced = active?.data.current?.type === 'PLACED_BLOCK';
+  const { setNodeRef, isOver } = useDroppable({ id: 'palette_remove', data: { type: 'REMOVE_ZONE' }, disabled: !draggingPlaced });
 
   return (
-    <div className="w-64 bg-white border-r border-gray-200 flex-col h-full shrink-0 hidden lg:flex">
+    <div ref={setNodeRef} className="relative w-64 bg-white border-r border-gray-200 flex-col h-full shrink-0 hidden lg:flex">
+      {draggingPlaced && (
+        <div className={`absolute inset-2 z-20 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 text-sm font-semibold transition-colors ${isOver ? 'bg-red-50 border-red-400 text-red-600' : 'bg-white/90 border-gray-300 text-gray-500'}`}>
+          <Trash2 size={20} />
+          Drop here to remove
+        </div>
+      )}
       {/* Header & Search */}
       <div className="p-4 border-b border-gray-100 shrink-0">
         <h2 className="font-bold text-gray-800 mb-3">Palette</h2>
