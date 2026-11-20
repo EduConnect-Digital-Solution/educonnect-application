@@ -1,5 +1,5 @@
 import React from 'react';
-import { useDraggable } from '@dnd-kit/core';
+import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { Trash2, AlertTriangle, BookOpen, User } from 'lucide-react';
 import { getSubjectColor } from '../TimetableContext';
 
@@ -7,7 +7,8 @@ import { getSubjectColor } from '../TimetableContext';
  * PeriodBlock
  * ───────────────────────────────
  * Represents a placed schedule entry inside a WeeklyGrid cell.
- * - Draggable: can be moved to another cell via DnD
+ * - Draggable: can be moved to another cell via DnD, or dropped on the palette to remove
+ * - Droppable: a teacher chip dropped on it is assigned to this exact entry
  * - Conflict-aware: shows red ring on error, amber ring on warning
  * - Click: selects entry → PropertiesPanel activates
  */
@@ -20,6 +21,14 @@ export default function PeriodBlock({ entry, isSelected, isConflicted, isWarned,
     disabled: readOnly,
   });
 
+  // A teacher dropped on this block is assigned to this entry, even when the cell holds several.
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: `blockdrop_${entry.id}`,
+    data: { type: 'BLOCK', entry },
+    disabled: readOnly,
+  });
+  const setRefs = (node) => { setNodeRef(node); setDropRef(node); };
+
   const dragStyle = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`, zIndex: 50 }
     : undefined;
@@ -29,13 +38,18 @@ export default function PeriodBlock({ entry, isSelected, isConflicted, isWarned,
     ? 'ring-2 ring-red-500 ring-offset-1'
     : isWarned
     ? 'ring-2 ring-amber-400 ring-offset-1'
-    : isSelected
+    : isSelected || isOver
     ? 'ring-2 ring-blue-500 ring-offset-1'
     : '';
 
+  // Always show the remove button where hovering is impossible (touch) or the block needs attention.
+  const removeVisibility = isSelected || isConflicted
+    ? 'opacity-100'
+    : 'opacity-0 group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100';
+
   return (
     <div
-      ref={setNodeRef}
+      ref={setRefs}
       style={dragStyle}
       className={[
         'group relative rounded-lg border p-1.5 cursor-grab active:cursor-grabbing select-none transition-all duration-150',
@@ -47,7 +61,7 @@ export default function PeriodBlock({ entry, isSelected, isConflicted, isWarned,
     >
       {/* Conflict badge */}
       {(isConflicted || isWarned) && (
-        <span className={`absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center text-white text-[8px] font-bold ${isConflicted ? 'bg-red-500' : 'bg-amber-400'}`}>
+        <span className={`absolute -top-1.5 -left-1.5 w-4 h-4 rounded-full flex items-center justify-center text-white text-[8px] font-bold ${isConflicted ? 'bg-red-500' : 'bg-amber-400'}`}>
           !
         </span>
       )}
@@ -84,14 +98,19 @@ export default function PeriodBlock({ entry, isSelected, isConflicted, isWarned,
         </div>
       )}
 
-      {/* Remove button — visible on hover, not when dragging */}
+      {/* Remove button — pressing it must not start a drag */}
       {!readOnly && (
         <button
-          onClick={e => { e.stopPropagation(); onRemove(entry.id); }}
-          className="absolute top-0.5 right-0.5 p-0.5 rounded opacity-0 group-hover:opacity-100 hover:bg-red-100 text-red-500 transition-opacity"
-          title="Remove"
+          type="button"
+          onMouseDown={e => e.stopPropagation()}
+          onTouchStart={e => e.stopPropagation()}
+          onKeyDown={e => e.stopPropagation()}
+          onClick={e => { e.stopPropagation(); onRemove(entry); }}
+          className={`absolute top-0.5 right-0.5 p-1 rounded hover:bg-red-100 text-red-500 transition-opacity ${removeVisibility}`}
+          title="Remove from timetable"
+          aria-label={`Remove ${entry.subjectName}`}
         >
-          <Trash2 size={10} />
+          <Trash2 size={11} />
         </button>
       )}
     </div>
