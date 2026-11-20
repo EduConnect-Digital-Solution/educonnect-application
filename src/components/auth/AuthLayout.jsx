@@ -5,12 +5,6 @@ import { Images } from '../images.jsx';
 import AOS from 'aos';
 import 'aos/dist/aos.css';
 
-const stats = [
-    { value: '500+', label: 'Schools onboarded' },
-    { value: '120k+', label: 'Students managed' },
-    { value: '99.9%', label: 'Uptime guaranteed' },
-];
-
 export function AuthLayout() {
     useEffect(() => {
         AOS.init({ once: true, duration: 700 });
@@ -31,7 +25,7 @@ export function AuthLayout() {
         }, 5000);
 
         return () => clearInterval(timer);
-    }, [currentIndex]);
+    }, [carouselImages.length]);
 
     return (
         <div className="min-h-screen flex bg-white">

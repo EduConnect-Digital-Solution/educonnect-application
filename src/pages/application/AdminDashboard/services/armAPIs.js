@@ -83,6 +83,7 @@ export async function updateArm(armId, payload) {
 // Response:    { success, message, data: { deleted, errors } }
 // =============================================================================
 export async function deleteArms(armIds) {
+  const ids = Array.isArray(armIds) ? armIds : [armIds];
   const { data } = await apiClient.delete('/api/academic/arms', {
     data: { armIds: ids },
   });
@@ -120,7 +121,7 @@ export async function addSubjectsToArm(armId, subjectIds) {
 }
 
 // -----------------------------------------------------------------------------
-// POST /api/academic/arms/:armId/subjects/replace
+// PUT /api/academic/arms/:armId/subjects/replace
 // DESTRUCTIVE — replaces ALL existing subjects on the arm with the new set.
 //
 // subjectIds: string[]
@@ -129,7 +130,7 @@ export async function addSubjectsToArm(armId, subjectIds) {
 export async function replaceArmSubjects(armId, subjectIds) {
   const ids = Array.isArray(subjectIds) ? subjectIds : [subjectIds];
 
-  const { data } = await apiClient.post(
+  const { data } = await apiClient.put(
       `/api/academic/arms/${armId}/subjects/replace`,
       { subjectIds: ids }
   );
@@ -137,7 +138,7 @@ export async function replaceArmSubjects(armId, subjectIds) {
 }
 
 // -----------------------------------------------------------------------------
-// POST /api/academic/arms/:sourceArmId/subjects/copy
+// POST /api/academic/arms/:sourceArmId/subjects/copy/:targetArmId  (one call per target arm)
 // Copies ALL subjects from sourceArm to one or more target arms.
 // Useful for JSS classes where every section shares the same subjects.
 //
@@ -148,9 +149,22 @@ export async function replaceArmSubjects(armId, subjectIds) {
 export async function copySubjectsToArms(sourceArmId, targetArmIds) {
   const ids = Array.isArray(targetArmIds) ? targetArmIds : [targetArmIds];
 
-  const { data } = await apiClient.post(
-      `/api/academic/arms/${sourceArmId}/subjects/copy`,
-      { targetArmIds: ids }
-  );
-  return data;
+  // The API copies to a single target per request, so fan out and combine the outcomes.
+  const results = [];
+  const errors = [];
+  for (const targetArmId of ids) {
+    try {
+      const { data } = await apiClient.post(`/api/academic/arms/${sourceArmId}/subjects/copy/${targetArmId}`);
+      results.push({ targetArmId, ...(data?.data ?? {}) });
+    } catch (e) {
+      errors.push({ targetArmId, message: e?.response?.data?.message || e?.message || 'Copy failed' });
+    }
+  }
+
+  if (results.length === 0 && errors.length > 0) {
+    const failure = new Error(errors[0].message);
+    failure.response = { data: { message: errors[0].message } };
+    throw failure;
+  }
+  return { success: true, data: { sourceArmId, results, errors } };
 }

@@ -1,34 +1,39 @@
+import { formatSchoolDate } from '../../../utils/schoolLocale.js';
+import { notify } from '@/components/patterns/toastBus.js';
+import { BrandLoader } from '@/components/brand/BrandLoader.jsx';
 import React, { useState, useEffect } from 'react';
 import {
-    User, MapPin, ShieldCheck, Key,
-    Edit3, Smartphone, Briefcase, Save, X, Info
+    MapPin,
+    Edit3, Briefcase, Save, X
 } from 'lucide-react';
 import ParentLayout from "./components/layout/ParentLayout.jsx";
+import ChangePasswordCard from "../../../components/account/ChangePasswordCard.jsx";
 import {getParentProfile, updateParentProfile} from "../../auth/authAPIs.js";
-import {Toast} from "../AdminDashboard/components/ui/Toast.jsx";
 // import { getParentProfile } from './services/parentService';
 
 const ParentProfilePage = () => {
     const [loading, setLoading] = useState(true);
     const [parentInfo, setParentInfo] = useState();
-    const [error, setError] = useState(null);
+    const [loadError, setLoadError] = useState(null);
+    const [attempt, setAttempt] = useState(0);
 
     useEffect(() => {
         const fetchProfile = async () => {
             try {
                 setLoading(true);
+                setLoadError(null);
                 const profileData = await getParentProfile();
                 setParentInfo(profileData.data.parent);
             } catch (err) {
-                console.error('Failed to fetch profile:', err);
-                setError(err);
+                // getParentProfile throws the server's answer itself, not an axios error
+                setLoadError(err?.message || 'Please check your connection and try again.');
             } finally {
                 setLoading(false);
             }
         };
 
         fetchProfile();
-    }, []);
+    }, [attempt]);
 
     const [isEditing, setIsEditing] = useState(false);
 
@@ -43,10 +48,10 @@ const ParentProfilePage = () => {
         emergencyPhone: ""
     });
 
-    // Sync API data to form state when loaded
+    // Sync API data to form state when loaded (parentInfo is the parent record itself)
     useEffect(() => {
-        if (parentInfo?.parent) {
-            const p = parentInfo.parent;
+        if (parentInfo) {
+            const p = parentInfo;
             setFormData({
                 firstName: p.firstName || "",
                 lastName: p.lastName || "",
@@ -63,42 +68,50 @@ const ParentProfilePage = () => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const [toast, setToast] = useState({ show: false, message: '', type: 'error' });
 
-    const showToast = (message, type = 'error') => {
-        setToast({ show: true, message, type });
-    };
+    const showToast = (message, type = 'error', duration, onClose = null) => notify(message, type, duration, onClose);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         try{
-            const updateProfile = await updateParentProfile(formData)
+            // Blank optional fields are omitted: the API validates "" as an invalid value
+            const payload = Object.fromEntries(
+                Object.entries(formData).filter(([, v]) => v !== '' && v != null)
+            );
+            const updateProfile = await updateParentProfile(payload)
             showToast(`${updateProfile.message}`, 'success');
-
+            // Show the saved values straight away in view mode
+            setParentInfo((current) => ({ ...(current || {}), ...payload }));
+            setIsEditing(false);
         } catch(error){
-            const message = error.response?.data?.message || 'Failed to update profile. Please try again.';
-            showToast(message, 'error');
+            const data = error.response?.data;
+            const detail = Array.isArray(data?.errors) && data.errors.length
+                ? data.errors.map(e => e.msg || e.message).filter(Boolean).join(', ')
+                : null;
+            showToast(detail || data?.message || 'Failed to update profile. Please try again.', 'error');
         }
-        // Add your update API call here
-        setIsEditing(false);
     };
 
     if (loading) {
         return (
             <ParentLayout>
-                {toast.show && (
-                    <Toast
-                        message={toast.message}
-                        type={toast.type}
-                        onClose={() => setToast({ ...toast, show: false })}
-                    />
-                )}
                 <div className="flex flex-col items-center justify-center h-screen bg-gray-50">
-                    <div className="relative w-20 h-20">
-                        <div className="absolute inset-0 border-4 border-blue-100 rounded-full"></div>
-                        <div className="absolute inset-0 border-4 border-[#002684] rounded-full border-t-transparent animate-spin"></div>
-                    </div>
-                    <p className="mt-4 text-gray-500 font-medium animate-pulse">Syncing Profile...</p>
+                    <BrandLoader label="Syncing Profile..." size={88} />
+                </div>
+            </ParentLayout>
+        );
+    }
+
+    if (loadError) {
+        return (
+            <ParentLayout>
+                <div className="max-w-md mx-auto mt-16 text-center bg-white border border-red-100 rounded-2xl p-8">
+                    <p className="font-semibold text-gray-900">We couldn't load your profile</p>
+                    <p className="text-sm text-gray-500 mt-1">{loadError}</p>
+                    <button onClick={() => setAttempt((n) => n + 1)}
+                        className="mt-4 px-4 py-2 text-sm font-medium text-white bg-[#002684] rounded-lg">
+                        Try again
+                    </button>
                 </div>
             </ParentLayout>
         );
@@ -236,7 +249,7 @@ const ParentProfilePage = () => {
                     <div className="space-y-6">
                         <div className="border text-black rounded-3xl p-6">
                             <h3 className="text-lg font-bold mb-1">Account Settings</h3>
-                            <p className="text-slate-400 text-sm mb-5 font-medium tracking-wide">Registered since {new Date(parent?.createdAt).toLocaleDateString()}</p>
+                            <p className="text-slate-400 text-sm mb-5 font-medium tracking-wide">Registered since {formatSchoolDate(parent?.createdAt)}</p>
 
                             <div className="flex justify-between items-center border-t border-white/10">
                                 <span className="text-[10px] uppercase font-bold text-slate-500">Parent Status</span>
@@ -248,6 +261,9 @@ const ParentProfilePage = () => {
                         </div>
                     </div>
                 </form>
+
+                {/* Outside the profile form: a form cannot sit inside another */}
+                <ChangePasswordCard className="mt-6 max-w-xl" />
             </div>
         </ParentLayout>
     );

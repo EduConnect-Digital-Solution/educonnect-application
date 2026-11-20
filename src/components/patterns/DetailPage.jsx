@@ -75,7 +75,7 @@ export default function DetailPage({
                         <Avatar name={avatar?.name ?? title} src={avatar?.image} size={56} rounded="lg" />
                     ) : null}
 
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-[12rem]">
                         <div className="flex flex-wrap items-center gap-2">
                             <h1 className="text-xl font-bold text-gray-900 truncate">{title}</h1>
                             {status && (typeof status === 'string'
@@ -90,7 +90,7 @@ export default function DetailPage({
                     </div>
 
                     {/* Actions */}
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex flex-wrap items-center gap-2">
                         {primaryActions.map(action => (
                             <button key={action.id} onClick={action.onClick}
                                 className={`flex items-center gap-1.5 h-9 px-4 rounded-lg text-[13px] font-semibold transition-colors ${
@@ -152,8 +152,8 @@ export default function DetailPage({
             </div>
 
             {/* ── Tabs + right rail ─ */}
-            <div className="grid lg:grid-cols-3 gap-4 items-start">
-                <div className={rail ? 'lg:col-span-2' : 'lg:col-span-3'}>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+                <div className={`min-w-0 ${rail ? 'lg:col-span-2' : 'lg:col-span-3'}`}>
                     <div className="bg-white border border-gray-200 rounded-2xl">
                         {tabs.length > 0 && (
                             <div className="flex items-center gap-1 px-3 border-b border-gray-100 overflow-x-auto">

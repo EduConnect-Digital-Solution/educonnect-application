@@ -1,7 +1,7 @@
+import { notify } from '@/components/patterns/toastBus.js';
 import React, { useState } from 'react';
 import {useSearchParams, useNavigate, NavLink} from "react-router-dom";
 import { Building2, Lock, Mail, Phone } from "lucide-react";
-import { Toast } from "../../application/AdminDashboard/components/ui/Toast.jsx";
 import { completeRegistration } from "../authAPIs.js";
 import {Images} from "../../../components/images.jsx";
 
@@ -32,15 +32,8 @@ export default function CompleteRegistration() {
         emergencyPhone: ""
     });
 
-    const [toast, setToast] = useState({ show: false, message: '', type: 'error' });
 
-    const showToast = (message, type = 'error', duration = 2000, onClose = null) => {
-        setToast({ show: true, message, type, onClose });
-        setTimeout(() => {
-            setToast((prev) => ({ ...prev, show: false }));
-            if (onClose) onClose();
-        }, duration);
-    };
+    const showToast = (message, type = 'error', duration, onClose = null) => notify(message, type, duration, onClose);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -108,7 +101,9 @@ export default function CompleteRegistration() {
             rawPayload.subjects = formData.subjects
                 ? formData.subjects.split(',').map(s => s.trim()).filter(Boolean)
                 : [];
-            rawPayload.qualifications = [...formData.qualifications];
+            rawPayload.qualifications = formData.qualifications
+                ? formData.qualifications.split(',').map(q => q.trim()).filter(Boolean)
+                : [];
             rawPayload.experience = formData.experience;
         }
 
@@ -140,23 +135,40 @@ export default function CompleteRegistration() {
 
     const handleLogoClick = (e) => {
         e.preventDefault();
-        const userConfirmed = window.confirm("You have unsaved changes. Are you sure you want to leave this form?");
-
-        if (userConfirmed) {
+        // Only ask when something has been typed
+        const typed = Object.values(formData).some((value) => String(value ?? '').trim() !== '');
+        if (!typed || window.confirm("You have unsaved changes. Are you sure you want to leave this form?")) {
             navigate('/');
         }
     };
 
+    // Enter in any field submits, like a normal form
+    const handleKeyDown = (e) => {
+        if (e.key === 'Enter' && e.target.tagName === 'INPUT' && !isLoading) {
+            e.preventDefault();
+            handleSubmit();
+        }
+    };
+
+    // The invitation link names the role; without it the form cannot know which details to ask for
+    if (role !== 'teacher' && role !== 'parent') {
+        return (
+            <div className="min-h-screen flex items-center justify-center p-6">
+                <div className="max-w-md text-center space-y-4">
+                    <img src={`${Images.main_logo}`} alt="EduConnect" className="w-[150px] mx-auto" />
+                    <h2 className="text-lg font-semibold text-slate-900">This invitation link is incomplete</h2>
+                    <p className="text-sm text-slate-500">
+                        Open the link from your invitation email again. If it still does not work, ask your school to resend the invitation.
+                    </p>
+                    <NavLink to="/" className="inline-block text-sm font-semibold text-[#002684] hover:underline">Go to sign in</NavLink>
+                </div>
+            </div>
+        );
+    }
+
 
     return (
         <div className={``}>
-            {toast.show && (
-                <Toast
-                    message={toast.message}
-                    type={toast.type}
-                    onClose={() => setToast({ ...toast, show: false })}
-                />
-            )}
             <div className="absolute top-0 z-50 p-5 overflow-hidden items-center w-full ">
                 <NavLink to={`/`} onClick={handleLogoClick}>
                     <img
@@ -166,7 +178,7 @@ export default function CompleteRegistration() {
                     />
                 </NavLink>
             </div>
-            <div className="max-w-2xl mx-auto overflow-hidden">
+            <div className="max-w-2xl mx-auto overflow-hidden" onKeyDown={handleKeyDown}>
                 {/* Header Section */}
                 <div className="text-center mt-12 mb-8">
                     <h2 className="text-[15px] font-bold text-slate-900 uppercase tracking-[0.3em] mb-3">
@@ -326,8 +338,10 @@ export default function CompleteRegistration() {
                     {/* Action Button */}
                     <div className="pt-6">
                         <button
+                            type="button"
                             onClick={handleSubmit}
-                            className="w-full py-4 bg-[#002684] text-white text-[11px] font-bold uppercase tracking-[0.3em] rounded-xl hover:bg-slate-800 transition-all duration-300 shadow-sm active:scale-[0.99]"
+                            disabled={isLoading}
+                            className="w-full py-4 disabled:opacity-60 bg-[#002684] text-white text-[11px] font-bold uppercase tracking-[0.3em] rounded-xl hover:bg-slate-800 transition-all duration-300 shadow-sm active:scale-[0.99]"
                         >
                             {!isLoading ? 'Finalize Registration' : 'Processing...'}
                         </button>

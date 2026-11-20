@@ -1,11 +1,14 @@
 import axios from 'axios';
 
 import { API_BASE_URL as baseURL } from './apiConfig';
+import { getAuthBridge, REQUEST_TIMEOUT_MS } from './authBridge';
 
 // Create axios instance
 const apiClient = axios.create({
     baseURL,
     withCredentials: true,
+    // Without a limit a stalled connection would leave a screen loading forever
+    timeout: REQUEST_TIMEOUT_MS,
 });
 
 let isRefreshing = false;
@@ -23,22 +26,43 @@ const processQueue = (error, token = null) => {
     failedQueue = [];
 };
 
+// Sign-in, sign-up and password flows. They are used while signed out, so they never carry an
+// access token, and a 401 from them means "wrong details", never "your session expired".
+const SIGNED_OUT_ENDPOINTS = [
+    '/api/school/auth/login',
+    '/api/user/auth/login',
+    '/api/school/auth/register',
+    '/api/school/auth/verify-email',
+    '/api/school/auth/resend-otp',
+    '/api/school/auth/forgot-password',
+    '/api/school/auth/reset-password',
+    '/api/user/auth/forgot-password',
+    '/api/user/auth/reset-password',
+    '/api/user/auth/complete-registration',
+];
+
+// Session endpoints that work from the httpOnly cookie alone
+const COOKIE_ONLY_ENDPOINTS = [
+    '/api/user/auth/me',
+    '/api/school/auth/logout',
+    '/api/school/auth/refresh-token',
+];
+
+const matches = (url, endpoints) => endpoints.some(endpoint => url?.includes(endpoint));
+export const isSignedOutEndpoint = (url) => matches(url, SIGNED_OUT_ENDPOINTS);
+
 // Request interceptor to add access token
 apiClient.interceptors.request.use(
     async (config) => {
-        const authContext = window.authContext;
+        const authContext = getAuthBridge();
 
-        // Skip token attachment for public endpoints
-        const publicEndpoints = [
-            '/api/user/auth/me',
-            '/api/school/auth/login',
-            '/api/school/auth/logout',
-            '/api/school/auth/register',
-            '/api/school/auth/verify-email'
-        ];
-        const isPublicEndpoint = publicEndpoints.some(endpoint => config.url?.includes(endpoint));
+        // Skip token attachment for endpoints that do not use one
+        if (isSignedOutEndpoint(config.url) || matches(config.url, COOKIE_ONLY_ENDPOINTS)) {
+            return config;
+        }
 
-        if (isPublicEndpoint) {
+        // A request retried after a refresh already carries the fresh token; the context here may still hold the old one
+        if (config._retry && config.headers?.Authorization) {
             return config;
         }
 
@@ -59,21 +83,26 @@ apiClient.interceptors.request.use(
     (error) => Promise.reject(error)
 );
 
+// The login page explains a sign-out the server forced (see AuthPage)
+const markSessionExpired = () => {
+    // Keep a reason already given (idle, signed out); only fill in one that is missing
+    try { if (!sessionStorage.getItem('ec_signout_reason')) sessionStorage.setItem('ec_signout_reason', 'expired'); } catch { /* storage unavailable */ }
+};
+
 // Response interceptor to handle token refresh
 apiClient.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
 
-        // If this was a public auth endpoint (e.g. login/register), don't attempt
-        // to refresh tokens or redirect the user — just reject so callers can handle it.
-        const publicResponseEndpoints = [
-            '/api/school/auth/login',
-            '/api/user/auth/login',
-            '/api/school/auth/register',
-            '/api/school/auth/verify-email'
-        ];
-        if (publicResponseEndpoints.some(ep => originalRequest?.url?.includes(ep))) {
+        // Requests that never reached a handler (cancelled, misconfigured) have nothing to retry
+        if (!originalRequest) {
+            return Promise.reject(error);
+        }
+
+        // If this was a signed-out auth endpoint (login, register, password reset, ...), don't attempt
+        // to refresh tokens or redirect the user — just reject so callers can show the server's message.
+        if (isSignedOutEndpoint(originalRequest.url)) {
             return Promise.reject(error);
         }
 
@@ -83,10 +112,11 @@ apiClient.interceptors.response.use(
             if (originalRequest.url?.includes('/refresh-token') ||
                 originalRequest.url?.includes('/auth/me')) {
                 // If refresh or session check failed, logout
-                const authContext = window.authContext;
+                const authContext = getAuthBridge();
                 if (authContext && authContext.logout) {
                     await authContext.logout();
                 }
+                markSessionExpired();
                 window.location.href = '/';
                 return Promise.reject(error);
             }
@@ -96,6 +126,7 @@ apiClient.interceptors.response.use(
                 return new Promise((resolve, reject) => {
                     failedQueue.push({ resolve, reject });
                 }).then(token => {
+                    originalRequest._retry = true;
                     if (token && token !== 'session-valid') {
                         originalRequest.headers.Authorization = `Bearer ${token}`;
                     }
@@ -109,28 +140,37 @@ apiClient.interceptors.response.use(
             isRefreshing = true;
 
             try {
-                const authContext = window.authContext;
+                const authContext = getAuthBridge();
 
-                if (authContext && authContext.refreshAccessToken) {
-                    const newToken = await authContext.refreshAccessToken(true);
-
-                    if (newToken && newToken !== 'session-valid') {
-                        processQueue(null, newToken);
-                        originalRequest.headers.Authorization = `Bearer ${newToken}`;
-                        return apiClient(originalRequest);
-                    } else {
-                        throw new Error('Failed to refresh token');
-                    }
+                if (!authContext || !authContext.refreshAccessToken) {
+                    throw new Error('Auth context unavailable');
                 }
+
+                let newToken = await authContext.refreshAccessToken(true);
+                // A network blip or server hiccup is not a rejected session: retry once before giving up
+                if (!newToken && !authContext.isSessionRejected?.()) {
+                    await new Promise(r => setTimeout(r, 1000));
+                    newToken = await authContext.refreshAccessToken(true);
+                }
+
+                if (newToken && newToken !== 'session-valid') {
+                    processQueue(null, newToken);
+                    originalRequest.headers.Authorization = `Bearer ${newToken}`;
+                    return apiClient(originalRequest);
+                }
+                const failure = new Error('Failed to refresh token');
+                failure.sessionRejected = Boolean(authContext.isSessionRejected?.());
+                throw failure;
             } catch (refreshError) {
                 processQueue(refreshError, null);
 
-                // Only logout if online; if offline, allow continued use with cached auth
-                if (navigator.onLine) {
-                    const authContext = window.authContext;
+                // Sign out only when the server rejected the session. A transient failure just fails this request.
+                if (refreshError.sessionRejected && navigator.onLine) {
+                    const authContext = getAuthBridge();
                     if (authContext && authContext.logout) {
                         await authContext.logout();
                     }
+                    markSessionExpired();
                     window.location.href = '/';
                 }
                 return Promise.reject(refreshError);

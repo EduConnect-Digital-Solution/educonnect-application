@@ -30,6 +30,8 @@ export function useGlobalTimetableData() {
     const { state, dispatch } = useTimetable();
     const { currentTerm } = useAcademic();
     const [initialLoad, setInitialLoad] = useState(true);
+    const [draftError, setDraftError] = useState(false);
+    const [retryCount, setRetryCount] = useState(0);
 
     // Reference resources — owned here, fetched directly from the APIs.
     const [classes, setClasses] = useState([]);
@@ -95,6 +97,9 @@ export function useGlobalTimetableData() {
         selectedClassId && arms.some(a => a.classId === selectedClassId)
     );
 
+    const scope = selectedClassId && selectedTermId && (!classHasArms || selectedArmId)
+        ? `${selectedClassId}:${selectedArmId ?? ''}:${selectedTermId}` : null;
+
     useEffect(() => {
         // Require class + term. When the class has arms, require an explicit arm.
         if (!selectedClassId || !selectedTermId) return;
@@ -103,54 +108,46 @@ export function useGlobalTimetableData() {
         let cancelled = false;
 
         async function loadDraft() {
+            setDraftError(false);
             dispatch({ type: 'SET_LOADING', payload: { draft: true } });
             try {
                 // Fetch all published timetables and match the current selection client-side.
                 const allPublished = await getAllPublishedTimetables();
                 if (cancelled) return;
+                const otherSchedules = (allPublished || []).filter(t =>
+                    t.termId === selectedTermId && !(t.classId === selectedClassId && (t.armId ?? null) === selectedArmId)
+                ).flatMap(t => (t.schedules ?? []).map(s => ({ ...s, classId: s.classId ?? t.classId, armId: s.armId ?? t.armId ?? null })));
                 const published = (allPublished || []).find(t =>
                     t.classId === selectedClassId &&
                     t.termId === selectedTermId &&
-                    (selectedArmId ? t.armId === selectedArmId : true)
+                    (t.armId ?? null) === selectedArmId
                 );
 
-                if (published) {
-                    // Published returns only the period CONFIG — expand it (reusing the
-                    // periodIds the schedules reference) so the grid is fully prefilled.
-                    dispatch({
-                        type: 'SET_DRAFT',
-                        periods: expandPeriods(published),
-                        schedules: published.schedules ?? [],
-                        draftId: null,
-                    });
-                    const cfg = extractPeriodConfig(published);
-                    if (cfg) dispatch({ type: 'SET_PERIOD_CONFIG', payload: cfg });
-                    dispatch({ type: 'SET_PUBLISHED', publishedAt: published.publishedAt });
-                    return;
+                // Prefer an existing draft so edits to a published timetable survive reload.
+                // Some backend versions use 404 to mean no draft exists.
+                let draftRes;
+                try {
+                    draftRes = await getTimetableDraft(selectedClassId, selectedTermId, selectedArmId);
+                } catch (err) {
+                    if (err.response?.status !== 404) throw err;
                 }
-
-                const draftRes = await getTimetableDraft(selectedClassId, selectedTermId, selectedArmId);
                 if (cancelled) return;
-
-                if (draftRes?.success && draftRes.data?.draft) {
-                    const draft = draftRes.data.draft;
-                    // Drafts already carry expanded periods; expandPeriods passes them through.
-                    dispatch({
-                        type: 'SET_DRAFT',
-                        periods: expandPeriods(draft),
-                        schedules: draft.schedules ?? [],
-                        draftId: draft.id,
-                    });
-                    const cfg = extractPeriodConfig(draft);
-                    if (cfg) dispatch({ type: 'SET_PERIOD_CONFIG', payload: cfg });
-                    if (draft.updatedAt) {
-                        dispatch({ type: 'SET_SAVED', at: draft.updatedAt });
-                    }
+                const draft = draftRes?.success && draftRes.data?.draft;
+                if (draft) {
+                    dispatch({ type: 'SET_DRAFT', periods: expandPeriods(draft), schedules: draft.schedules ?? [], draftId: draft.id });
+                    dispatch({ type: 'SET_PERIOD_CONFIG', payload: extractPeriodConfig(draft) });
+                    if (draft.updatedAt) dispatch({ type: 'SET_SAVED', at: draft.updatedAt });
+                } else if (published) {
+                    dispatch({ type: 'SET_DRAFT', periods: expandPeriods(published), schedules: published.schedules ?? [], draftId: null });
+                    dispatch({ type: 'SET_PERIOD_CONFIG', payload: extractPeriodConfig(published) });
+                    dispatch({ type: 'SET_PUBLISHED', publishedAt: published.publishedAt });
                 } else {
                     dispatch({ type: 'CLEAR_PERIODS_AND_SCHEDULES' });
                 }
+                dispatch({ type: 'SET_SCOPE', scope, otherSchedules });
             } catch (err) {
                 console.error('[Timetable] loadDraft failed:', err);
+                if (!cancelled) setDraftError(true);
             } finally {
                 if (!cancelled) dispatch({ type: 'SET_LOADING', payload: { draft: false } });
             }
@@ -158,10 +155,11 @@ export function useGlobalTimetableData() {
 
         loadDraft();
         return () => { cancelled = true; };
-    }, [selectedClassId, selectedArmId, selectedTermId, classHasArms, dispatch]);
+    }, [selectedClassId, selectedArmId, selectedTermId, classHasArms, scope, retryCount, dispatch]);
 
     return {
-        initialLoad,
+        initialLoad, scope, draftError, retryDraft: () => setRetryCount(n => n + 1),
         resources: { classes, arms, teachers, subjects, rooms: ROOMS },
     };
 }
+

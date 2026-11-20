@@ -1,5 +1,8 @@
 import apiClient from '../../utils/axiosConfig';
 
+// Class and subject names are free text ("SS 2/A", "Food & Nutrition?"): encode them before they go into a URL path
+const seg = (value) => encodeURIComponent(String(value ?? ''));
+
 export async function RegSchool(payload) {
     try {
         const { data } = await apiClient.post('/api/school/auth/register', payload);
@@ -164,7 +167,7 @@ export async function getTeacherStudents() {
 export async function getSubjectsByClass(className) {
 
     try {
-        const { data } = await apiClient.get(`/api/teacher/classes/${className}/subjects`);
+        const { data } = await apiClient.get(`/api/teacher/classes/${seg(className)}/subjects`);
         return data;
     } catch (error) {
         throw error?.response?.data || error;
@@ -173,43 +176,7 @@ export async function getSubjectsByClass(className) {
 
 export async function getStudentsByClassandSubject(className, subjectName) {
     try {
-        const { data } = await apiClient.get(`/api/teacher/classes/${className}/subjects/${subjectName}/students`);
-        return data;
-    } catch (error) {
-        throw error?.response?.data || error;
-    }
-}
-
-export async function assignGrade(payload) {
-    try {
-        const { data } = await apiClient.post(`/api/teacher/grades`, payload);
-        return data;
-    } catch (error) {
-        throw error?.response?.data || error;
-    }
-}
-
-export async function publishGrade(payload) {
-    try {
-        const { data } = await apiClient.post(`/api/teacher/grades/publish`, payload);
-        return data;
-    } catch (error) {
-        throw error?.response?.data || error;
-    }
-}
-
-export async function updateGrade(payload, gradeId) {
-    try {
-        const { data } = await apiClient.put(`/api/teacher/grades/${gradeId}`, payload);
-        return data;
-    } catch (error) {
-        throw error?.response?.data || error;
-    }
-}
-
-export async function viewGrade(studentId) {
-    try {
-        const { data } = await apiClient.get(`/api/teacher/students/${studentId}/grades`);
+        const { data } = await apiClient.get(`/api/teacher/classes/${seg(className)}/subjects/${seg(subjectName)}/students`);
         return data;
     } catch (error) {
         throw error?.response?.data || error;
@@ -218,14 +185,10 @@ export async function viewGrade(studentId) {
 
 export async function getDashboardUsers(role = '', status = '') {
     try {
-        const { data } = await apiClient.get('/api/admin/dashboard/users', {
-            params: {
-
-                role: role || undefined,
-                status: status || undefined
-            }
-        });
-        return data;
+        return await fetchAllPages('/api/admin/dashboard/users', {
+            role: role || undefined,
+            status: status || undefined
+        }, 'users');
     } catch (error) {
         throw error?.response?.data || error;
     }
@@ -286,10 +249,26 @@ export async function deletePermanentInvitation(invitationId) {
 }
 
 
+/**
+ * The list endpoints return one page at a time (20 by default), but the admin screens work on the
+ * whole list. Fetches every page and returns the first response with the full list merged in, so
+ * callers get everyone instead of silently losing everything past the first page.
+ */
+const PAGE_SIZE = 50;
+async function fetchAllPages(url, params, listKey) {
+    const get = (page) => apiClient.get(url, { params: { ...params, page, limit: PAGE_SIZE } });
+    const { data } = await get(1);
+    const pages = data?.data?.pagination?.pages ?? 1;
+    for (let page = 2; page <= pages; page++) {
+        const next = await get(page);
+        data.data[listKey] = [...(data.data[listKey] || []), ...(next.data?.data?.[listKey] || [])];
+    }
+    return data;
+}
+
 export async function getAllStudents() {
     try {
-        const { data } = await apiClient.get('/api/students');
-        return data;
+        return await fetchAllPages('/api/students', {}, 'students');
     } catch (error) {
         throw error?.response?.data || error;
     }
@@ -297,8 +276,7 @@ export async function getAllStudents() {
 
 export async function getAllParents() {
     try {
-        const { data } = await apiClient.get('/api/parent-management/parents');
-        return data;
+        return await fetchAllPages('/api/parent-management/parents', {}, 'parents');
     } catch (error) {
         throw error?.response?.data || error;
     }
@@ -334,15 +312,6 @@ export async function deactivateSchool(payload) {
 export async function reactivateSchool(payload) {
     try {
         const { data } = await apiClient.post('/api/school/profile/status', payload);
-        return data;
-    } catch (error) {
-        throw error?.response?.data || error;
-    }
-}
-
-export async function verifySession() {
-    try {
-        const { data } = await apiClient.get('/api/user/auth/me');
         return data;
     } catch (error) {
         throw error?.response?.data || error;
@@ -403,15 +372,6 @@ export async function deleteStudent(payload) {
     }
 }
 
-export async function deleteGrade(payload, studentId) {
-    try {
-        const { data } = await apiClient.delete(`/api/teacher/grades/${studentId}`, {data: payload});
-        return data;
-    } catch (error) {
-        throw error?.response?.data || error;
-    }
-}
-
 export async function deleteClasses(payload) {
     try {
         const { data } = await apiClient.delete(`/api/admin/teachers/remove-classes`, {data: payload});
@@ -462,36 +422,6 @@ export async function completeRegistration(payload) {
     }
 }
 
-export async function assignStudenttoTeacher(payload) {
-    try {
-        const { data } = await apiClient.post(`/api/admin/assign-teacher`,
-            payload);
-        return data;
-    } catch (error) {
-        throw error?.response?.data || error;
-    }
-}
-
-export async function bulkAssignStudentToTeacher(payload) {
-    try {
-        const { data } = await apiClient.post(`/api/admin/assign-teachers-bulk`,
-            payload);
-        return data;
-    } catch (error) {
-        throw error?.response?.data || error;
-    }
-}
-
-export async function unassignStudentToTeacher(payload) {
-    try {
-        const { data } = await apiClient.post(`/api/admin/unassign-teacher`,
-            payload);
-        return data;
-    } catch (error) {
-        throw error?.response?.data || error;
-    }
-}
-
 export async function assignClasses(payload) {
     try {
         const { data } = await apiClient.post(`/api/admin/teachers/assign-classes`,
@@ -532,16 +462,6 @@ export async function getParentDetails(parentId) {
 }
 
 
-export async function getTeacherDetails() {
-    try {
-        const { data } = await apiClient.get(`/api/teacher/profile`);
-        return data;
-    } catch (error) {
-        throw error?.response?.data || error;
-    }
-}
-
-
 // Password reset (admin/school accounts). Always resolves to { success, message }.
 const postAuth = async (url, payload) => {
     try {
@@ -558,3 +478,4 @@ export const ResetPassword = (payload) => postAuth('/api/school/auth/reset-passw
 // Teacher / parent accounts use the user auth routes.
 export const ForgotUserPassword = (payload) => postAuth('/api/user/auth/forgot-password', payload);
 export const ResetUserPassword = (payload) => postAuth('/api/user/auth/reset-password', payload);
+

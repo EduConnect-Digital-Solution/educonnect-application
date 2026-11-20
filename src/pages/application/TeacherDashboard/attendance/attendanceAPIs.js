@@ -1,3 +1,4 @@
+import { schoolDateKey } from '../../../../utils/schoolLocale.js';
 /**
  * Attendance API Functions — Frontend Contract
  * ─────────────────────────────────────────────
@@ -97,7 +98,7 @@ const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 //       }
 //     }
 // ───────────────────────────────────────────────────────────────────────────
-export async function getScheduledClasses(date = new Date().toISOString().split('T')[0]) {
+export async function getScheduledClasses(date = schoolDateKey()) {
   if (ATTENDANCE_BACKEND_LIVE) {
     const { data } = await apiClient.get('/api/teacher/attendance/schedule', { params: { date } });
     return data;
@@ -561,3 +562,4 @@ export async function getAttendanceSummary(scheduleId) {
     },
   };
 }
+

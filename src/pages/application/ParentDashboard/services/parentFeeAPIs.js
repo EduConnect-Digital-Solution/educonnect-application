@@ -4,13 +4,62 @@ import apiClient from '../../../../utils/axiosConfig.js';
  * Parent fee access (backend: /api/fees/my/*).
  * The backend stores money in kobo; everything returned here is in naira.
  */
+export const pendingPaymentKey = user => {
+    const identity = user?.id ?? user?.userId ?? user?.email;
+    return identity ? `ec_pending_paystack_ref:${identity}:${user?.schoolId ?? ''}` : null;
+};
+
+export const readPendingPayments = key => {
+    if (!key) return [];
+    try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return [];
+        try { const parsed = JSON.parse(raw); return Array.isArray(parsed) ? parsed.filter(item => item?.reference) : []; }
+        catch { return [{ reference: raw }]; }
+    } catch { return []; }
+};
+export const writePendingPayments = (key, payments) => {
+    if (!key) return;
+    try { if (payments.length) localStorage.setItem(key, JSON.stringify(payments)); else localStorage.removeItem(key); } catch { /* storage unavailable */ }
+};
+
 const KOBO = 100;
 const toNaira = (kobo) => Number(kobo || 0) / KOBO;
 
 const unwrapError = (err, fallback) => {
     const data = err?.response?.data;
-    return new Error(data?.message || fallback);
+    const error = new Error(data?.message || fallback);
+    // Lets callers tell "the server said no" (4xx) from "could not reach the server"
+    error.status = err?.response?.status ?? null;
+    return error;
 };
+
+// A payment reference is checked again on later visits until it is settled. These limits stop one
+// that can never settle (unknown to the gateway, or abandoned long ago) from being retried forever.
+export const PENDING_PAYMENT_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+export const PENDING_PAYMENT_MAX_ATTEMPTS = 5;
+
+/** True when the server has definitively rejected the reference, so asking again cannot help. */
+export const isUnknownPaymentError = (error) => [400, 404, 410, 422].includes(error?.status);
+
+/** Drops references older than the age limit; ones saved without a date start counting from now. */
+export function freshPendingPayments(pending, now = Date.now()) {
+    return pending
+        .map(item => (item.startedAt ? item : { ...item, startedAt: now }))
+        .filter(item => now - item.startedAt <= PENDING_PAYMENT_MAX_AGE_MS);
+}
+
+/** What is left of the pending list after a failed check of `reference`. */
+export function pendingAfterFailedCheck(pending, reference, error, now = Date.now()) {
+    return pending
+        .map(item => (item.reference === reference ? { ...item, attempts: (item.attempts || 0) + 1 } : item))
+        .filter(item => {
+            if (item.reference !== reference) return true;
+            if (isUnknownPaymentError(error)) return false;
+            if (item.attempts >= PENDING_PAYMENT_MAX_ATTEMPTS) return false;
+            return !(item.startedAt && now - item.startedAt > PENDING_PAYMENT_MAX_AGE_MS);
+        });
+}
 
 /** All non-void invoices for the signed-in parent's children, each with its confirmed payments. */
 export async function getMyInvoices() {
@@ -89,3 +138,4 @@ export async function verifyPayment(gateway, reference) {
         throw unwrapError(err, 'Could not check the payment. Please try again.');
     }
 }
+

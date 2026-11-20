@@ -1,11 +1,8 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import {
-    ClipboardList, BookOpen, AlertCircle, Loader2, Plus,
-    ChevronDown, Pencil, Trash2, Eye, X as XIcon,
-    CheckCircle2, Clock, BarChart3, FileText, ChevronRight,
-    Users, Calendar,
-} from 'lucide-react';
+import { formatSchoolDate } from '../../../utils/schoolLocale.js';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { ClipboardList, BookOpen, AlertCircle, Plus, ChevronDown, Pencil, Trash2, Eye, X as XIcon, CheckCircle2, Clock, BarChart3, FileText, ChevronRight, Users, Calendar } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import TeacherLayout from './components/layout/TeacherLayout.jsx';
 import { Drawer, pushToast } from '../../../components/patterns';
 import { useAcademic } from '../../../contexts/AcademicContext.jsx';
@@ -20,23 +17,15 @@ import {
     createAssessmentEntry,
     updateAssessmentEntry,
     deleteAssessmentEntry,
-    saveEntryScores,
     ASSESSMENT_TYPES,
 } from './services/assessmentEntryAPIs.js';
+import { calcContribution as calcContrib, roundPoints, sumPoints } from './teacherUtils/gradingMath.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const fmtDate = (iso) => iso
-    ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    ? formatSchoolDate(iso)
     : '—';
-
-function calcContrib(rawScore, maxScore, contributionPoints) {
-    const s = Number(rawScore);
-    const m = Number(maxScore);
-    const c = Number(contributionPoints);
-    if (!m || !c || isNaN(s) || s < 0) return null;
-    return parseFloat(((s / m) * c).toFixed(2));
-}
 
 // Build unified component list from policy (CA components + exam as one entry)
 function buildComponents(policy) {
@@ -127,8 +116,8 @@ function PolicyBanner({ policy, loading, hasPermission }) {
 
 function ComponentCard({ component, entries, onAdd, onEdit, onDelete, onView }) {
     const compEntries = entries.filter(e => e.policyComponentId === component.id);
-    const usedPoints  = compEntries.reduce((s, e) => s + Number(e.contributionPoints), 0);
-    const remaining   = component.maxScore - usedPoints;
+    const usedPoints  = sumPoints(compEntries.map(e => e.contributionPoints));
+    const remaining   = roundPoints(component.maxScore - usedPoints);
     const pct         = component.maxScore > 0 ? Math.min(100, Math.round((usedPoints / component.maxScore) * 100)) : 0;
     const isComplete  = remaining <= 0;
 
@@ -397,6 +386,8 @@ function AssessmentDrawer({
     const isEdit    = mode === 'edit';
     const isView    = mode === 'view';
     const readOnly  = isView;
+    // An existing entry stays in the component it was created under; only its details and scores are editable
+    const componentLocked = readOnly || isEdit;
 
     // ── Form fields ──────────────────────────────────────────────────────────
     const [componentId,      setComponentId]      = useState('');
@@ -409,6 +400,9 @@ function AssessmentDrawer({
     const [scoreMap,         setScoreMap]         = useState({});        // { [studentId]: string }
     const [saving,           setSaving]           = useState(false);
     const [typeIsCustom,     setTypeIsCustom]     = useState(false);
+    const createdEntryId = useRef(null);
+    const savingRef = useRef(false);
+    useEffect(() => { if (!open) createdEntryId.current = null; }, [open]);
 
     // Populate form when drawer opens
     useEffect(() => {
@@ -441,7 +435,7 @@ function AssessmentDrawer({
             (entry.scores ?? []).forEach(sc => { init[sc.studentId] = String(sc.scoreObtained ?? ''); });
             setScoreMap(init);
         }
-    }, [open, mode, entry, defaultComponentId, drawerStep, students]);
+    }, [open, isCreate, isEdit, isView, entry, defaultComponentId, drawerStep, students]);
 
     // ── Derived ──────────────────────────────────────────────────────────────
     const selectedComponent = allComponents.find(c => c.id === componentId);
@@ -449,20 +443,24 @@ function AssessmentDrawer({
 
     // Contribution remaining (exclude current entry if editing)
     const usedElsewhere = useMemo(() => {
-        return entries
+        return sumPoints(entries
             .filter(e => e.policyComponentId === componentId && e.id !== entry?.id)
-            .reduce((s, e) => s + Number(e.contributionPoints), 0);
+            .map(e => e.contributionPoints));
     }, [entries, componentId, entry?.id]);
 
-    const maxContribution  = selectedComponent ? (selectedComponent.maxScore - usedElsewhere) : 0;
+    const maxContribution  = selectedComponent ? Math.max(0, roundPoints(selectedComponent.maxScore - usedElsewhere)) : 0;
     const contribNum       = Number(contribution);
     const maxScoreNum      = Number(maxScore);
+    // A worked example for the hint, always within what the assessment is marked out of
+    const exampleScore     = maxScoreNum > 0 ? Math.max(1, Math.round(maxScoreNum * 0.75)) : 0;
     const contribValid     = contribNum > 0 && contribNum <= maxContribution;
     const detailsComplete  = componentId && title.trim() && effectiveType && maxScoreNum > 0 && contribValid;
     const gradedCount      = Object.values(scoreMap).filter(v => v !== '').length;
 
     // ── Handlers ─────────────────────────────────────────────────────────────
     const handleSave = async () => {
+        if (savingRef.current) return; // a second click must not start a second save
+        savingRef.current = true;
         setSaving(true);
         try {
             const payload = {
@@ -475,33 +473,29 @@ function AssessmentDrawer({
                 contributionPoints:  contribNum,
             };
 
-            let targetEntryId;
-            if (isCreate) {
-                const res = await createAssessmentEntry({
-                    ...payload,
-                    className,
-                    subjectName,
-                    termId,
-                });
-                targetEntryId = res.data.entry.id;
-            } else {
-                await updateAssessmentEntry(entry.id, {
-                    title:              title.trim(),
-                    assessmentType:     effectiveType,
-                    maxObtainableScore: maxScoreNum,
-                    contributionPoints: contribNum,
-                });
-                targetEntryId = entry.id;
+            const scores = students
+                .filter(s => scoreMap[s.id] !== '' && scoreMap[s.id] != null)
+                .map(s => ({ studentId: s.id, studentName: s.fullName, scoreObtained: Number(scoreMap[s.id]) }));
+            const metadata = isCreate ? { ...payload, className, subjectName, termId } : {
+                title: payload.title, assessmentType: payload.assessmentType,
+                maxObtainableScore: maxScoreNum, contributionPoints: contribNum,
+            };
+            if (scores.some(s => !Number.isFinite(s.scoreObtained) || s.scoreObtained < 0 || s.scoreObtained > maxScoreNum)) {
+                throw new Error(`Scores must be between 0 and ${maxScoreNum}.`);
             }
-
-            // Save scores
-            const scores = students.map(s => ({
-                studentId:     s.id,
-                studentName:   s.fullName,
-                scoreObtained: Number(scoreMap[s.id]) || 0,
-            })).filter(s => s.scoreObtained > 0);
-
-            await saveEntryScores(targetEntryId, scores);
+            // Details and scores go in ONE request, so the server saves both or neither.
+            // After a create succeeds the id is kept for this open form, so anything that
+            // happens afterwards updates that entry instead of creating a second one.
+            let targetId = isCreate ? createdEntryId.current : entry.id;
+            if (isCreate && !targetId) {
+                const created = await createAssessmentEntry({ ...metadata, scores });
+                createdEntryId.current = created.data.entry.id;
+            } else {
+                await updateAssessmentEntry(targetId, {
+                    title: payload.title, assessmentType: payload.assessmentType,
+                    maxObtainableScore: maxScoreNum, contributionPoints: contribNum, scores,
+                });
+            }
 
             pushToast({
                 message: isCreate ? 'Assessment recorded successfully.' : 'Assessment updated.',
@@ -511,6 +505,7 @@ function AssessmentDrawer({
         } catch (e) {
             pushToast({ message: e?.message || 'Failed to save. Please try again.', type: 'error' });
         } finally {
+            savingRef.current = false;
             setSaving(false);
         }
     };
@@ -527,7 +522,7 @@ function AssessmentDrawer({
                     <select
                         value={componentId}
                         onChange={e => setComponentId(e.target.value)}
-                        disabled={readOnly}
+                        disabled={componentLocked}
                         className="w-full appearance-none px-3 py-2.5 pr-8 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300 bg-white disabled:bg-gray-50 disabled:text-gray-500"
                     >
                         <option value="">— select assessment component —</option>
@@ -537,8 +532,13 @@ function AssessmentDrawer({
                             </option>
                         ))}
                     </select>
-                    {!readOnly && <ChevronDown size={14} className="absolute right-3 top-3.5 text-gray-400 pointer-events-none" />}
+                    {!componentLocked && <ChevronDown size={14} className="absolute right-3 top-3.5 text-gray-400 pointer-events-none" />}
                 </div>
+                {isEdit && (
+                    <p className="mt-1.5 text-[11px] text-gray-400">
+                        The component cannot be changed after an assessment is created. To move it, delete it and record it again.
+                    </p>
+                )}
                 {selectedComponent && (
                     <p className="mt-1.5 text-[11px] text-gray-500">
                         <span className="font-semibold text-gray-700">{maxContribution} pts</span> available in this component
@@ -664,7 +664,7 @@ function AssessmentDrawer({
                         Student score ÷ {maxScoreNum} × {contribNum} = CA points earned
                     </p>
                     <p className="text-[11px] text-blue-500 mt-0.5">
-                        e.g. 52/{maxScoreNum} → {calcContrib(52, maxScoreNum, contribNum) ?? '?'} pts toward {selectedComponent?.name ?? 'component'}
+                        e.g. {exampleScore}/{maxScoreNum} → {calcContrib(exampleScore, maxScoreNum, contribNum) ?? '?'} pts toward {selectedComponent?.name ?? 'component'}
                     </p>
                 </div>
             )}
@@ -833,6 +833,11 @@ function AssessmentDrawer({
 export default function ScoreEntryPage() {
     const { currentTerm } = useAcademic();
 
+    // "Enter Scores" from a class page links here with ?className=&subjectName= so the teacher lands ready to work
+    const [searchParams] = useSearchParams();
+    const presetClassRef = useRef(searchParams.get('className') || '');
+    const pendingSubjectRef = useRef(searchParams.get('subjectName') || '');
+
     // ── Selector state ────────────────────────────────────────────────────────
     const [classes,         setClasses]         = useState([]);
     const [subjects,        setSubjects]        = useState([]);
@@ -864,7 +869,12 @@ export default function ScoreEntryPage() {
     useEffect(() => {
         setLoadingClasses(true);
         getTeacherClasses()
-            .then(res => setClasses(res.data?.classes ?? []))
+            .then(res => {
+                const list = res.data?.classes ?? [];
+                setClasses(list);
+                if (presetClassRef.current && list.some(c => c.name === presetClassRef.current)) setSelectedClass(presetClassRef.current);
+                else pendingSubjectRef.current = '';
+            })
             .catch(() => pushToast({ message: 'Failed to load your classes.', type: 'error' }))
             .finally(() => setLoadingClasses(false));
     }, []);
@@ -875,22 +885,38 @@ export default function ScoreEntryPage() {
             setSubjects([]); setSelectedSubject('');
             setPolicy(undefined); setHasPermission(false);
             setStudents([]); setEntries([]);
-            return;
+            setLoadingSubjects(false);
+            return undefined;
         }
+        // Ignore the answer if the teacher has already moved on to another class
+        let active = true;
         setLoadingSubjects(true);
+        setSubjects([]);
         setSelectedSubject('');
         setPolicy(undefined); setHasPermission(false);
         setStudents([]); setEntries([]);
 
         getSubjectsByClass(selectedClass)
-            .then(res => setSubjects(res.data?.subjects ?? []))
-            .catch(() => pushToast({ message: 'Failed to load subjects.', type: 'error' }))
-            .finally(() => setLoadingSubjects(false));
+            .then(res => {
+                if (!active) return;
+                const list = res.data?.subjects ?? [];
+                setSubjects(list);
+                const wanted = pendingSubjectRef.current;
+                pendingSubjectRef.current = '';
+                if (wanted && list.some(sub => (sub.name ?? sub) === wanted)) setSelectedSubject(wanted);
+            })
+            .catch(() => { if (active) pushToast({ message: 'Failed to load subjects.', type: 'error' }); })
+            .finally(() => { if (active) setLoadingSubjects(false); });
+        return () => { active = false; };
     }, [selectedClass]);
 
     // ── Load policy, students, entries on subject change ──────────────────────
+    // Every load of the sheet gets a number; only the latest one may write to the page, so a slow
+    // answer for a class/subject the teacher has left can never land under the one now selected.
+    const sheetRequestRef = useRef(0);
     const loadSheetData = useCallback(async () => {
-        if (!selectedClass || !selectedSubject || !currentTerm?.id) return;
+        const request = ++sheetRequestRef.current;
+        if (!selectedClass || !selectedSubject || !currentTerm?.id) { setLoadingData(false); return; }
 
         setLoadingData(true);
         setPolicy(undefined); setHasPermission(false);
@@ -902,16 +928,18 @@ export default function ScoreEntryPage() {
                 getStudentsByClassandSubject(selectedClass, selectedSubject),
                 listAssessmentEntries(selectedClass, selectedSubject, currentTerm.id),
             ]);
+            if (sheetRequestRef.current !== request) return;
 
             setPolicy(policyRes.data?.policy ?? null);
             setHasPermission(policyRes.data?.hasPermission ?? false);
             setStudents(studentsRes.data?.students ?? []);
             setEntries(entriesRes.data?.entries ?? []);
         } catch {
+            if (sheetRequestRef.current !== request) return;
             pushToast({ message: 'Failed to load grading data. Please retry.', type: 'error' });
             setPolicy(null);
         } finally {
-            setLoadingData(false);
+            if (sheetRequestRef.current === request) setLoadingData(false);
         }
     }, [selectedClass, selectedSubject, currentTerm?.id]);
 
@@ -966,11 +994,12 @@ export default function ScoreEntryPage() {
     const handleSaved = useCallback(async () => {
         setDrawerOpen(false);
         // Reload entries to get fresh calculated contributions
+        const request = sheetRequestRef.current;
         try {
             const res = await listAssessmentEntries(selectedClass, selectedSubject, currentTerm?.id);
-            setEntries(res.data?.entries ?? []);
+            if (sheetRequestRef.current === request) setEntries(res.data?.entries ?? []);
         } catch {
-            await loadSheetData();
+            if (sheetRequestRef.current === request) await loadSheetData();
         }
     }, [selectedClass, selectedSubject, currentTerm?.id, loadSheetData]);
 
@@ -1180,3 +1209,4 @@ export default function ScoreEntryPage() {
         </TeacherLayout>
     );
 }
+

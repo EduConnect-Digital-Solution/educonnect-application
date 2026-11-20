@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
+    CalendarDays,
     LayoutDashboard, LogOut, Menu, X, GraduationCap, User,
-    ClipboardCheck, ClipboardList, BookOpen, ChevronDown, ChevronLeft, ChevronRight, School
+    ClipboardCheck, ClipboardList, BookOpen, BookOpenText, ChevronDown, ChevronLeft, ChevronRight, School
 } from 'lucide-react';
 import { Header } from '../../../dashboardUtilities.jsx';
 import { useAuth } from '../../../../../contexts/AuthContext.jsx';
 import { Images } from '../../../../../components/images.jsx';
 import { getMyPolicyPermission } from '../../services/teacherPoliciesAPIs.js';
-import { ToastHost } from '../../../../../components/patterns';
 
+import MobileBrandLogo from '../../../../../components/MobileBrandLogo.jsx';
 const OPEN_GROUPS_KEY = 'educonnect-teacher-nav-open';
 const COLLAPSED_KEY   = 'teacher-sidebar-collapsed';
 
@@ -21,16 +22,18 @@ const NavList = ({ collapsed, onNavigate, hasPolicyPermission }) => {
     const baseNavItems = [
         { name: 'Dashboard',    icon: LayoutDashboard, link: '/dashboard/teacher', exact: true },
         { name: 'My Classes',   icon: GraduationCap,   link: '/dashboard/teacher/classes' },
+        { name: 'My Timetable', icon: CalendarDays,    link: '/dashboard/teacher/timetable' },
         { name: 'Attendance',   icon: ClipboardCheck,  link: '/dashboard/teacher/attendance' },
         { name: 'Score Entry',  icon: ClipboardList,   link: '/dashboard/teacher/score-entry' },
+        { name: 'Lesson Plans', icon: BookOpenText,    link: '/dashboard/teacher/lesson-plans' },
         { name: 'User Profile', icon: User,            link: '/dashboard/teacher/profile' },
     ];
 
     const navItems = hasPolicyPermission
         ? [
-            ...baseNavItems.slice(0, 4),
+            ...baseNavItems.slice(0, 5),
             { name: 'Assessment Policies', icon: BookOpen, link: '/dashboard/teacher/assessment-policies' },
-            ...baseNavItems.slice(4),
+            ...baseNavItems.slice(5), // after Score Entry (this used to repeat Score Entry)
           ]
         : baseNavItems;
 
@@ -185,6 +188,8 @@ const TeacherLayout = ({ children, className = '' }) => {
                      >
                          <Menu size={18} />
                      </button>
+                     <MobileBrandLogo />
+                     <span className="w-9" aria-hidden="true" />
                 </div>
                 <Header />
                 <main className={`flex-1 p-2 md:p-4 ${className}`}>
@@ -192,7 +197,6 @@ const TeacherLayout = ({ children, className = '' }) => {
                 </main>
             </div>
 
-            <ToastHost />
         </div>
     );
 };

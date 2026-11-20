@@ -4,10 +4,11 @@ import { CheckCircle2, Info, X, Undo2, XCircle, AlertTriangle } from 'lucide-rea
 import { TOAST_EVENT, pushToast } from './toastBus.js';
 
 /**
- * ToastHost — renders the toast & undo stack. Mount once per layout shell.
+ * ToastHost — renders the toast & undo stack. Mounted once in App.jsx, so every
+ * area (auth, admin, teacher, parent) shows toasts in the same place and style.
  *
- * Toasts CONFIRM actions — they never carry critical errors (errors belong
- * inline on the page, next to what failed). Drive it via pushToast (toastBus.js).
+ * Drive it with notify.success / notify.error / notify.info, or pushToast
+ * (toastBus.js). Always pass a type: failures must not look like success.
  */
 export default function ToastHost() {
     const [toasts, setToasts] = useState([]);

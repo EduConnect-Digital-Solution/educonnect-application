@@ -1,3 +1,4 @@
+import { BrandLoader } from '@/components/brand/BrandLoader.jsx';
 import React, { useState, Fragment, useEffect } from 'react';
 import {
     User,
@@ -16,8 +17,8 @@ import TeacherLayout from "./components/layout/TeacherLayout.jsx";
 import { Dialog, Transition } from '@headlessui/react';
 import {getSubjectsByClass, getTeacherClasses, getTeacherDashboard} from "../../auth/authAPIs.js";
 import {Link} from "react-router-dom";
-import {getInitials} from "../AdminDashboard/utils/formatters.js";
 import {useAuth} from "../../../contexts/AuthContext.jsx";
+import ChangePasswordCard from "../../../components/account/ChangePasswordCard.jsx";
 // import {getTeacherDashboard, getTeacherClasses} from '../services/teacherService.jsx';
 
 const TeacherProfile = () => {
@@ -25,7 +26,7 @@ const TeacherProfile = () => {
     const [loading, setLoading] = useState(true);
     const [classes, setClasses] = useState([]);
     const [teacher, setTeacher] = useState(null);
-    const [teacherSubjects, setTeacherSubjects] = useState([]);
+    const [, setTeacherSubjects] = useState([]);
     const [error, setError] = useState(null);
 
     useEffect(() => {
@@ -39,7 +40,7 @@ const TeacherProfile = () => {
 
                 setTeacher(dashboardRes.data.teacher);
                 setTeacherSubjects(dashboardRes.data.teacher.subjects);
-                setClasses(classRes.data.classes);
+                setClasses(classRes?.data?.classes ?? []);
             } catch (err) {
                 console.error('Failed to fetch data:', err);
                 setError(err);
@@ -62,7 +63,7 @@ const TeacherProfile = () => {
         setLoadingSubjects(true);
         try {
             const response = await getSubjectsByClass(cls.name);
-            setSubjects(response.data.subjects);
+            setSubjects(response?.data?.subjects ?? []);
         } catch (error) {
             console.error("Failed to fetch subjects:", error);
         } finally {
@@ -76,15 +77,28 @@ const TeacherProfile = () => {
         setSubjects([]);
     };
     
+    if (error) {
+        return (
+            <TeacherLayout>
+                <div className="max-w-md mx-auto mt-16 text-center bg-white border border-red-100 rounded-2xl p-8">
+                    <p className="font-semibold text-gray-900">We couldn't load your profile</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                        {error.response?.data?.message || 'Please check your connection and try again.'}
+                    </p>
+                    <button onClick={() => window.location.reload()}
+                        className="mt-4 px-4 py-2 text-sm font-medium text-white bg-[#002684] rounded-lg">
+                        Try again
+                    </button>
+                </div>
+            </TeacherLayout>
+        );
+    }
+
     if (loading || !teacher) {
         return (
             <TeacherLayout>
                 <div className="flex flex-col items-center justify-center h-screen bg-gray-50">
-                    <div className="relative w-20 h-20">
-                        <div className="absolute inset-0 border-4 border-blue-100 rounded-full"></div>
-                        <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
-                    </div>
-                    <p className="mt-4 text-gray-500 font-medium animate-pulse">Loading Teacher Profile...</p>
+                    <BrandLoader label="Loading Teacher Profile..." size={88} />
                 </div>
             </TeacherLayout>
         );
@@ -139,6 +153,7 @@ const TeacherProfile = () => {
                         rail={
                             <div className="mt-2">
                                 <AccountInfo role={user.role} />
+                                <ChangePasswordCard className="mt-4" />
                             </div>
                         }
                     />
@@ -179,14 +194,14 @@ const TeacherProfile = () => {
                                     <div className="mt-4">
                                         {loadingSubjects ? (
                                             <div className="flex justify-center">
-                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                                                <BrandLoader label="Loading subjects…" size={56} delay={0} />
                                             </div>
                                         ) : subjects.length > 0 ? (
                                             <div className="space-y-2">
                                                 {subjects.map(subject => (
                                                     <Link
                                                         key={subject.name}
-                                                        to={`/dashboard/teacher/students/${selectedClass.name}/${subject.name}`}
+                                                        to={`/dashboard/teacher/students/${encodeURIComponent(selectedClass.name)}/${encodeURIComponent(subject.name)}`}
                                                         className="block w-full text-left p-3 bg-gray-100 rounded-md hover:bg-gray-200"
                                                     >
                                                         {subject.name} ({subject.studentCount} students)

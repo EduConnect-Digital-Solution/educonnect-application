@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from 'react';
+import React, {useState} from 'react';
 import {
     Bar,
     BarChart,
@@ -15,7 +15,6 @@ import {
 
 export default function AnalyticsComponent(userStatsAnalytics) {
     const userStats = userStatsAnalytics.userStatsAnalytics;
-    const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('role');
 
     if (!userStats) {

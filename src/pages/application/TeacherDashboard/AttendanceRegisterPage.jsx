@@ -1,3 +1,5 @@
+import { schoolDateKey } from '../../../utils/schoolLocale.js';
+import { BrandLoader } from '@/components/brand/BrandLoader.jsx';
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import TeacherLayout from './components/layout/TeacherLayout.jsx';
@@ -32,6 +34,7 @@ export default function AttendanceRegisterPage() {
           const listRes = await getScheduledClasses();
           resolvedSchedule = listRes.data.scheduledClasses.find(s => s.scheduleId === scheduleId);
           if (!resolvedSchedule) throw new Error('Schedule not found for id: ' + scheduleId);
+          resolvedSchedule = { ...resolvedSchedule, date: resolvedSchedule.date ?? listRes.data.date ?? schoolDateKey() };
           setSchedule(resolvedSchedule);
           // Also capture academic context from the refetched response
           setAcademicContext(listRes.data.academicContext ?? null);
@@ -58,11 +61,7 @@ export default function AttendanceRegisterPage() {
     return (
       <TeacherLayout>
         <div className="flex flex-col items-center justify-center h-screen bg-gray-50">
-          <div className="relative w-16 h-16">
-            <div className="absolute inset-0 border-4 border-blue-100 rounded-full" />
-            <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin" />
-          </div>
-          <p className="mt-4 text-gray-500 font-medium animate-pulse">Loading attendance register…</p>
+          <BrandLoader label="Loading attendance register…" size={88} />
         </div>
       </TeacherLayout>
     );
@@ -98,8 +97,10 @@ export default function AttendanceRegisterPage() {
           initialStatus={sessionData.attendanceStatus}
           submittedAt={sessionData.submittedAt}
           academicContext={academicContext}
+          initialAttendanceId={sessionData.attendanceId}
         />
       </div>
     </TeacherLayout>
   );
 }
+

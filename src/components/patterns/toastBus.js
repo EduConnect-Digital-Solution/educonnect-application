@@ -20,3 +20,18 @@ export function pushToast({ message, type, undo, duration }) {
         },
     }));
 }
+
+/**
+ * Short helpers so call sites stay one line and always carry an explicit type.
+ *   notify.success('Saved.')  notify.error('Could not save.')  notify.info('Heads up.')
+ * `notify(message, type, duration, onDone)` also runs `onDone` after `duration`
+ * ms, for flows that redirect once the toast has been read.
+ */
+export function notify(message, type = 'error', duration, onDone) {
+    pushToast({ message, type, duration });
+    if (onDone) setTimeout(onDone, duration ?? 3000);
+}
+notify.success = (message, duration) => pushToast({ message, type: 'success', duration });
+notify.error = (message, duration) => pushToast({ message, type: 'error', duration });
+notify.info = (message, duration) => pushToast({ message, type: 'info', duration });
+

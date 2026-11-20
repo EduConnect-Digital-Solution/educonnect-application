@@ -1,6 +1,8 @@
+import { formatSchoolDate } from '../../../../../utils/schoolLocale.js';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronRight, Pencil, Trash2, Printer, Loader2, BookOpen, User } from 'lucide-react';
+import { ChevronRight, Pencil, Trash2, Printer, BookOpen, User } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import AdminLayout from '../../components/layout/AdminLayout.jsx';
 import { EmptyState, StatusChip, ConfirmDestructiveDialog, pushToast } from '../../../../../components/patterns';
 import {
@@ -107,13 +109,13 @@ export default function TimetableViewPage() {
                 </nav>
 
                 <div className="bg-white border border-gray-200 rounded-2xl p-5 flex flex-wrap items-center gap-4 print:border-0">
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-[14rem]">
                         <div className="flex flex-wrap items-center gap-2">
                             <h1 className="text-xl font-bold text-gray-900">{className}{armName ? ` — ${armName}` : ''}</h1>
                             <StatusChip status={status} />
                         </div>
                         <p className="text-[13px] text-gray-400 mt-0.5">
-                            {termName || 'Term'}{timetable?.publishedAt ? ` · Published ${new Date(timetable.publishedAt).toLocaleDateString()}` : ''}
+                            {termName || 'Term'}{timetable?.publishedAt ? ` · Published ${formatSchoolDate(timetable.publishedAt)}` : ''}
                         </p>
                     </div>
                     <div className="flex items-center gap-2 shrink-0 print:hidden">

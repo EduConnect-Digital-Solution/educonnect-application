@@ -1,3 +1,4 @@
+import { currencySymbol, formatSchoolDate } from '../../../../../utils/schoolLocale.js';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -5,7 +6,8 @@ import {
   PAYMENT_METHODS, ADJUSTMENT_TYPES,
 } from '../../services/feeAPIs.js';
 import StudentLedgerModal from './StudentLedgerModal.jsx';
-import { Search, Loader2, Wallet, BookText, SlidersHorizontal, X } from 'lucide-react';
+import { Search, Wallet, BookText, SlidersHorizontal, X } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import { WorkbenchTable, pushToast } from '../../../../../components/patterns';
 import { ROUTES } from '../../navigation/navConfig.js';
 
@@ -18,15 +20,15 @@ function AdjustmentModal({ onClose, onApplied }) {
   const [busy, setBusy]           = useState(false);
 
   const submit = async () => {
-    if (!studentId.trim()) return pushToast({ message: 'Student ID is required' });
-    if (!amount || Number(amount) <= 0) return pushToast({ message: 'Enter a valid amount' });
-    if (!reason.trim()) return pushToast({ message: 'A reason is required for the audit trail' });
+    if (!studentId.trim()) return pushToast({ message: 'Student ID is required', type: 'error' });
+    if (!amount || Number(amount) <= 0) return pushToast({ message: 'Enter a valid amount', type: 'error' });
+    if (!reason.trim()) return pushToast({ message: 'A reason is required for the audit trail', type: 'error' });
     setBusy(true);
     try {
       const res = await applyAdjustment({ studentId: studentId.trim(), type, amount: toKobo(amount), reason: reason.trim(), approvedBy: 'admin' });
       if (res.success) { onApplied?.(res.data.adjustment); pushToast({ message: 'Adjustment applied to ledger' }); onClose(); }
     } catch (e) {
-      pushToast({ message: e.message || 'Failed to apply adjustment' });
+      pushToast({ message: e.message || 'Failed to apply adjustment', type: 'error' });
     } finally { setBusy(false); }
   };
 
@@ -53,7 +55,7 @@ function AdjustmentModal({ onClose, onApplied }) {
               </select>
             </div>
             <div>
-              <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Amount (₦)</label>
+              <label className="text-xs font-bold text-gray-500 uppercase mb-1 block">Amount ({currencySymbol()})</label>
               <input type="number" value={amount} onChange={e => setAmount(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none" />
             </div>
@@ -110,7 +112,7 @@ export default function FeePaymentsTab({ currentYear }) {
     { id: 'student', header: 'Student', accessor: r => r.studentName || r.studentId, sortable: true, render: r => <span className="text-gray-700">{r.studentName || r.studentId}</span> },
     { id: 'method', header: 'Method', accessor: r => r.paymentMethod, render: r => <span className="capitalize text-gray-600">{(r.paymentMethod || '').replace('_', ' ')}</span> },
     { id: 'amount', header: 'Amount', accessor: r => r.amount, sortable: true, align: 'right', render: r => <span className="font-semibold text-green-600">{formatNaira(r.amount)}</span> },
-    { id: 'date', header: 'Date', accessor: r => r.paidAt, sortable: true, render: r => <span className="text-xs text-gray-500">{r.paidAt ? new Date(r.paidAt).toLocaleDateString() : '—'}</span> },
+    { id: 'date', header: 'Date', accessor: r => r.paidAt, sortable: true, render: r => <span className="text-xs text-gray-500">{r.paidAt ? formatSchoolDate(r.paidAt) : '—'}</span> },
   ], []);
 
   const filters = useMemo(() => [

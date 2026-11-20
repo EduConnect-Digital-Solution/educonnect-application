@@ -1,30 +1,13 @@
+import { formatSchoolTime, schoolDateKey } from '../../../../utils/schoolLocale.js';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import {
-  ArrowLeft,
-  Search,
-  Save,
-  Send,
-  Users,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  AlertTriangle,
-  ChevronDown,
-  Filter,
-  CheckSquare,
-  Square,
-  Loader2,
-  BookOpen,
-  MapPin,
-  CalendarDays,
-  RefreshCw,
-  LockKeyhole,
-} from 'lucide-react';
+import { ArrowLeft, Search, Save, Send, Users, CheckCircle2, XCircle, Clock, AlertTriangle, ChevronDown, Filter, CheckSquare, Square, BookOpen, MapPin, CalendarDays, RefreshCw, LockKeyhole } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import { cn } from '@/lib/utils';
 import StudentAttendanceRow from './StudentAttendanceRow';
 import { saveDraftAttendance, submitAttendance, updateAttendance } from './attendanceAPIs';
 import { useAuth } from '@/contexts/AuthContext';
+import { getPublicSettings } from '../../AdminDashboard/services/schoolSettingsAPIs.js';
 
 // ─── Helpers ────────────────────
 function formatDate(dateStr) {
@@ -155,7 +138,6 @@ function Notification({ notification, onDismiss }) {
 
 // ─── Bulk actions toolbar ───────
 function BulkActionsToolbar({ selectedCount, onBulkStatus, onClearSelection }) {
-  const [open, setOpen] = useState(false);
   if (selectedCount === 0) return null;
   return (
     <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
@@ -199,6 +181,7 @@ export default function AttendanceRegister({
   initialStatus,   // 'not_started' | 'in_progress' | 'completed'
   submittedAt,
   academicContext, // passed from page when available
+  initialAttendanceId, // id of the saved record for this session, when one exists
 }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -218,12 +201,22 @@ export default function AttendanceRegister({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(isAlreadySubmitted);
   const [notification, setNotification] = useState(null);
-  const [attendanceId, setAttendanceId] = useState(schedule?.attendanceId || null);
+  const [policy, setPolicy] = useState(null); // school attendance policy: late grace and edit window
+  useEffect(() => {
+    let alive = true;
+    getPublicSettings().then((s) => { if (alive) setPolicy(s?.attendance || null); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  const [attendanceId, setAttendanceId] = useState(schedule?.attendanceId || initialAttendanceId || null);
   const hasUnsavedRef = useRef(false);
+
+  // A submitted register is locked unless it was opened for correction (?edit=true)
+  const isCorrecting = isSubmitted && isEditMode && !isReadOnly;
+  const rowsLocked = isReadOnly || (isSubmitted && !isCorrecting);
 
   // ─── Track unsaved changes ──
   useEffect(() => {
-    if (!isReadOnly && !isSubmitted) {
+    if (!rowsLocked) {
       const handler = (e) => {
         if (hasUnsavedRef.current) {
           e.preventDefault();
@@ -233,7 +226,8 @@ export default function AttendanceRegister({
       window.addEventListener('beforeunload', handler);
       return () => window.removeEventListener('beforeunload', handler);
     }
-  }, [isReadOnly, isSubmitted]);
+    return undefined;
+  }, [rowsLocked]);
 
   // ─── Handlers ───────────────
   const markUnsaved = () => { hasUnsavedRef.current = true; };
@@ -267,6 +261,45 @@ export default function AttendanceRegister({
     });
   }, []);
 
+  const handleBulkStatus = useCallback((status) => {
+    setStudents(prev => prev.map(s =>
+      selectedIds.has(s.studentId) ? { ...s, status } : s
+    ));
+    setSelectedIds(new Set());
+    markUnsaved();
+  }, [selectedIds]);
+
+  const handleMarkAllPresent = useCallback(() => {
+    // Never silently wipe absences, late marks or their reasons that were already entered
+    const overwritten = students.filter(s => s.status === 'absent' || s.status === 'late').length;
+    if (overwritten > 0) {
+      const proceed = window.confirm(
+        `${overwritten} student${overwritten > 1 ? 's are' : ' is'} already marked absent or late.\n\n` +
+        `Mark everyone present anyway? Their absent/late marks and reasons will be cleared.`
+      );
+      if (!proceed) return;
+    }
+    setStudents(prev => prev.map(s => ({ ...s, status: 'present', reason: '', lateArrivalTime: '' })));
+    setSelectedIds(new Set());
+    markUnsaved();
+    setNotification({ type: 'info', message: 'All students marked as Present.' });
+  }, [students]);
+
+  // ─── Filtered view ──────────
+  const filteredStudents = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return students.filter(s => {
+      // Names and roll numbers come from the server and may be missing or numeric
+      const matchesSearch = !query ||
+        String(s.fullName ?? '').toLowerCase().includes(query) ||
+        String(s.rollNumber ?? '').toLowerCase().includes(query);
+      const matchesFilter =
+        filterStatus === 'all' ||
+        (filterStatus === 'unmarked' ? !s.status : s.status === filterStatus);
+      return matchesSearch && matchesFilter;
+    });
+  }, [students, searchQuery, filterStatus]);
+
   const handleSelectAll = useCallback(() => {
     const visibleIds = filteredStudents.map(s => s.studentId);
     const allSelected = visibleIds.every(id => selectedIds.has(id));
@@ -283,41 +316,23 @@ export default function AttendanceRegister({
         return next;
       });
     }
-  }, [selectedIds]);
-
-  const handleBulkStatus = useCallback((status) => {
-    setStudents(prev => prev.map(s =>
-      selectedIds.has(s.studentId) ? { ...s, status } : s
-    ));
-    setSelectedIds(new Set());
-    markUnsaved();
-  }, [selectedIds]);
-
-  const handleMarkAllPresent = useCallback(() => {
-    setStudents(prev => prev.map(s => ({ ...s, status: 'present', reason: '', lateArrivalTime: '' })));
-    setSelectedIds(new Set());
-    markUnsaved();
-    setNotification({ type: 'info', message: 'All students marked as Present.' });
-  }, []);
-
-  // ─── Filtered view ──────────
-  const filteredStudents = useMemo(() => {
-    return students.filter(s => {
-      const matchesSearch = s.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.rollNumber.includes(searchQuery);
-      const matchesFilter =
-        filterStatus === 'all' ||
-        (filterStatus === 'unmarked' ? !s.status : s.status === filterStatus);
-      return matchesSearch && matchesFilter;
-    });
-  }, [students, searchQuery, filterStatus]);
+  }, [selectedIds, filteredStudents]);
 
   const allVisibleSelected =
     filteredStudents.length > 0 &&
     filteredStudents.every(s => selectedIds.has(s.studentId));
 
+  const toHHmm = (v) => {
+    if (!v) return undefined;
+    if (/^\d{2}:\d{2}$/.test(v)) return v;
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? undefined : `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  };
+
   // ─── Build payload ──────────
-  const buildPayload = (statusOverride) => ({
+  // A draft keeps unmarked students (status null) so the teacher can finish later. A submitted
+  // register only carries students who were actually marked.
+  const buildPayload = ({ markedOnly = false } = {}) => ({
     // Academic context: prefer prop, fall back to schedule field, then empty stubs
     academicYearId: academicContext?.academicYearId ?? schedule?.academicContext?.academicYearId ?? '',
     academicYear:   academicContext?.academicYear   ?? schedule?.academicContext?.academicYear   ?? '',
@@ -327,15 +342,20 @@ export default function AttendanceRegister({
     classId: schedule.classId,
     subjectId: schedule.subjectId,
     periodId: schedule.periodId,
-    teacherId: user?.id || 'tch_current',
-    date: new Date().toISOString().split('T')[0],
+    // Lets the server apply the school's late-grace rule (arrival within N minutes counts as present)
+    periodStartTime: toHHmm(schedule.timeSlot?.start),
+    teacherId: user?.id || user?.userId || 'tch_current',
+    date: schedule.date ?? schoolDateKey(),
     attendanceId,
-    attendances: students.map(s => ({
-      studentId: s.studentId,
-      status: statusOverride || s.status,
-      reason: s.reason || '',
-      lateArrivalTime: s.lateArrivalTime || '',
-    })),
+    attendances: students
+      .filter(s => !markedOnly || s.status)
+      .map(s => ({
+        studentId: s.studentId,
+        status: s.status || null,
+        // A reason or arrival time only means something for the status it was entered under
+        reason: (s.status === 'absent' || s.status === 'late') ? (s.reason || '') : '',
+        lateArrivalTime: s.status === 'late' ? (s.lateArrivalTime || '') : '',
+      })),
   });
 
   // ─── Save draft ─────────────
@@ -348,9 +368,9 @@ export default function AttendanceRegister({
       if (res.success) {
         setAttendanceId(res.data.attendanceId);
         hasUnsavedRef.current = false;
-        setNotification({ type: 'success', message: 'Draft saved successfully.' });
+        setNotification({ type: 'success', message: 'Draft saved. Only you can see it until you submit the register.' });
       }
-    } catch (err) {
+    } catch {
       setNotification({ type: 'error', message: 'Failed to save draft. Please try again.' });
     } finally {
       setIsSaving(false);
@@ -360,6 +380,10 @@ export default function AttendanceRegister({
   // ─── Submit ─────────────────
   const handleSubmit = async () => {
     const unmarked = students.filter(s => !s.status);
+    if (students.length > 0 && unmarked.length === students.length) {
+      setNotification({ type: 'warning', message: 'Mark at least one student before submitting the register.' });
+      return;
+    }
     if (unmarked.length > 0) {
       const proceed = window.confirm(
         `${unmarked.length} student${unmarked.length > 1 ? 's are' : ' is'} not yet marked.\n\n` +
@@ -374,8 +398,10 @@ export default function AttendanceRegister({
     setIsSubmitting(true);
     setNotification(null);
     try {
-      const payload = buildPayload();
-      const res = (isAlreadySubmitted && isEditMode)
+      const payload = buildPayload({ markedOnly: true });
+      // Correcting a register that is already on record updates it; anything else is a first submission
+      const isUpdate = Boolean(isCorrecting && attendanceId);
+      const res = isUpdate
         ? await updateAttendance(attendanceId, payload)
         : await submitAttendance(payload);
 
@@ -385,14 +411,15 @@ export default function AttendanceRegister({
         // Update the attendanceId in case backend assigned a new one
         if (res.data.attendanceId) setAttendanceId(res.data.attendanceId);
         const s = res.data.summary;
-        const action = (isAlreadySubmitted && isEditMode) ? 'updated' : 'submitted';
+        const action = isUpdate ? 'updated' : 'submitted';
         setNotification({
           type: 'success',
           message: `Attendance ${action} — ${s?.present ?? '—'} present, ${s?.absent ?? '—'} absent, ${s?.late ?? '—'} late.`,
         });
       }
     } catch (err) {
-      setNotification({ type: 'error', message: 'Submission failed. Please try again.' });
+      // Show the server's reason, for example when the school's edit window has closed
+      setNotification({ type: 'error', message: err?.response?.data?.message || err?.message || 'Submission failed. Please try again.' });
     } finally {
       setIsSubmitting(false);
     }
@@ -400,14 +427,14 @@ export default function AttendanceRegister({
 
   // ─── Back navigation ────────
   const handleBack = () => {
-    if (hasUnsavedRef.current && !isSubmitted) {
+    if (hasUnsavedRef.current && !rowsLocked) {
       const leave = window.confirm('You have unsaved changes. Leave without saving?');
       if (!leave) return;
     }
     navigate('/dashboard/teacher/attendance');
   };
 
-  const today = formatDate(new Date().toISOString());
+  const today = formatDate(`${schedule.date ?? schoolDateKey()}T12:00:00`);
 
   return (
     <div className="flex flex-col h-full">
@@ -433,6 +460,16 @@ export default function AttendanceRegister({
               <Clock className="w-3.5 h-3.5" />
               Period {schedule.periodNumber} · {formatTime(schedule.timeSlot?.start)} – {formatTime(schedule.timeSlot?.end)}
             </span>
+            {policy?.lateGraceMinutes > 0 && (
+              <span className="flex items-center gap-1 text-gray-400" title="School attendance policy">
+                Arriving within {policy.lateGraceMinutes} min of the start counts as present
+              </span>
+            )}
+            {policy?.editWindowHours && (
+              <span className="flex items-center gap-1 text-gray-400" title="School attendance policy">
+                Editable for {policy.editWindowHours} h after submitting
+              </span>
+            )}
             {schedule.room && (
               <span className="flex items-center gap-1">
                 <MapPin className="w-3.5 h-3.5" />
@@ -448,7 +485,7 @@ export default function AttendanceRegister({
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700
               border border-emerald-200 rounded-full text-xs font-semibold">
               <CheckCircle2 className="w-3.5 h-3.5" />
-              {submittedAt ? `Submitted ${new Date(submittedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : 'Submitted'}
+              {submittedAt ? `Submitted ${formatSchoolTime(submittedAt)}` : 'Submitted'}
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-700
@@ -529,7 +566,7 @@ export default function AttendanceRegister({
       )}
 
       {/* ── Bulk actions ───── */}
-      {!isReadOnly && !isSubmitted && (
+      {!rowsLocked && (
         <div className="mb-3">
           <BulkActionsToolbar
             selectedCount={selectedIds.size}
@@ -543,7 +580,7 @@ export default function AttendanceRegister({
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden flex-1">
         {/* Column headers */}
         <div className="flex items-center gap-3 px-4 py-2.5 bg-gray-50 border-b border-gray-100 text-xs font-semibold text-gray-400 uppercase tracking-wide">
-          {!isReadOnly && !isSubmitted && (
+          {!rowsLocked && (
             <button
               onClick={handleSelectAll}
               className="w-4 h-4 flex items-center justify-center flex-shrink-0"
@@ -574,7 +611,7 @@ export default function AttendanceRegister({
                 key={student.studentId}
                 student={student}
                 isSelected={selectedIds.has(student.studentId)}
-                isReadOnly={isReadOnly || isSubmitted}
+                isReadOnly={rowsLocked}
                 onStatusChange={handleStatusChange}
                 onReasonChange={handleReasonChange}
                 onLateTimeChange={handleLateTimeChange}
@@ -600,6 +637,7 @@ export default function AttendanceRegister({
               <button
                 onClick={handleSaveDraft}
                 disabled={isSaving || isSubmitting}
+                title="A draft is only visible to you. Submit the register to share it with the school admin."
                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium
                   text-gray-700 bg-white hover:bg-gray-50 border border-gray-200
                   rounded-lg transition-colors disabled:opacity-50"
@@ -652,3 +690,4 @@ export default function AttendanceRegister({
     </div>
   );
 }
+

@@ -1,18 +1,7 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Clock,
-  MapPin,
-  Users,
-  CheckCircle2,
-  Circle,
-  Loader2,
-  ChevronRight,
-  Pencil,
-  Eye,
-  ClipboardList,
-  BookOpen,
-} from 'lucide-react';
+import { Clock, MapPin, Users, CheckCircle2, Circle, ChevronRight, Pencil, Eye, ClipboardList, BookOpen } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import { cn } from '@/lib/utils';
 
 // ─── Status configuration ───────
@@ -59,7 +48,6 @@ function BoardSummary({ classes }) {
     };
   }, [classes]);
 
-  const pct = Math.round((stats.completed / (stats.total || 1)) * 100);
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">

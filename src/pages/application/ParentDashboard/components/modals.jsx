@@ -1,5 +1,7 @@
+import { formatSchoolDate } from '../../../../utils/schoolLocale.js';
 import React from 'react';
 import { X } from 'lucide-react';
+import ChildReportCards from './ChildReportCards.jsx';
 
 export const StudentInfoModal = ({ child, onClose }) => {
     if (!child) return null;
@@ -77,6 +79,12 @@ export const StudentInfoModal = ({ child, onClose }) => {
                             </div>
                         </div>
 
+                        {/* Report cards the school has released */}
+                        <div className="md:col-span-2">
+                            <SectionHeader title="Report Cards" />
+                            <ChildReportCards childId={child.id} childName={child.fullName} />
+                        </div>
+
                         {/* Communication Data */}
                         <div>
                             <SectionHeader title="Contact Channels" />
@@ -106,7 +114,7 @@ export const StudentInfoModal = ({ child, onClose }) => {
                 {/* Footer - Metadata */}
                 <div className="px-10 py-6 bg-white border-t border-slate-100 flex justify-between items-center">
                     <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">
-                        System Entry: {new Date(child.createdAt).toLocaleDateString()}
+                        System Entry: {formatSchoolDate(child.createdAt)}
                     </p>
                     <button
                         onClick={onClose}

@@ -19,10 +19,9 @@ import {
     Users,
     X
 } from "lucide-react";
-import React, {useEffect, useState} from "react";
-import {NavLink, useLocation, useNavigate} from "react-router-dom";
+import React, {useState} from "react";
+import {NavLink, useNavigate} from "react-router-dom";
 import {Images} from "../../../../components/images.jsx";
-import {getParentDashboard} from "../../../auth/authAPIs.js";
 import {formatDate} from "../../AdminDashboard/utils/formatters.js";
 
 export const StatsMetricCard = ({ title, value, icon: Icon, colorClass }) => {
@@ -101,12 +100,9 @@ export const ParentsOverviewDashboard = ({ overview }) => {
 };
 
 
-export const AnalyticsAndActions = ({quickActions}) => {
-    const [selectedChild, setSelectedChild] = useState('Sandra J');
-    const [selectedSubject, setSelectedSubject] = useState('All Subjects');
+export const AnalyticsAndActions = () => {
+    const [selectedSubject] = useState('All Subjects');
 
-    const children = ['Sandra J', 'David J', 'Daniel J'];
-    const subjects = ['All Subjects', 'Mathematics', 'Basic Science', 'English'];
     const weeks = ['Week 1', 'Week 2', 'Week 3', 'Week 4'];
 
     const navigate = useNavigate();
@@ -307,12 +303,12 @@ export const AnalyticsAndActions = ({quickActions}) => {
 export const ChildListandNotification = ({ children, notifications }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    const childrenList = children.map(child => ({
+    const childrenList = (children || []).map(child => ({
         key: child.id, id: child.studentId || '—', name: child.fullName,
-        class: child.classDisplay, teacher: child.teachers[0]?.name || '-',
+        class: child.classDisplay, teacher: child.teachers?.[0]?.name || '-',
         status: child.isEnrolled ? 'Active' : 'Inactive'}));
 
-    const notificationsList = notifications.map((notif, index) => ({
+    const notificationsList = (notifications || []).map((notif, index) => ({
         id: index + 1,
         text: notif.message,
         title: notif.title,
@@ -355,6 +351,13 @@ export const ChildListandNotification = ({ children, notifications }) => {
                             </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
+                            {childrenList.length === 0 && (
+                                <tr>
+                                    <td colSpan={4} className="px-6 py-10 text-center text-sm text-gray-400">
+                                        No children are linked to your account yet. Ask your child's school to link them.
+                                    </td>
+                                </tr>
+                            )}
                             {childrenList.map((child) => (
                                 <tr key={child.key} className="hover:bg-gray-50/50 transition-colors">
                                     <td className="px-6 py-4">
@@ -404,12 +407,15 @@ export const ChildListandNotification = ({ children, notifications }) => {
                     </div>
 
                     <div className="p-6 space-y-4 flex-1">
+                        {displayNotifications.length === 0 && (
+                            <p className="text-sm text-gray-400">No notifications yet.</p>
+                        )}
                         {displayNotifications.map((notif) => (
-                            <div key={notif.id} className="flex gap-4 group cursor-pointer">
+                            <div key={notif.id} className="flex gap-4">
                                 <div className="mt-1 w-2 h-2 rounded-full bg-blue-500 ring-4 ring-blue-50" />
                                 <div>
                                     <p className="text-sm font-bold text-gray-800">{notif.title}</p>
-                                    <p className="text-xs font-medium text-gray-600 group-hover:text-blue-600 transition-colors">
+                                    <p className="text-xs font-medium text-gray-600">
                                         {notif.text}
                                     </p>
                                     <p className="text-[10px] font-medium text-gray-400 mt-1 uppercase tracking-wide">

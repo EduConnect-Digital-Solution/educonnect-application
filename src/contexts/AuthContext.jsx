@@ -1,8 +1,30 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from '../utils/apiConfig';
+import { setAuthBridge, REQUEST_TIMEOUT_MS } from '../utils/authBridge';
 
 const AuthContext = createContext();
+
+// Session calls go straight to the server (not through the token interceptors), always with the cookie
+const sessionHttp = axios.create({ baseURL: API_BASE_URL, withCredentials: true, timeout: REQUEST_TIMEOUT_MS });
+
+/** Read a JWT's payload. Tokens are base64url, which atob() alone cannot decode. */
+export const decodeJwtPayload = (token) => {
+    const part = String(token).split('.')[1];
+    if (!part) throw new Error('Not a JWT');
+    const base64 = part.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+    const bytes = Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
+    return JSON.parse(new TextDecoder().decode(bytes));
+};
+
+// ── Session limits ─────────────────────────────────────────────────────────────
+// The server enforces these too (idle + absolute). The app mirrors them so people are warned
+// and signed out cleanly instead of finding out on their next click.
+const DEFAULT_IDLE_MINUTES = Number(import.meta.env.VITE_IDLE_TIMEOUT_MINUTES) || 30;
+const WARNING_MS = 2 * 60 * 1000;          // warn this long before the idle sign-out
+const HEARTBEAT_MS = 4 * 60 * 1000;        // tell the server we are active at most this often
+const ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keydown', 'touchstart', 'scroll'];
 
 export const useAuth = () => {
     const context = useContext(AuthContext);
@@ -18,8 +40,16 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const [tokenExpiry, setTokenExpiry] = useState(null);
     const refreshTimerRef = useRef(null);
+    // One refresh request at a time: load, timer, request interceptor and 401 handler all share it
+    const refreshInFlightRef = useRef(null);
+    // True only when the server itself rejected the session (401/403), not on network errors or 5xx
+    const sessionRejectedRef = useRef(false);
 
-    const baseURL = API_BASE_URL;
+    // Idle tracking: when the user last did something, and what the server says the limits are
+    const lastActivityRef = useRef(Date.now());
+    const lastHeartbeatRef = useRef(Date.now());
+    const policyRef = useRef({ idleMs: DEFAULT_IDLE_MINUTES * 60 * 1000, expiresAt: null });
+    const [idleWarning, setIdleWarning] = useState(null); // seconds left, or null when not warning
 
     // Normalize user object to ensure name/fullName are available for UI
     const normalizeUser = (u) => {
@@ -35,8 +65,8 @@ export const AuthProvider = ({ children }) => {
     // Helper: decode JWT and get expiry timestamp (ms)
     const getTokenExpiry = (token) => {
         try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            return payload.exp * 1000;
+            const exp = Number(decodeJwtPayload(token).exp);
+            return Number.isFinite(exp) ? exp * 1000 : null;
         } catch (error) {
             console.error('Error decoding token:', error);
             return null;
@@ -56,30 +86,45 @@ export const AuthProvider = ({ children }) => {
 
         const timeUntilRefresh = Math.max(expiry - Date.now() - 5 * 60 * 1000, 10_000);
         refreshTimerRef.current = setTimeout(() => {
+            // Only keep the session alive for someone who is actually here; the idle check signs the rest out
+            if (Date.now() - lastActivityRef.current > policyRef.current.idleMs) return;
             refreshAccessToken(true);
         }, timeUntilRefresh);
+    };
+
+    // The server tells us its idle limit and when this session ends no matter what
+    const applySessionInfo = (info) => {
+        if (!info) return;
+        policyRef.current = {
+            idleMs: info.idleTimeoutMinutes ? info.idleTimeoutMinutes * 60 * 1000 : policyRef.current.idleMs,
+            expiresAt: info.expiresAt ? Date.parse(info.expiresAt) : null,
+        };
+    };
+
+    const postRefresh = () => {
+        if (!refreshInFlightRef.current) {
+            refreshInFlightRef.current = sessionHttp
+                .post('/api/school/auth/refresh-token', {})
+                .finally(() => { refreshInFlightRef.current = null; });
+        }
+        return refreshInFlightRef.current;
     };
 
     // Check session via /auth/me — primary method on app load
     const checkAuthStatus = async () => {
         try {
-            const response = await axios.get(
-                `${baseURL}/api/user/auth/me`,
-                { withCredentials: true }
-            );
+            const response = await sessionHttp.get('/api/user/auth/me');
 
             if (response.data.success && response.data.user) {
                 const userData = response.data.user;
+                applySessionInfo(response.data.session);
+                lastActivityRef.current = Date.now();
                 setUser(normalizeUser(userData));
 
                 // Try to get an access token, but DO NOT log out if this fails
                 // /me already confirmed the session is valid
                 try {
-                    const tokenResponse = await axios.post(
-                        `${baseURL}/api/school/auth/refresh-token`,
-                        {},
-                        { withCredentials: true }
-                    );
+                    const tokenResponse = await postRefresh();
 
                     if (tokenResponse.data.success) {
                         const newToken = tokenResponse.data.data.tokens.accessToken;
@@ -126,13 +171,10 @@ export const AuthProvider = ({ children }) => {
                 return accessToken;
             }
 
-            const response = await axios.post(
-                `${baseURL}/api/school/auth/refresh-token`,
-                {},
-                { withCredentials: true }
-            );
+            const response = await postRefresh();
 
             if (response.data.success) {
+                sessionRejectedRef.current = false;
                 const newToken = response.data.data.tokens.accessToken;
                 const userData = response.data.data.user;
                 const expiry = getTokenExpiry(newToken);
@@ -147,7 +189,9 @@ export const AuthProvider = ({ children }) => {
             return null;
         } catch (error) {
             console.error('Token refresh failed:', error);
-            if (error.response?.status === 401 || error.response?.status === 403) {
+            const rejected = error.response?.status === 401 || error.response?.status === 403;
+            sessionRejectedRef.current = rejected;
+            if (rejected) {
                 clearAuthState();
             }
             return null;
@@ -171,6 +215,8 @@ export const AuthProvider = ({ children }) => {
         const token = loginData.data.tokens.accessToken;
         const expiry = getTokenExpiry(token);
 
+        lastActivityRef.current = Date.now();
+        lastHeartbeatRef.current = Date.now();
         setAccessToken(token);
         setUser(normalizeUser(loginData.data.user));
         setTokenExpiry(expiry);
@@ -179,8 +225,9 @@ export const AuthProvider = ({ children }) => {
         // The login response carries the internal school id; /me returns the school's
         // human-readable code and details, so pull them in once in the background.
         try {
-            const me = await axios.get(`${baseURL}/api/user/auth/me`, { withCredentials: true });
+            const me = await sessionHttp.get('/api/user/auth/me');
             if (me.data?.success && me.data.user) {
+                applySessionInfo(me.data.session);
                 setUser((current) => normalizeUser({ ...(current || {}), ...me.data.user }));
             }
         } catch {
@@ -191,17 +238,78 @@ export const AuthProvider = ({ children }) => {
     // Logout: invalidate server session and clear local state
     const logout = async () => {
         try {
-            await axios.post(
-                `${baseURL}/api/school/auth/logout`,
-                {},
-                { withCredentials: true }
-            );
+            await sessionHttp.post('/api/school/auth/logout', {});
         } catch (error) {
             console.error('Logout error:', error);
         } finally {
             clearAuthState();
         }
     };
+
+    // End the session from this side (idle or absolute limit) and say why on the login page
+    const expireSession = async (reason) => {
+        try { sessionStorage.setItem('ec_signout_reason', reason); } catch { /* storage unavailable */ }
+        setIdleWarning(null);
+        await logout();
+        window.location.assign('/');
+    };
+
+    // Tell the server the user is active (also confirms the session is still valid)
+    const sendHeartbeat = async () => {
+        lastHeartbeatRef.current = Date.now();
+        try {
+            const res = await sessionHttp.get('/api/user/auth/me');
+            applySessionInfo(res.data?.session);
+        } catch (error) {
+            if (error.response?.status === 401) expireSession('expired');
+        }
+    };
+
+    const staySignedIn = () => {
+        lastActivityRef.current = Date.now();
+        setIdleWarning(null);
+        sendHeartbeat();
+    };
+
+    // While signed in: notice activity, warn before the idle limit, sign out at the limits,
+    // and send the server a heartbeat only while the user is actually active.
+    const isSignedIn = !!user && !!accessToken;
+    useEffect(() => {
+        if (!isSignedIn) return undefined;
+
+        let lastMark = 0;
+        const markActivity = () => {
+            const now = Date.now();
+            if (now - lastMark > 1000) { lastMark = now; lastActivityRef.current = now; }
+        };
+        ACTIVITY_EVENTS.forEach((ev) => window.addEventListener(ev, markActivity, { passive: true }));
+
+        const check = () => {
+            const now = Date.now();
+            const { idleMs, expiresAt } = policyRef.current;
+            const idleFor = now - lastActivityRef.current;
+
+            if (expiresAt && now >= expiresAt) return expireSession('expired');
+            if (idleFor >= idleMs) return expireSession('idle');
+            if (idleFor >= idleMs - WARNING_MS) setIdleWarning(Math.max(1, Math.ceil((idleMs - idleFor) / 1000)));
+            else setIdleWarning(null);
+
+            const activeSinceHeartbeat = lastActivityRef.current > lastHeartbeatRef.current;
+            if (activeSinceHeartbeat && now - lastHeartbeatRef.current >= HEARTBEAT_MS) sendHeartbeat();
+        };
+
+        const onVisible = () => { if (document.visibilityState === 'visible') check(); };
+        document.addEventListener('visibilitychange', onVisible);
+        const timer = setInterval(check, 15 * 1000);
+
+        return () => {
+            ACTIVITY_EVENTS.forEach((ev) => window.removeEventListener(ev, markActivity));
+            document.removeEventListener('visibilitychange', onVisible);
+            clearInterval(timer);
+        };
+        // expireSession and sendHeartbeat only read refs and call setters, so the copies captured here never go stale
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isSignedIn]);
 
     // On mount: verify session once
     useEffect(() => {
@@ -214,6 +322,8 @@ export const AuthProvider = ({ children }) => {
         return () => {
             if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
         };
+        // Runs once on mount by design: it restores the session from the cookie
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const value = {
@@ -223,14 +333,53 @@ export const AuthProvider = ({ children }) => {
         login,
         logout,
         refreshAccessToken,
+        isSessionRejected: () => sessionRejectedRef.current,
         checkAuthStatus,
         getValidAccessToken,
         isAuthenticated: !!user && !!accessToken,
     };
 
+    // Give the API interceptors the latest token helpers. Published during render (not in an effect) so a
+    // page that mounts in this same render already sees the signed-in session when its own effects fetch.
+    setAuthBridge(value);
+    useEffect(() => () => setAuthBridge(null), []);
+
     return (
         <AuthContext.Provider value={value}>
             {children}
+            {idleWarning !== null && (
+                <div
+                    role="alertdialog"
+                    aria-live="assertive"
+                    aria-label="You are about to be signed out"
+                    className="fixed bottom-5 left-1/2 -translate-x-1/2 z-[120] w-[calc(100%-2rem)] max-w-md rounded-2xl border border-amber-200 bg-white shadow-2xl p-4"
+                >
+                    <p className="text-[14px] font-bold text-gray-900">Are you still there?</p>
+                    <p className="mt-1 text-[13px] text-gray-600">
+                        For your security you will be signed out in{' '}
+                        <strong className="tabular-nums">
+                            {Math.floor(idleWarning / 60)}:{String(idleWarning % 60).padStart(2, '0')}
+                        </strong>{' '}
+                        because there has been no activity.
+                    </p>
+                    <div className="mt-3 flex gap-2">
+                        <button
+                            type="button"
+                            onClick={staySignedIn}
+                            className="flex-1 h-9 rounded-lg bg-blue-600 text-sm font-semibold text-white hover:bg-blue-700"
+                        >
+                            Stay signed in
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => expireSession('signed-out')}
+                            className="h-9 px-4 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50"
+                        >
+                            Sign out
+                        </button>
+                    </div>
+                </div>
+            )}
         </AuthContext.Provider>
     );
 };

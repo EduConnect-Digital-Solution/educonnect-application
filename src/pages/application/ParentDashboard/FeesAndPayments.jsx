@@ -1,6 +1,9 @@
+import { formatMajor } from '../../../utils/schoolLocale.js';
+import { BrandLoader } from '@/components/brand/BrandLoader.jsx';
+import { useAuth } from '../../../contexts/AuthContext.jsx';
 import React, { useState, useEffect } from 'react';
 import ParentLayout from "./components/layout/ParentLayout.jsx";
-import { getMyInvoices, verifyPayment } from "./services/parentFeeAPIs.js";
+import { pendingPaymentKey, readPendingPayments, writePendingPayments, getMyInvoices, verifyPayment, pendingAfterFailedCheck, freshPendingPayments } from "./services/parentFeeAPIs.js";
 import ReceiptModal from "./ReceiptModal.jsx";
 import PayPanel from "./PayPanel.jsx";
 import {
@@ -97,8 +100,7 @@ function Card({ children, title, subtitle, action, padding = true, elevated = fa
 }
 
 /* ---------- Finance helpers + data derivation (real payload only) --------- */
-const NGN = "₦";
-const money = (n) => NGN + Number(n || 0).toLocaleString("en-NG");
+const money = (n) => formatMajor(n);
 
 const NOTICES = [
   { icon: Flag, text: "Fees must be paid before examination registration opens." },
@@ -198,7 +200,7 @@ function ProgressBar({ pct, heightClass = "h-3", showLabels = true }) {
 }
 
 /* ---------- Money stat tile ----------------------------------------------- */
-function MoneyStat({ label, value, icon: IconCmp, emphasis = false, sub }) {
+function MoneyStat({ label, value, icon: IconCmp, sub }) {
   return (
     <div className={`flex flex-col gap-3.5 p-5 border rounded-xl overflow-hidden relative bg-white border-gray-200 text-gray-900 shadow-sm }`}>
       <div className="flex items-center justify-between">
@@ -570,6 +572,8 @@ function PageHeader() {
 }
 
 export default function FeesAndPayments() {
+    const { user } = useAuth();
+    const paymentKey = pendingPaymentKey(user);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [fees, setFees] = useState([]);
@@ -604,42 +608,61 @@ export default function FeesAndPayments() {
         fetchFees();
     }, []);
 
-    // Back from Paystack: the reference arrives in the query string. Check it, then tidy the URL.
+    // Keep pending references until verification reaches a terminal state.
     useEffect(() => {
-        const params = new URLSearchParams(window.location.search);
-        let stored = null;
-        try { stored = localStorage.getItem('ec_pending_paystack_ref'); } catch { /* storage unavailable */ }
-        // The query string wins; otherwise fall back to the payment this browser last started
-        const reference = params.get('reference') || params.get('trxref') || stored;
-        if (!reference) return;
-        window.history.replaceState({}, '', window.location.pathname);
-        try { localStorage.removeItem('ec_pending_paystack_ref'); } catch { /* storage unavailable */ }
-
-        verifyPayment('paystack', reference)
-            .then((res) => {
-                if (res?.status === 'confirmed') {
-                    setNotice({ tone: 'success', text: 'Payment received. Thank you! Your receipt is in the payment history below.' });
-                    refreshFees();
-                } else if (res?.status === 'failed') {
-                    setNotice({ tone: 'warning', text: 'The payment was not completed, so you have not been charged. You can try again.' });
-                } else if (res?.status === 'review') {
-                    setNotice({ tone: 'warning', text: 'We received your payment but need to check it against the invoice. Please contact the school office and quote your payment reference.' });
-                } else {
-                    setNotice({ tone: 'info', text: 'We are still confirming your payment. Please refresh in a few minutes.' });
+        const url = new URL(window.location.href);
+        const callbackRef = url.searchParams.get('reference') || url.searchParams.get('trxref');
+        // Forget checkouts abandoned long ago, and date the ones saved before dates were recorded
+        const pending = freshPendingPayments(readPendingPayments(paymentKey));
+        writePendingPayments(paymentKey, pending);
+        const references = [...new Set([callbackRef, ...pending.map(item => item.reference)].filter(Boolean))];
+        if (!references.length) return undefined;
+        let active = true;
+        (async () => {
+            for (const reference of references) {
+                try {
+                    const res = await verifyPayment('paystack', reference);
+                    if (!active) return;
+                    if (res?.status === 'confirmed' || res?.status === 'failed') {
+                        // Re-read before writing, preserving payments started in another tab.
+                        const remaining = readPendingPayments(paymentKey).filter(item => item.reference !== reference);
+                        writePendingPayments(paymentKey, remaining);
+                        if (reference === callbackRef) {
+                            url.searchParams.delete('reference'); url.searchParams.delete('trxref');
+                            window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+                        }
+                    }
+                    if (res?.status === 'confirmed') {
+                        setNotice({ tone: 'success', text: 'Payment received. Thank you! Your receipt is in the payment history below.' });
+                        refreshFees();
+                    } else if (res?.status === 'failed') setNotice({ tone: 'warning', text: `Payment ${reference} was not completed. You can try again.` });
+                    else if (res?.status === 'review') setNotice({ tone: 'warning', text: `Payment ${reference} needs review. Please contact the school office.` });
+                    else setNotice({ tone: 'info', text: `Payment ${reference} is still being confirmed. Please refresh in a few minutes.` });
+                } catch (e) {
+                    // Keep the reference for another try only while one could still succeed
+                    const before = readPendingPayments(paymentKey);
+                    const tracked = before.some(item => item.reference === reference) ? before : [...before, { reference, startedAt: Date.now() }];
+                    const remaining = pendingAfterFailedCheck(tracked, reference, e);
+                    writePendingPayments(paymentKey, remaining);
+                    const givenUp = !remaining.some(item => item.reference === reference);
+                    if (givenUp && reference === callbackRef) {
+                        url.searchParams.delete('reference'); url.searchParams.delete('trxref');
+                        window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
+                    }
+                    if (!active) return;
+                    if (givenUp) setNotice({ tone: 'warning', text: `We could not confirm payment ${reference}. If you were charged, please contact the school office with this reference.` });
+                    else setNotice({ tone: 'warning', text: `${e.message} Refresh to retry payment ${reference}.` });
                 }
-            })
-            .catch((e) => setNotice({ tone: 'warning', text: e.message }));
-    }, []);
+            }
+        })();
+        return () => { active = false; };
+    }, [paymentKey]);
 
     if (loading) {
         return (
             <ParentLayout>
                 <div className="flex flex-col items-center justify-center h-[70vh]">
-                    <div className="relative w-20 h-20">
-                        <div className="absolute inset-0 border-4 border-blue-100 rounded-full"></div>
-                        <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
-                    </div>
-                    <p className="mt-4 text-gray-500 font-medium animate-pulse">Loading fees information...</p>
+                    <BrandLoader label="Loading fees information..." size={88} />
                 </div>
             </ParentLayout>
         );
@@ -688,3 +711,4 @@ export default function FeesAndPayments() {
         </ParentLayout>
     );
 }
+

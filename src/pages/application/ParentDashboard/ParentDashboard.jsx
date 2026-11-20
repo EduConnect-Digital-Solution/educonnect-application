@@ -1,7 +1,8 @@
+import { BrandLoader } from '@/components/brand/BrandLoader.jsx';
 import React, { useState, useEffect } from 'react';
 import {AnalyticsAndActions, ChildListandNotification, ParentsOverviewDashboard} from "./parentUtils/p_utils.jsx";
 import ParentLayout from "./components/layout/ParentLayout.jsx";
-import {getParentDashboard, getParentProfile} from "../../auth/authAPIs.js";
+import {getParentDashboard} from "../../auth/authAPIs.js";
 // import { getParentDashboard, getParentProfile } from './services/parentService';
 
 
@@ -16,7 +17,6 @@ export default function ParentDashboard() {
 
     const [children, setChildren] = useState();
     const [notifications, setNotifications] = useState();
-    const [parentInfo, setParentInfo] = useState();
 
 
     const [error, setError] = useState(null);
@@ -26,13 +26,11 @@ export default function ParentDashboard() {
             try {
                 setLoading(true);
                 const analyticsData = await getParentDashboard();
-                const profileData = await getParentProfile();
 
                 const totalStudents = analyticsData.data.children;
                 const totalNotifications = analyticsData.data.notifications;
 
                 // Setting Parent Related Analytics Variables
-                setParentInfo(profileData.data.parent);
                 setOverview(analyticsData.data.statistics);
                 setChildren(totalStudents.map(child => ({
                     id: child.id,
@@ -67,11 +65,24 @@ export default function ParentDashboard() {
         return (
             <ParentLayout>
                 <div className="flex flex-col items-center justify-center h-screen bg-gray-50">
-                    <div className="relative w-20 h-20">
-                        <div className="absolute inset-0 border-4 border-blue-100 rounded-full"></div>
-                        <div className="absolute inset-0 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
-                    </div>
-                    <p className="mt-4 text-gray-500 font-medium animate-pulse">Loading Parent Dashboard...</p>
+                    <BrandLoader label="Loading Parent Dashboard..." size={88} />
+                </div>
+            </ParentLayout>
+        );
+    }
+
+    if (error) {
+        return (
+            <ParentLayout>
+                <div className="max-w-md mx-auto mt-16 text-center bg-white border border-red-100 rounded-2xl p-8">
+                    <p className="font-semibold text-gray-900">We couldn't load your dashboard</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                        {error.response?.data?.message || 'Please check your connection and try again.'}
+                    </p>
+                    <button onClick={() => window.location.reload()}
+                        className="mt-4 px-4 py-2 text-sm font-medium text-white bg-[#002684] rounded-lg">
+                        Try again
+                    </button>
                 </div>
             </ParentLayout>
         );

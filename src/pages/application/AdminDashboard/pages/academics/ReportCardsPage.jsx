@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
-    LayoutTemplate, MessageSquareText, Send, GripVertical, Eye, EyeOff,
-    ArrowUp, ArrowDown, Loader2, Save, CheckCircle2, XCircle, Lock,
-    FileText, ShieldCheck, Printer, Users, Star,
-} from 'lucide-react';
+import { LayoutTemplate, MessageSquareText, Send, GripVertical, Eye, EyeOff, ArrowUp, ArrowDown, Save, CheckCircle2, XCircle, Lock, FileText, FileDown, ShieldCheck, Users, Star } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import AdminLayout from '../../components/layout/AdminLayout.jsx';
 import {
     StatusChip, EmptyState, Drawer, pushToast,
@@ -13,9 +10,10 @@ import { getSchoolClasses } from '../../services/classAPIs.js';
 import { getClassArms } from '../../services/armAPIs.js';
 import {
     getReportCardTemplate, saveReportCardTemplate,
-    getReportCardComments, saveReportCardComment, REPORT_CARD_TRAITS,
-    generateReportCards, getPdfJob, signOffReportCards, publishReportCardsToParents,
+    getReportCardComments, saveReportCardComment, REPORT_CARD_TRAITS, getPublishStatus,
+    generateReportCards, getPdfJob, signOffReportCards, publishReportCardsToParents, getReportCardStatus,
 } from '../../services/gradingAPIs.js';
+import { openPdfJobFile } from '../../services/pdfJobDownload.js';
 
 const TABS = [
     { id: 'template', label: 'Template Builder',  icon: LayoutTemplate },
@@ -583,12 +581,13 @@ function CommentsWorklistTab() {
 // TAB 3 — Generate & Release
 // ═════════════════════════════════════════════════════════════════════════════
 
-function PrereqRow({ passed, label }) {
+function PrereqRow({ passed, label, optional }) {
     const Icon = passed ? CheckCircle2 : XCircle;
     return (
         <div className="flex items-center gap-2.5 py-2">
             <Icon size={16} className={passed ? 'text-green-600' : 'text-gray-300'} />
             <span className={`text-sm ${passed ? 'text-gray-700 font-medium' : 'text-gray-400'}`}>{label}</span>
+            {optional && !passed && <span className="text-[10px] font-bold uppercase text-amber-600">Recommended</span>}
         </div>
     );
 }
@@ -623,75 +622,159 @@ function GenerateReleaseTab() {
     const [job, setJob]       = useState(null);
     const [busy, setBusy]     = useState(false);
     const pollRef = useRef(null);
+    const generationRef = useRef(0);
 
     // Reset the pipeline whenever the target changes
     useEffect(() => {
+        generationRef.current++;
         setStage('idle'); setJob(null); setBusy(false);
-        clearInterval(pollRef.current);
+        clearTimeout(pollRef.current);
+    }, [classId, armId, currentTerm?.id]);
+
+    useEffect(() => () => { generationRef.current++; clearTimeout(pollRef.current); }, []);
+
+    // Restore where this arm's cards got to (generation, sign-off, release) after a refresh or a change of target.
+    // Declared after the reset effect above so it runs after it.
+    const [restoring, setRestoring] = useState(false);
+    useEffect(() => {
+        if (!armId || !currentTerm?.id) return undefined;
+        const generation = generationRef.current;
+        let cancelled = false;
+        setRestoring(true);
+        getReportCardStatus(armId, currentTerm.id).then((res) => {
+            if (cancelled || generation !== generationRef.current) return;
+            const st = res.data || {};
+            const latest = st.latestJob;
+            if (st.released) setStage('published');
+            else if (st.signedOff) setStage('signed');
+            else if (latest?.status === 'completed') setStage('generated');
+            if (latest) {
+                const AGE_LIMIT_MS = 30 * 60 * 1000;
+                const stuck = latest.status === 'processing' && Date.now() - new Date(latest.createdAt).getTime() > AGE_LIMIT_MS;
+                if (latest.status === 'processing' && !stuck) {
+                    // Still generating on the server: pick the progress bar back up
+                    setBusy(true);
+                    setJob({ status: 'processing', progress: latest.progress ?? 0 });
+                    pollJob(latest.jobId, generation);
+                } else if (stuck || latest.status === 'failed') {
+                    setJob({ status: 'failed', progress: 0, interrupted: stuck });
+                } else {
+                    setJob({ jobId: latest.jobId, status: latest.status, progress: latest.progress ?? 100, hasFile: latest.hasFile });
+                }
+            }
+        }).catch((e) => {
+            if (!cancelled) pushToast({ message: e?.message || 'Could not load the saved release status. Check it before continuing.', type: 'error' });
+        }).finally(() => { if (!cancelled) setRestoring(false); });
+        return () => { cancelled = true; };
     }, [armId, currentTerm?.id]);
 
-    useEffect(() => () => clearInterval(pollRef.current), []);
-
     const ready = armId && currentTerm?.id;
-    // Mock prerequisites — backend resolves these from publish + comment state.
+
+    // Real prerequisites, read from the server whenever the class, arm or term changes
+    const [checks, setChecks] = useState({ loading: false, published: false, pendingComments: null, totalStudents: 0, error: null });
+    useEffect(() => {
+        if (!armId || !classId || !currentTerm?.id) return undefined;
+        let cancelled = false;
+        setChecks(c => ({ ...c, loading: true, error: null }));
+        Promise.all([
+            getPublishStatus(currentTerm.id, classId),
+            getReportCardComments(armId, currentTerm.id),
+        ]).then(([publish, comments]) => {
+            if (cancelled) return;
+            const students = comments.data?.students ?? [];
+            setChecks({
+                loading: false, error: null,
+                published: Boolean(publish.data?.published),
+                pendingComments: students.filter(s => s.status !== 'completed').length,
+                totalStudents: students.length,
+            });
+        }).catch((e) => {
+            if (!cancelled) setChecks(c => ({ ...c, loading: false, error: e?.message || 'Could not check the prerequisites.' }));
+        });
+        return () => { cancelled = true; };
+    }, [armId, classId, currentTerm?.id]);
+
+    // Publishing results is required. Missing comments are flagged but do not block generation.
     const prereqs = [
-        { passed: true, label: 'Results published for this class' },
-        { passed: true, label: 'Class-teacher comments completed' },
-        { passed: true, label: 'Report-card template configured' },
+        { passed: checks.published, label: 'Results published for this class' },
+        {
+            passed: checks.pendingComments === 0 && checks.totalStudents > 0,
+            label: checks.pendingComments > 0
+                ? `Class-teacher comments: ${checks.pendingComments} of ${checks.totalStudents} still to do`
+                : 'Class-teacher comments completed',
+            optional: true,
+        },
     ];
-    const allPrereq = prereqs.every(p => p.passed);
+    const allPrereq = !checks.loading && !checks.error && prereqs.filter(p => !p.optional).every(p => p.passed);
+
+    // The cards are private files: each open asks the server for a link that lasts a minute
+    const [opening, setOpening] = useState(false);
+    const openCards = async () => {
+        setOpening(true);
+        try { await openPdfJobFile(job.jobId); }
+        catch (e) {
+            pushToast({ message: e.message, type: 'error' });
+            if (e.gone) setJob(j => (j ? { ...j, hasFile: false } : j));
+        }
+        finally { setOpening(false); }
+    };
+
+    const pollJob = (jobId, generation) => {
+        const poll = async () => {
+            try {
+                const jr = await getPdfJob(jobId);
+                if (generation !== generationRef.current) return;
+                setJob(jr.data);
+                if (jr.data.status === 'completed') {
+                    // Generating again after sign-off or release must not move the pipeline backwards
+                    setBusy(false); setStage(st => (st === 'idle' ? 'generated' : st));
+                    pushToast({ message: 'Report cards generated.', type: 'success' });
+                } else if (jr.data.status === 'failed') {
+                    setBusy(false); pushToast({ message: jr.data.error || 'Report card generation failed.', type: 'error' });
+                } else pollRef.current = setTimeout(poll, 600);
+            } catch {
+                if (generation === generationRef.current) { setBusy(false); pushToast({ message: 'Could not check report-card generation.', type: 'error' }); }
+            }
+        };
+        clearTimeout(pollRef.current);
+        pollRef.current = setTimeout(poll, 600);
+    };
 
     const handleGenerate = async () => {
+        const generation = ++generationRef.current;
         setBusy(true); setJob({ status: 'processing', progress: 0 });
         try {
             const res = await generateReportCards({ armId, termId: currentTerm.id });
-            const jobId = res.data.jobId;
-            clearInterval(pollRef.current);
-            pollRef.current = setInterval(async () => {
-                try {
-                    const jr = await getPdfJob(jobId);
-                    setJob(jr.data);
-                    if (jr.data.status === 'completed') {
-                        clearInterval(pollRef.current);
-                        setBusy(false);
-                        setStage('generated');
-                        pushToast({ message: 'Report cards generated.', type: 'success' });
-                    }
-                } catch {
-                    clearInterval(pollRef.current);
-                    setBusy(false);
-                }
-            }, 600);
+            if (generation === generationRef.current) pollJob(res.data.jobId, generation);
         } catch (e) {
-            pushToast({ message: e?.message || 'Generation failed.', type: 'error' });
-            setBusy(false); setJob(null);
+            if (generation === generationRef.current) { pushToast({ message: e?.message || 'Generation failed.', type: 'error' }); setBusy(false); setJob(null); }
         }
     };
 
     const handleSignOff = async () => {
+        const generation = generationRef.current;
         setBusy(true);
         try {
             await signOffReportCards({ armId, termId: currentTerm.id });
+            if (generation !== generationRef.current) return;
             setStage('signed');
             pushToast({ message: 'Cards signed off by principal.', type: 'success' });
         } catch (e) {
-            pushToast({ message: e?.message || 'Sign-off failed.', type: 'error' });
-        } finally { setBusy(false); }
+            if (generation === generationRef.current) pushToast({ message: e?.message || 'Sign-off failed.', type: 'error' });
+        } finally { if (generation === generationRef.current) setBusy(false); }
     };
 
     const handlePublish = async () => {
+        const generation = generationRef.current;
         setBusy(true);
         try {
             const res = await publishReportCardsToParents({ armId, termId: currentTerm.id });
+            if (generation !== generationRef.current) return;
             setStage('published');
             pushToast({ message: `${res.data.publishedCount} cards released to parents.`, type: 'success' });
         } catch (e) {
-            pushToast({ message: e?.message || 'Publishing failed.', type: 'error' });
-        } finally { setBusy(false); }
-    };
-
-    const handlePrint = () => {
-        pushToast({ message: 'Batch sent to the print queue.', type: 'success' });
+            if (generation === generationRef.current) pushToast({ message: e?.message || 'Publishing failed.', type: 'error' });
+        } finally { if (generation === generationRef.current) setBusy(false); }
     };
 
     return (
@@ -729,11 +812,17 @@ function GenerateReleaseTab() {
                             <ShieldCheck size={16} className="text-gray-400" />
                             <h3 className="text-sm font-bold text-gray-900">Prerequisites</h3>
                         </div>
-                        <div className="divide-y divide-gray-50">
-                            {prereqs.map((p, i) => <PrereqRow key={i} {...p} />)}
-                        </div>
-                        {!allPrereq && (
-                            <p className="text-[11px] text-amber-600 mt-2">Resolve all prerequisites to enable generation.</p>
+                        {checks.loading ? (
+                            <p className="text-sm text-gray-400 py-2 flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> Checking…</p>
+                        ) : checks.error ? (
+                            <p role="alert" className="text-sm text-red-600 py-2">{checks.error}</p>
+                        ) : (
+                            <div className="divide-y divide-gray-50">
+                                {prereqs.map((p, i) => <PrereqRow key={i} {...p} />)}
+                            </div>
+                        )}
+                        {!allPrereq && !checks.loading && !checks.error && (
+                            <p className="text-[11px] text-amber-600 mt-2">Publish this class's results in Grading &amp; Results to enable generation.</p>
                         )}
                     </div>
 
@@ -755,8 +844,30 @@ function GenerateReleaseTab() {
                                     </div>
                                 </div>
                             )}
+                            {stage === 'idle' && job?.status === 'failed' && (
+                                <p role="status" className="mb-2 text-xs text-red-600">
+                                    {job.interrupted ? 'The last generation was interrupted.' : 'The last generation failed.'} Generate again to retry.
+                                </p>
+                            )}
+                            {stage !== 'idle' && job?.status === 'completed' && job.hasFile && job.jobId && (
+                                <button type="button" onClick={openCards} disabled={opening}
+                                    className="px-4 py-2 bg-white border border-gray-200 text-sm font-semibold text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors flex items-center gap-2">
+                                    {opening ? <Loader2 size={14} className="animate-spin" /> : <FileDown size={14} />} Open report cards
+                                </button>
+                            )}
+                            {stage !== 'idle' && job?.status === 'completed' && !job.hasFile && (
+                                <div>
+                                    <p role="status" className="mb-2 text-xs text-red-600">
+                                        The generated file is no longer available. Generate the cards again to open them.
+                                    </p>
+                                    <button type="button" onClick={handleGenerate} disabled={busy || restoring}
+                                        className="px-4 py-2 bg-white border border-gray-200 text-sm font-semibold text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors flex items-center gap-2">
+                                        <FileText size={14} /> Generate again
+                                    </button>
+                                </div>
+                            )}
                             {stage === 'idle' && (!job || job.status !== 'processing') && (
-                                <button type="button" onClick={handleGenerate} disabled={!allPrereq || busy}
+                                <button type="button" onClick={handleGenerate} disabled={!allPrereq || busy || restoring}
                                     className="px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-40 transition-colors flex items-center gap-2">
                                     <FileText size={14} /> Generate All
                                 </button>
@@ -778,7 +889,7 @@ function GenerateReleaseTab() {
                         </StageStep>
 
                         <StageStep index={3} title="Release to parents"
-                            description="Publish signed cards to the parent portal and optionally send to the print queue."
+                            description="Publish signed cards to the parent portal."
                             done={stage === 'published'} current={stage === 'signed'}>
                             {stage === 'signed' && (
                                 <button type="button" onClick={handlePublish} disabled={busy}
@@ -791,10 +902,6 @@ function GenerateReleaseTab() {
                                     <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-green-700">
                                         <Lock size={14} /> Released to parents
                                     </span>
-                                    <button type="button" onClick={handlePrint}
-                                        className="px-3 py-1.5 bg-white border border-gray-200 text-xs font-semibold text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1.5">
-                                        <Printer size={13} /> Batch print
-                                    </button>
                                 </div>
                             )}
                         </StageStep>
@@ -861,3 +968,4 @@ export default function ReportCardsPage() {
         </AdminLayout>
     );
 }
+

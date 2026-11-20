@@ -1,3 +1,7 @@
+import { setSchoolLocale, clearSchoolLocale } from './utils/schoolLocale.js';
+import { getPublicSettings } from './pages/application/AdminDashboard/services/schoolSettingsAPIs.js';
+import { PageLoader } from '@/components/brand/BrandLoader.jsx';
+import ToastHost from '@/components/patterns/ToastHost.jsx';
 import React, { lazy, useEffect} from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
@@ -6,6 +10,7 @@ import { AcademicProvider } from './contexts/AcademicContext.jsx';
 
 // Components
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
+import { LocaleReadyContext } from "./contexts/LocaleReadyContext.js";
 import {AuthLayout} from "./components/auth/AuthLayout.jsx";
 import {
     PWAInstallPrompt,
@@ -28,6 +33,7 @@ const ParentManagement    = lazy(() => import("./pages/application/AdminDashboar
 const StudentManagement   = lazy(() => import("./pages/application/AdminDashboard/pages/StudentManagement.jsx"));
 const SchoolProfilePage   = lazy(() => import("./pages/application/AdminDashboard/pages/SchoolProfilePage.jsx"));
 const AdminProfilePage    = lazy(() => import("./pages/application/AdminDashboard/pages/AdminProfilePage.jsx"));
+const SubjectMappingPage  = lazy(() => import("./pages/application/AdminDashboard/pages/academics/SubjectMappingPage.jsx"));
 const SubjectsPage        = lazy(() => import("./pages/application/AdminDashboard/pages/config/SubjectsPage.jsx"));
 const ClassesPage         = lazy(() => import("./pages/application/AdminDashboard/pages/config/ClassesPage.jsx"));
 const SubjectGradingViewPage = lazy(() => import("./pages/application/AdminDashboard/pages/academics/grading/SubjectGradingViewPage.jsx"));
@@ -44,12 +50,21 @@ const FeeReportsPage      = lazy(() => import("./pages/application/AdminDashboar
 const AdmissionsPage      = lazy(() => import("./pages/application/AdminDashboard/pages/people/AdmissionsPage.jsx"));
 const GradingPage         = lazy(() => import("./pages/application/AdminDashboard/pages/academics/GradingPage.jsx"));
 const ReportCardsPage     = lazy(() => import("./pages/application/AdminDashboard/pages/academics/ReportCardsPage.jsx"));
+const AdminLessonPlansPage = lazy(() => import("./pages/application/AdminDashboard/pages/academics/LessonPlansPage.jsx"));
+const TeacherLessonPlansPage = lazy(() => import("./pages/application/TeacherDashboard/LessonPlansPage.jsx"));
 const AdminAttendancePage = lazy(() => import("./pages/application/AdminDashboard/pages/AttendanceOpsPage.jsx"));
 // const DefaultersPage      = lazy(() => import("./pages/application/AdminDashboard/pages/fees/DefaultersPage.jsx"));
 const AnnouncementsPage   = lazy(() => import("./pages/application/AdminDashboard/pages/communication/AnnouncementsPage.jsx"));
 const DeliveryLogsPage    = lazy(() => import("./pages/application/AdminDashboard/pages/communication/DeliveryLogsPage.jsx"));
 const ReportsHubPage      = lazy(() => import("./pages/application/AdminDashboard/pages/ReportsHubPage.jsx"));
 const SettingsHubPage              = lazy(() => import("./pages/application/AdminDashboard/pages/settings/SettingsHubPage.jsx"));
+const LocaleSettingsPage            = lazy(() => import("./pages/application/AdminDashboard/pages/settings/LocaleSettingsPage.jsx"));
+const AttendancePolicyPage           = lazy(() => import("./pages/application/AdminDashboard/pages/settings/AttendancePolicyPage.jsx"));
+const AuditLogPage                   = lazy(() => import("./pages/application/AdminDashboard/pages/settings/AuditLogPage.jsx"));
+const NotificationDefaultsPage       = lazy(() => import("./pages/application/AdminDashboard/pages/settings/NotificationDefaultsPage.jsx"));
+const DocumentsSettingsPage          = lazy(() => import("./pages/application/AdminDashboard/pages/settings/DocumentsSettingsPage.jsx"));
+const DataImportPage                 = lazy(() => import("./pages/application/AdminDashboard/pages/settings/DataImportPage.jsx"));
+const ParentAttendancePage            = lazy(() => import("./pages/application/ParentDashboard/AttendancePage.jsx"));
 const GradingSetupSettingsPage = lazy(() => import("./pages/application/AdminDashboard/pages/settings/GradingSetupSettingsPage.jsx"));
 const ApprovalsPage       = lazy(() => import("./pages/application/AdminDashboard/pages/ApprovalsPage.jsx"));
 const StudentProfilePage  = lazy(() => import("./pages/application/AdminDashboard/pages/people/StudentProfilePage.jsx"));
@@ -71,44 +86,44 @@ const ClassStudents          = lazy(() => import("./pages/application/TeacherDas
 const TeacherClasses         = lazy(() => import("./pages/application/TeacherDashboard/TeacherClasses.jsx"));
 const AttendancePage         = lazy(() => import("./pages/application/TeacherDashboard/AttendancePage.jsx"));
 const AttendanceRegisterPage = lazy(() => import("./pages/application/TeacherDashboard/AttendanceRegisterPage.jsx"));
+const MyTimetablePage                = lazy(() => import("./pages/application/TeacherDashboard/MyTimetablePage.jsx"));
 const ScoreEntryPage                 = lazy(() => import("./pages/application/TeacherDashboard/ScoreEntryPage.jsx"));
 const TeacherAssessmentPoliciesPage  = lazy(() => import("./pages/application/TeacherDashboard/TeacherAssessmentPoliciesPage.jsx"));
 
 
 
-const LoadingFallback = () => (
-    <div className="h-screen w-full flex items-center justify-center font-[Outfit]">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-    </div>
-);
+const LoadingFallback = () => <PageLoader />;
 
 /**
- * AuthContextBridge
+ * SchoolLocaleGate
  *
- * Makes auth context available to axios interceptors AND wires
- * clearUserCache from PWAContext so cache is cleared on logout.
+ * Loads the signed-in school's locale (currency, timezone, date format) and tells protected
+ * pages when it is ready, so money and dates are never first painted in the default format.
+ * It never unmounts what it wraps: the sign-in page keeps its state while the locale loads.
  */
-const AuthContextBridge = ({ children }) => {
+const SchoolLocaleGate = ({ children }) => {
     const auth = useAuth();
 
+    const user = auth.user;
+    const identity = user ? JSON.stringify([user.id ?? user.userId ?? user.email, user.schoolId, user.role]) : null;
+    const [localeIdentity, setLocaleIdentity] = React.useState(null);
     useEffect(() => {
-        window.authContext = auth;
-        return () => {
-            delete window.authContext;
-        };
-    }, [auth]);
+        clearSchoolLocale();
+        if (!identity) { setLocaleIdentity(null); return undefined; }
+        let alive = true;
+        getPublicSettings()
+            .then(s => { if (alive && s?.locale) setSchoolLocale(s.locale); })
+            .catch(() => { /* use defaults if settings are unavailable */ })
+            .finally(() => { if (alive) setLocaleIdentity(identity); });
+        return () => { alive = false; };
+    }, [identity]);
+    const ready = !identity || localeIdentity === identity;
 
-    return children;
+    return <LocaleReadyContext.Provider value={ready}>{children}</LocaleReadyContext.Provider>;
 };
 
 
 function AppRoutes() {
-    const { isLoading } = useAuth();
-
-    if (isLoading) {
-        return <LoadingFallback />;
-    }
-
     return (
         <div className={`font-[Inter]`}>
             <React.Suspense fallback={<LoadingFallback />}>
@@ -138,9 +153,11 @@ function AppRoutes() {
                 {/* Academics */}
                 <Route path="/dashboard/admin/academics/classes"            element={<ProtectedRoute requiredRole="admin"><ClassesPage /></ProtectedRoute>} />
                 <Route path="/dashboard/admin/academics/subjects"           element={<ProtectedRoute requiredRole="admin"><SubjectsPage /></ProtectedRoute>} />
+                <Route path="/dashboard/admin/academics/subject-mapping"    element={<ProtectedRoute requiredRole="admin"><SubjectMappingPage /></ProtectedRoute>} />
                 <Route path="/dashboard/admin/academics/grading"            element={<ProtectedRoute requiredRole="admin"><GradingPage /></ProtectedRoute>} />
                 <Route path="/dashboard/admin/academics/grading/subject-view" element={<ProtectedRoute requiredRole="admin"><SubjectGradingViewPage /></ProtectedRoute>} />
                 <Route path="/dashboard/admin/academics/report-cards"       element={<ProtectedRoute requiredRole="admin"><ReportCardsPage /></ProtectedRoute>} />
+                <Route path="/dashboard/admin/academics/lesson-plans"       element={<ProtectedRoute requiredRole="admin"><AdminLessonPlansPage /></ProtectedRoute>} />
                 <Route path="/dashboard/admin/academics/timetables"         element={<ProtectedRoute requiredRole="admin"><TimetableLibraryPage /></ProtectedRoute>} />
                 <Route path="/dashboard/admin/academics/timetables/view"    element={<ProtectedRoute requiredRole="admin"><TimetableViewPage /></ProtectedRoute>} />
                 <Route path="/dashboard/admin/academics/timetables/builder" element={<ProtectedRoute requiredRole="admin"><TimetablePage /></ProtectedRoute>} />
@@ -174,6 +191,12 @@ function AppRoutes() {
                 <Route path="/dashboard/admin/settings/identity"                 element={<ProtectedRoute requiredRole="admin"><SchoolProfilePage /></ProtectedRoute>} />
                 <Route path="/dashboard/admin/settings/academic"                 element={<ProtectedRoute requiredRole="admin"><CalendarPage /></ProtectedRoute>} />
                 <Route path="/dashboard/admin/settings/grading"                  element={<ProtectedRoute requiredRole="admin"><GradingSetupSettingsPage /></ProtectedRoute>} />
+                <Route path="/dashboard/admin/settings/locale"                   element={<ProtectedRoute requiredRole="admin"><LocaleSettingsPage /></ProtectedRoute>} />
+                <Route path="/dashboard/admin/settings/attendance"               element={<ProtectedRoute requiredRole="admin"><AttendancePolicyPage /></ProtectedRoute>} />
+                <Route path="/dashboard/admin/settings/audit-log"                element={<ProtectedRoute requiredRole="admin"><AuditLogPage /></ProtectedRoute>} />
+                <Route path="/dashboard/admin/settings/notifications"            element={<ProtectedRoute requiredRole="admin"><NotificationDefaultsPage /></ProtectedRoute>} />
+                <Route path="/dashboard/admin/settings/documents"                element={<ProtectedRoute requiredRole="admin"><DocumentsSettingsPage /></ProtectedRoute>} />
+                <Route path="/dashboard/admin/settings/data"                     element={<ProtectedRoute requiredRole="admin"><DataImportPage /></ProtectedRoute>} />
 
                 {/* ── Admin — legacy redirects (old URLs keep working) ──────── */}
                 <Route path="/dashboard/admin/users"             element={<Navigate to="/dashboard/admin/people/students" replace />} />
@@ -203,6 +226,7 @@ function AppRoutes() {
                 {/* Parent Protected Routes */}
                 <Route path="/dashboard/parent" element={<ProtectedRoute requiredRole="parent"><ParentDashboard /></ProtectedRoute>}/>
                 <Route path="/dashboard/parent/children" element={<ProtectedRoute requiredRole="parent"><ChildSelectionPage /></ProtectedRoute>} />
+                <Route path="/dashboard/parent/attendance" element={<ProtectedRoute requiredRole="parent"><ParentAttendancePage /></ProtectedRoute>} />
                 <Route path="/dashboard/parent/fees" element={<ProtectedRoute requiredRole="parent"><ParentFeesPage /></ProtectedRoute>} />
                 <Route path="/dashboard/parent/profile" element={<ProtectedRoute requiredRole="parent"><ParentProfilePage /></ProtectedRoute>} />
 
@@ -213,7 +237,9 @@ function AppRoutes() {
                 <Route path="/dashboard/teacher/students/:class/:subject" element={<ProtectedRoute requiredRole="teacher"><ClassStudents /></ProtectedRoute>} />
                 <Route path="/dashboard/teacher/attendance" element={<ProtectedRoute requiredRole="teacher"><AttendancePage /></ProtectedRoute>} />
                 <Route path="/dashboard/teacher/attendance/register/:scheduleId" element={<ProtectedRoute requiredRole="teacher"><AttendanceRegisterPage /></ProtectedRoute>} />
+                <Route path="/dashboard/teacher/timetable" element={<ProtectedRoute requiredRole="teacher"><MyTimetablePage /></ProtectedRoute>} />
                 <Route path="/dashboard/teacher/score-entry" element={<ProtectedRoute requiredRole="teacher"><ScoreEntryPage /></ProtectedRoute>} />
+                <Route path="/dashboard/teacher/lesson-plans" element={<ProtectedRoute requiredRole="teacher"><TeacherLessonPlansPage /></ProtectedRoute>} />
                 <Route path="/dashboard/teacher/assessment-policies" element={<ProtectedRoute requiredRole="teacher"><TeacherAssessmentPoliciesPage /></ProtectedRoute>} />
 
                 <Route path="*" element={<Navigate to="/" />} />
@@ -225,6 +251,7 @@ function AppRoutes() {
             <PWAInstallPrompt />
             <OfflineBanner />
             <PWAInstalledToast />
+            <ToastHost />
         </div>
     );
 }
@@ -233,11 +260,12 @@ function App() {
     return (
         <AuthProvider>
             <PWAProvider>
-                <AuthContextBridge>
+                <SchoolLocaleGate>
+                    {/* Resets itself when the signed-in account changes; it must not remount the routes below */}
                     <AcademicProvider>
                         <AppRoutes />
                     </AcademicProvider>
-                </AuthContextBridge>
+                </SchoolLocaleGate>
             </PWAProvider>
         </AuthProvider>
     );

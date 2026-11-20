@@ -1,14 +1,16 @@
+import { currencySymbol, formatMajor, formatSchoolDateTime } from '../../../utils/schoolLocale.js';
 import React, { useEffect, useState } from 'react';
 import { ArrowRight, Check, Copy, CreditCard, Landmark, Lock } from 'lucide-react';
-import { getMyGateways, startPaystackPayment, startBankTransfer, verifyPayment } from './services/parentFeeAPIs.js';
+import { useAuth } from '../../../contexts/AuthContext.jsx';
+import { pendingPaymentKey, readPendingPayments, writePendingPayments, getMyGateways, startPaystackPayment, startBankTransfer, verifyPayment } from './services/parentFeeAPIs.js';
 
-const money = (n) => '₦' + Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: 2 });
+const money = (n) => formatMajor(n, 2);
 
 const GATEWAY_ICON = { paystack: CreditCard, nexapay: Landmark };
 
 const fmtExpiry = (iso) => {
     const d = iso ? new Date(iso) : null;
-    return d && !isNaN(d) ? d.toLocaleString('en-NG', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : null;
+    return d && !isNaN(d) ? formatSchoolDateTime(d) : null;
 };
 
 /**
@@ -17,6 +19,8 @@ const fmtExpiry = (iso) => {
  * calls onPaid() once a payment is confirmed so the page can refresh.
  */
 export default function PayPanel({ fee, onPaid }) {
+    const { user } = useAuth();
+    const paymentKey = pendingPaymentKey(user);
     const outstanding = Number(fee.amountDue ?? 0);
 
     const [gateways, setGateways] = useState(null); // null = loading
@@ -38,7 +42,7 @@ export default function PayPanel({ fee, onPaid }) {
     }, []);
 
     const parsed = Number(amount);
-    const amountOk = Number.isFinite(parsed) && parsed >= 1 && parsed <= outstanding; // at least ₦1, never more than is owed
+    const amountOk = Number.isFinite(parsed) && parsed >= 0.01 && parsed <= outstanding && Math.abs(parsed * 100 - Math.round(parsed * 100)) < 1e-7; // positive minor units only
 
     const pay = async () => {
         if (!amountOk || !selected) return;
@@ -51,7 +55,10 @@ export default function PayPanel({ fee, onPaid }) {
                 }
                 // Remember it, so the fees page can still confirm the payment if the gateway
                 // does not send the parent straight back with the reference.
-                try { if (res.reference) localStorage.setItem('ec_pending_paystack_ref', res.reference); } catch { /* storage unavailable */ }
+                if (res.reference && paymentKey) {
+                    const pending = readPendingPayments(paymentKey).filter(item => item.reference !== res.reference);
+                    writePendingPayments(paymentKey, [...pending, { reference: res.reference, invoiceId: fee.id, startedAt: Date.now() }]);
+                }
                 window.location.assign(res.authorizationUrl);
                 return; // leaving the page; keep the button disabled
             }
@@ -176,11 +183,11 @@ export default function PayPanel({ fee, onPaid }) {
                     </div>
 
                     <label className="flex flex-col gap-1.5">
-                        <span className="font-medium text-[11px] tracking-wider uppercase text-gray-500">Amount to pay (₦)</span>
-                        <input type="number" inputMode="decimal" min="0" max={outstanding} step="0.01" value={amount}
+                        <span className="font-medium text-[11px] tracking-wider uppercase text-gray-500">Amount to pay ({currencySymbol()})</span>
+                        <input type="number" inputMode="decimal" min="0.01" max={outstanding} step="0.01" value={amount}
                             onChange={(e) => setAmount(e.target.value)}
                             className="h-11 px-3 rounded-lg border border-gray-200 text-lg focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                        {!amountOk && amount !== '' && <span className="text-xs text-red-600">Enter an amount between ₦1 and {money(outstanding)}.</span>}
+                        {!amountOk && amount !== '' && <span className="text-xs text-red-600">Enter an amount between {money(0.01)} and {money(outstanding)}, with at most two decimal places.</span>}
                         {amountOk && parsed < outstanding && <span className="text-xs text-gray-500">Part payment: {money(outstanding - parsed)} will remain due.</span>}
                     </label>
 
@@ -198,3 +205,5 @@ export default function PayPanel({ fee, onPaid }) {
         </div>
     );
 }
+
+

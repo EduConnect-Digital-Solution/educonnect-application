@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useTimetable } from '../TimetableContext';
 import { useAcademic } from '../../../../../contexts/AcademicContext.jsx';
 import { checkConflicts, publishTimetable } from '../timetableAPIs';
-import { AlertTriangle, CheckCircle2, Lock, Loader2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Lock } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import {
   AlertDialog,
   AlertDialogAction,

@@ -1,3 +1,4 @@
+import { formatSchoolTime, schoolDateKey } from '../../../utils/schoolLocale.js';
 import React, { useState, useEffect } from 'react';
 import TeacherLayout from './components/layout/TeacherLayout.jsx';
 import TodaysClassesBoard from './attendance/TodaysClassesBoard.jsx';
@@ -23,7 +24,7 @@ export default function AttendancePage() {
       setLoading(true);
       setError(null);
       const res = await getScheduledClasses();
-      setScheduledClasses(res.data.scheduledClasses);
+      setScheduledClasses(res.data.scheduledClasses.map(s => ({ ...s, date: s.date ?? res.data.date ?? schoolDateKey() })));
       setAcademicContext(res.data.academicContext ?? null);
       setLastRefreshed(new Date());
     } catch (err) {
@@ -87,10 +88,11 @@ export default function AttendancePage() {
         {/* ── Last refreshed ──────── */}
         {lastRefreshed && !loading && (
           <p className="text-xs text-gray-400 text-right mt-3">
-            Last updated {lastRefreshed.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+            Last updated {formatSchoolTime(lastRefreshed)}
           </p>
         )}
       </div>
     </TeacherLayout>
   );
 }
+

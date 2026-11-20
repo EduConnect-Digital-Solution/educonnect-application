@@ -1,9 +1,7 @@
+import { formatSchoolDate } from '../../../../../../utils/schoolLocale.js';
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-    RefreshCw, Loader2, CheckCircle2, AlertCircle, Clock,
-    ChevronDown, ChevronsUpDown, LayoutList, BarChart3,
-    FileText, Users, Eye, ExternalLink,
-} from 'lucide-react';
+import { RefreshCw, CheckCircle2, AlertCircle, Clock, ChevronDown, ChevronsUpDown, LayoutList, BarChart3, FileText, Users, Eye, ExternalLink } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import { Link } from 'react-router-dom';
 import { Drawer, EmptyState } from '../../../../../../components/patterns';
 import { useAcademic } from '../../../../../../contexts/AcademicContext.jsx';
@@ -139,7 +137,10 @@ function AuditDrawer({ cell, termId, onClose }) {
     const [error,         setError]        = useState(null);
 
     useEffect(() => {
-        if (!cell) { setActivityData(null); return; }
+        if (!cell) { setActivityData(null); setError(null); setLoading(false); return undefined; }
+        // Only the cell that is open now may fill the drawer: a slow answer for a cell opened
+        // earlier must not replace it with another subject's grading activity.
+        let active = true;
         setLoading(true); setError(null); setActivityData(null);
 
         getSubjectGradingActivity(
@@ -148,11 +149,12 @@ function AuditDrawer({ cell, termId, onClose }) {
             cell.subjectName,
             termId ?? cell.termId ?? '',
         ).then(res => {
-            setActivityData(res.data);
+            if (active) setActivityData(res.data);
         }).catch(e => {
-            setError(e?.message || 'Failed to load grading activity.');
-        }).finally(() => setLoading(false));
-    }, [cell]);
+            if (active) setError(e?.message || 'Failed to load grading activity.');
+        }).finally(() => { if (active) setLoading(false); });
+        return () => { active = false; };
+    }, [cell, termId]);
 
     if (!cell) return null;
 
@@ -162,7 +164,7 @@ function AuditDrawer({ cell, termId, onClose }) {
     const Icon      = meta.icon;
 
     const fmtDate = (iso) => iso
-        ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+        ? formatSchoolDate(iso)
         : '—';
 
     return (
@@ -498,7 +500,7 @@ export default function SubmissionMatrixTab() {
     useEffect(() => { setFilterClass(''); setExpandAll(false); }, [currentTerm?.id]);
 
     const isLoading = scopeLoading || loading;
-    const { summary, matrix } = matrixData ?? {};
+    const { matrix } = matrixData ?? {};
     const hasData   = (matrix?.length ?? 0) > 0;
 
     const classOptions = hasData
@@ -508,18 +510,6 @@ export default function SubmissionMatrixTab() {
     const filteredMatrix = hasData && filterClass
         ? matrix.filter(r => r.className === filterClass)
         : matrix;
-
-    // Summary counts for attention strip — normalised
-    const totalActive = hasData
-        ? matrix.reduce((s, r) => s + r.subjects.filter(x => {
-            const n = normaliseLegacyStatus(x.status);
-            return n === 'in_progress';
-          }).length, 0)
-        : 0;
-
-    const totalCompleted = hasData
-        ? matrix.reduce((s, r) => s + r.subjects.filter(x => normaliseLegacyStatus(x.status) === 'completed').length, 0)
-        : 0;
 
     return (
         <div className="flex flex-col gap-5">

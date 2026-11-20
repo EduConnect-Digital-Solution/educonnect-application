@@ -1,10 +1,11 @@
+import { formatMajor } from '../../../../../utils/schoolLocale.js';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, FlaskConical, GraduationCap, Wallet, ClipboardCheck, FileBadge } from 'lucide-react';
 import { getSampleSchoolData } from '../../services/onboardingAPIs.js';
 import { StatusChip } from '../../../../../components/patterns';
 
-const naira = (n) => '₦' + Number(n || 0).toLocaleString('en-NG');
+const naira = (n) => formatMajor(n);
 
 const TABS = [
     { id: 'students', label: 'Students', icon: GraduationCap },

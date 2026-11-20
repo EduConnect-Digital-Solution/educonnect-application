@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import AdminLayout from '../../components/layout/AdminLayout.jsx';
 import ScopeBar from '../../components/ScopeBar.jsx';
 import { useAcademic } from '../../../../../contexts/AcademicContext.jsx';
-import { DashboardSkeleton, pushToast } from '../../../../../components/patterns';
+import { DashboardSkeleton, EmptyState, pushToast } from '../../../../../components/patterns';
 import { getFeeAnalytics } from '../../services/feeAPIs.js';
 import FeeOverviewTab from '../../fees/components/FeeOverviewTab.jsx';
 
@@ -12,24 +12,24 @@ function FeeOverviewContent() {
 
     const [analytics, setAnalytics] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(null);
+    const [attempt, setAttempt] = useState(0);
 
     // Reload analytics whenever the academic scope changes.
     useEffect(() => {
         if (!currentYear?.id) return;
         let cancelled = false;
         setLoading(true);
+        setLoadError(null);
         getFeeAnalytics({
             academicYearId: currentYear.id,
             ...(currentTerm?.id ? { termId: currentTerm.id } : {}),
         })
-            .then(res => { if (!cancelled && res?.success) {
-                setAnalytics(res.data)
-                console.log(res.data)
-            } })
-            .catch(err => console.error('[FeeOverview] analytics failed:', err))
+            .then(res => { if (!cancelled && res?.success) setAnalytics(res.data); })
+            .catch(err => { if (!cancelled) setLoadError(err?.response?.data?.message || err?.message || 'Could not load the fee overview.'); })
             .finally(() => { if (!cancelled) setLoading(false); });
         return () => { cancelled = true; };
-    }, [currentYear?.id, currentTerm?.id]);
+    }, [currentYear?.id, currentTerm?.id, attempt]);
 
     if (scopeLoading || loading) {
         return <DashboardSkeleton />;
@@ -44,7 +44,11 @@ function FeeOverviewContent() {
                 </div>
                 <ScopeBar />
             </div>
-            <FeeOverviewTab analytics={analytics} showToast={showToast} />
+            {loadError ? (
+                <EmptyState variant="error" description={loadError} onRetry={() => setAttempt(n => n + 1)} />
+            ) : (
+                <FeeOverviewTab analytics={analytics} showToast={showToast} />
+            )}
         </div>
     );
 }

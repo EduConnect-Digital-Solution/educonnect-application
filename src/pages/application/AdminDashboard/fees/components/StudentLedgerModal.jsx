@@ -1,7 +1,9 @@
+import { formatSchoolDate } from '../../../../../utils/schoolLocale.js';
 import React, { useState, useEffect } from 'react';
 import { useAcademic } from '../../../../../contexts/AcademicContext.jsx';
 import { getStudentLedger, formatNaira } from '../../services/feeAPIs.js';
-import { X, Loader2, ArrowDownCircle, ArrowUpCircle, SlidersHorizontal } from 'lucide-react';
+import { X, ArrowDownCircle, ArrowUpCircle, SlidersHorizontal } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 
 const typeMeta = {
   debit:      { icon: ArrowUpCircle,    color: 'text-red-500',    label: 'Bill' },
@@ -96,7 +98,7 @@ export default function StudentLedgerModal({ student, onClose }) {
                       return (
                         <tr key={i} className="hover:bg-gray-50/50">
                           <td className="py-2.5 pr-2 text-xs text-gray-500 whitespace-nowrap">
-                            {new Date(e.date).toLocaleDateString()}
+                            {formatSchoolDate(e.date)}
                           </td>
                           <td className="py-2.5 px-2">
                             <div className="flex items-center gap-2">

@@ -1,10 +1,12 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import useMediaQuery from './useMediaQuery.js';
 import {
     Search, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, X,
     Download, Columns3, Rows3, Filter, Bookmark, Check, Plus,
 } from 'lucide-react';
 import EmptyState from './EmptyState.jsx';
 import { TableSkeleton } from './Skeletons.jsx';
+import { toCsv, downloadCsv } from '../../utils/csv.js';
 
 /**
  * WorkbenchTable — THE list experience for the whole platform.
@@ -22,19 +24,11 @@ import { TableSkeleton } from './Skeletons.jsx';
 
 function defaultExportCSV(columns, rows, title) {
     const visible = columns.filter(c => c.accessor);
-    const head = visible.map(c => `"${c.header}"`).join(',');
-    const body = rows.map(r =>
-        visible.map(c => {
-            const v = c.accessor(r);
-            return `"${String(v ?? '').replace(/"/g, '""')}"`;
-        }).join(',')
-    ).join('\n');
-    const blob = new Blob([`${head}\n${body}`], { type: 'text/csv;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `${(title || 'export').toLowerCase().replace(/\s+/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+    const csv = toCsv([
+        visible.map(c => (typeof c.header === 'string' ? c.header : c.id)),
+        ...rows.map(r => visible.map(c => c.accessor(r))),
+    ]);
+    downloadCsv(`${(title || 'export').toLowerCase().replace(/\s+/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv`, csv);
 }
 
 function loadJSON(key, fallback) {
@@ -66,6 +60,7 @@ export default function WorkbenchTable({
     const [search, setSearch] = useState('');
     const [sort, setSort] = useState(prefs.sort ?? null);                 // { id, dir }
     const [activeFilters, setActiveFilters] = useState({});              // { filterId: value }
+    const isWide = useMediaQuery('(min-width: 768px)');
     const [selected, setSelected] = useState(() => new Set());
     const [density, setDensity] = useState(prefs.density ?? 'normal');   // 'normal' | 'compact'
     const [page, setPage] = useState(1);
@@ -358,6 +353,56 @@ export default function WorkbenchTable({
                     ? <EmptyState variant="filtered" onClearFilters={clearAll} compact />
                     : <EmptyState variant="first-use" compact {...emptyState} />
             ) : (
+                !isWide ? (
+                    // Phones: one card per row. First column is the title, the rest are label/value pairs,
+                    // and unlabeled columns (row actions) sit top-right.
+                    <>
+                    {bulkActions.length > 0 && (
+                        <label className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-100 text-[12px] font-semibold text-gray-500">
+                            <input type="checkbox" checked={allPageSelected} onChange={toggleAll}
+                                className="w-4 h-4 rounded border-gray-300 accent-blue-600 cursor-pointer" />
+                            Select all on this page
+                        </label>
+                    )}
+                    <ul className="divide-y divide-gray-100">
+                        {pageRows.map(row => {
+                            const key = rowKey(row);
+                            const isSelected = selected.has(key);
+                            const cell = (col) => (col.render ? col.render(row) : String(col.accessor?.(row) ?? ''));
+                            const [titleCol, ...rest] = visibleColumns;
+                            const labeled = rest.filter(c => c.header);
+                            const bare = rest.filter(c => !c.header);
+                            return (
+                                <li key={key} onClick={() => onRowClick?.(row)}
+                                    className={`px-4 py-3.5 ${onRowClick ? 'cursor-pointer' : ''} ${isSelected ? 'bg-blue-50/50' : ''}`}>
+                                    <div className="flex items-start gap-3">
+                                        {bulkActions.length > 0 && (
+                                            <input type="checkbox" checked={isSelected} onClick={e => e.stopPropagation()} onChange={() => toggleRow(key)}
+                                                aria-label="Select row" className="mt-1 w-4 h-4 rounded border-gray-300 accent-blue-600 cursor-pointer" />
+                                        )}
+                                        <div className="flex-1 min-w-0 text-sm font-semibold text-gray-900">{titleCol && cell(titleCol)}</div>
+                                        {bare.length > 0 && (
+                                            <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
+                                                {bare.map(c => <React.Fragment key={c.id}>{cell(c)}</React.Fragment>)}
+                                            </div>
+                                        )}
+                                    </div>
+                                    {labeled.length > 0 && (
+                                        <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5">
+                                            {labeled.map(c => (
+                                                <div key={c.id} className="min-w-0">
+                                                    <dt className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{c.header}</dt>
+                                                    <dd className="text-sm text-gray-700 break-words">{cell(c)}</dd>
+                                                </div>
+                                            ))}
+                                        </dl>
+                                    )}
+                                </li>
+                            );
+                        })}
+                    </ul>
+                    </>
+                ) : (
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur">
@@ -410,6 +455,7 @@ export default function WorkbenchTable({
                         </tbody>
                     </table>
                 </div>
+                )
             )}
 
             {/* ── Footer: count + pagination ───────────────────────────── */}

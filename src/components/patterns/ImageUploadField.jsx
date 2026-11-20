@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { Camera, Loader2, X, AlertTriangle } from 'lucide-react';
+import { Camera, X, AlertTriangle } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import Avatar from './Avatar.jsx';
 import { uploadToCloudinary, isCloudinaryConfigured } from '../../utils/cloudinary.js';
 

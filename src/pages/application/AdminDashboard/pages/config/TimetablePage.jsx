@@ -1,11 +1,13 @@
-import React, { useEffect, useRef } from 'react';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, Copy, Monitor } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import { Link, useSearchParams } from 'react-router-dom';
 import AdminLayout from '../../components/layout/AdminLayout.jsx';
 import { TimetableProvider, useTimetable } from '../../timetable/TimetableContext.jsx';
 import { useAcademic } from '../../../../../contexts/AcademicContext.jsx';
 import TimetableBuilder from '../../timetable/TimetableBuilder.jsx';
 import { useGlobalTimetableData } from '../../timetable/useGlobalTimetableData.js';
+import CopyToArmsDrawer from '../../timetable/components/CopyToArmsDrawer.jsx';
 
 /**
  * TimetablePage
@@ -17,9 +19,11 @@ import { useGlobalTimetableData } from '../../timetable/useGlobalTimetableData.j
 function TimetableContent() {
     const { state, dispatch } = useTimetable();
     const { academicYears, currentYear, terms, currentTerm, selectYear, selectTerm, loading: academicLoading } = useAcademic();
-    const { initialLoad, resources } = useGlobalTimetableData();
+    const { initialLoad, resources, scope, draftError, retryDraft } = useGlobalTimetableData();
     const [searchParams] = useSearchParams();
     const preselectedRef = useRef(false);
+    const [copyOpen, setCopyOpen] = useState(false);
+    const canCopy = Boolean(state.loadedScope === scope && state.selectedClass && state.selectedArm && currentTerm?.id && state.schedules.length > 0);
 
     // ── Edit prefill: when arriving from "Edit timetable" with ?classId&armId&termId,
     // preselect class / arm / term once resources are loaded. useGlobalTimetableData
@@ -142,6 +146,13 @@ function TimetableContent() {
                     </select>
                 </div>
 
+                {canCopy && (
+                    <button type="button" onClick={() => setCopyOpen(true)}
+                        className="ml-auto flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-blue-700 bg-blue-50 border border-blue-100 rounded hover:bg-blue-100">
+                        <Copy size={14} /> Copy to other arms
+                    </button>
+                )}
+
                 {state.loading.draft && (
                     <div className="ml-auto flex items-center gap-2 text-xs font-semibold text-gray-400">
                         <Loader2 size={12} className="animate-spin" /> Fetching data...
@@ -149,20 +160,52 @@ function TimetableContent() {
                 )}
             </div>
 
+            {canCopy && (
+                <CopyToArmsDrawer open={copyOpen} onClose={() => setCopyOpen(false)} arms={resources.arms} classes={resources.classes} termId={currentTerm.id}
+                    source={{ classId: state.selectedClass.id, armId: state.selectedArm.id, label: `${state.selectedClass.name} ${state.selectedArm.name}` }} />
+            )}
+
             {/* Builder */}
             <div className="flex-1 overflow-hidden">
-                <TimetableBuilder resources={resources} />
+                {scope && state.loadedScope !== scope ? (
+                    <div className="p-6 text-sm text-gray-600" role="status">
+                        {draftError ? <>Could not load this timetable. <button type="button" onClick={retryDraft} className="text-blue-700 underline">Try again</button></> : 'Loading timetable…'}
+                    </div>
+                ) : <TimetableBuilder resources={resources} />}
             </div>
         </div>
     );
 }
 
+// The builder relies on dragging subjects and teachers from side panels that only exist at desktop width
+function DesktopOnlyNotice() {
+    return (
+        <div className="max-w-md mx-auto mt-10 text-center bg-white border border-gray-200 rounded-2xl p-8">
+            <div className="mx-auto w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center"><Monitor size={22} /></div>
+            <h1 className="mt-4 text-lg font-bold text-gray-900">Open this on a desktop</h1>
+            <p className="mt-1.5 text-sm text-gray-500">
+                The timetable builder uses drag and drop and needs a larger screen. Use a laptop or desktop computer to build or edit timetables. You can still view published timetables from here.
+            </p>
+            <Link to="/dashboard/admin/academics/timetables" className="inline-flex items-center gap-1.5 mt-5 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700">
+                <ArrowLeft size={14} /> Back to timetables
+            </Link>
+        </div>
+    );
+}
+
 export default function TimetablePage() {
+    // Decided once when the page opens. Re-checking on resize would unmount the builder (and any unsaved
+    // work) whenever the window is snapped, zoomed or rotated below 1024px.
+    const [isDesktop] = useState(() => typeof window === 'undefined' || window.matchMedia('(min-width: 1024px)').matches);
     return (
         <AdminLayout>
-            <TimetableProvider>
-                <TimetableContent />
-            </TimetableProvider>
+            {isDesktop ? (
+                <TimetableProvider>
+                    <TimetableContent />
+                </TimetableProvider>
+            ) : (
+                <DesktopOnlyNotice />
+            )}
         </AdminLayout>
     );
 }

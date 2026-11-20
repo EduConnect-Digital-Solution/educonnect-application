@@ -8,7 +8,7 @@
  * - Navigation: Network-First with offline fallback page
  */
 
-const SW_VERSION = '1.0.1'; // bumped for the new brand assets
+const SW_VERSION = '1.0.3'; // drops caches that may hold a page saved in place of a script or stylesheet
 const CACHE_STATIC = `educonnect-static-v${SW_VERSION}`;
 const CACHE_PAGES  = `educonnect-pages-v${SW_VERSION}`;
 
@@ -17,24 +17,6 @@ const APP_SHELL = [
     '/',
     '/offline.html',
     '/manifest.json',
-];
-
-// Routes that should NEVER be cached (sensitive auth/data endpoints)
-const NEVER_CACHE_PATTERNS = [
-    /\/api\/school\/auth/,
-    /\/api\/user\/auth/,
-    /\/api\/admin\/dashboard\/users/,
-    /\/api\/students/,
-    /\/api\/parent\/profile/,
-    /\/api\/teacher\/grades/,
-];
-
-// API routes that are safe to cache briefly (analytics, read-only data)
-const SAFE_CACHE_PATTERNS = [
-    /\/api\/admin\/dashboard\/analytics/,
-    /\/api\/teacher\/classes/,
-    /\/api\/teacher\/dashboard/,
-    /\/api\/parent\/dashboard/,
 ];
 
 // ─── Install ──────────────────
@@ -63,9 +45,11 @@ self.addEventListener('activate', (event) => {
         ).then(() => self.clients.claim()) // Take control of all open tabs
     );
     // Notify all clients that a new SW version is active
-    self.clients.matchAll({ type: 'window' }).then((clients) => {
-        clients.forEach((client) => client.postMessage({ type: 'SW_UPDATED', version: SW_VERSION }));
-    });
+    event.waitUntil(
+        self.clients.matchAll({ type: 'window' }).then((clients) => {
+            clients.forEach((client) => client.postMessage({ type: 'SW_UPDATED', version: SW_VERSION }));
+        })
+    );
 });
 
 // ─── Fetch ──────────────────────
@@ -88,19 +72,7 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Never cache sensitive auth/user endpoints
-    if (NEVER_CACHE_PATTERNS.some((p) => p.test(url.pathname))) {
-        event.respondWith(fetch(request));
-        return;
-    }
-
-    // Safe API routes: Network-First, short-lived cache (5 min)
-    if (SAFE_CACHE_PATTERNS.some((p) => p.test(url.pathname))) {
-        event.respondWith(networkFirstWithCache(request, CACHE_PAGES, 300));
-        return;
-    }
-
-    // API routes (non-matched): Network-Only
+    // API routes: Network-Only
     if (url.pathname.startsWith('/api/')) {
         event.respondWith(fetch(request).catch(() => new Response(
             JSON.stringify({ error: 'Offline', message: 'No network connection available.' }),
@@ -114,11 +86,16 @@ self.addEventListener('fetch', (event) => {
         event.respondWith(
             fetch(request)
                 .then((res) => {
-                    const clone = res.clone();
-                    caches.open(CACHE_PAGES).then((cache) => cache.put(request, clone));
+                    if (res.ok) {
+                        const clone = res.clone();
+                        event.waitUntil(caches.open(CACHE_PAGES).then((cache) => cache.put(request, clone)).catch(() => {}));
+                    }
                     return res;
                 })
-                .catch(() => caches.match('/offline.html'))
+                .catch(async () => (await caches.match('/offline.html')) || new Response('You are offline.', {
+                    status: 503,
+                    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+                }))
         );
         return;
     }
@@ -133,14 +110,31 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(networkFirstWithCache(request, CACHE_STATIC));
 });
 
+// ─── Helper: is this response really the asset that was asked for? ───────────
+// After a deploy an old script URL no longer exists, and the host's single-page fallback answers it
+// with index.html and status 200. Caching that would break the page for good, so anything that is
+// not a successful response of the right kind is passed through without being stored.
+function isCacheableAsset(request, response) {
+    if (!response || !response.ok || response.type === 'opaque') return false;
+    const type = (response.headers.get('Content-Type') || '').toLowerCase();
+    if (type.includes('text/html')) return false;
+    const path = new URL(request.url).pathname;
+    if (/\.js$/.test(path)) return type.includes('javascript') || type.includes('ecmascript');
+    if (/\.css$/.test(path)) return type.includes('text/css');
+    return true;
+}
+
 // ─── Helper: Cache-First ────────
 async function cacheFirst(request) {
     const cached = await caches.match(request);
     if (cached) return cached;
     try {
         const response = await fetch(request);
-        const cache = await caches.open(CACHE_STATIC);
-        cache.put(request, response.clone());
+        if (isCacheableAsset(request, response)) {
+            const copy = response.clone();
+            // A failed write (storage full) must not cost the page the asset it just downloaded
+            caches.open(CACHE_STATIC).then((cache) => cache.put(request, copy)).catch(() => {});
+        }
         return response;
     } catch {
         return new Response('Asset unavailable offline', { status: 503 });
@@ -151,6 +145,8 @@ async function cacheFirst(request) {
 async function networkFirstWithCache(request, cacheName, ttlSeconds = null) {
     try {
         const response = await fetch(request);
+        // Never store an error page in place of the real thing
+        if (!response.ok) return response;
         const cache = await caches.open(cacheName);
         const responseToCache = response.clone();
 
@@ -202,3 +198,32 @@ self.addEventListener('message', (event) => {
         event.ports[0]?.postMessage({ version: SW_VERSION });
     }
 });
+
+// ─── Push notifications ───────────────────
+// The server sends { title, body, url, tag } (see educonnect-backend pushService).
+self.addEventListener('push', (event) => {
+    let data = {};
+    try { data = event.data ? event.data.json() : {}; } catch { data = { title: 'EduConnect', body: event.data ? event.data.text() : '' }; }
+    const title = data.title || 'EduConnect';
+    event.waitUntil(self.registration.showNotification(title, {
+        body: data.body || '',
+        icon: '/icons/icon-192x192.png',
+        badge: '/icons/icon-96x96.png',
+        tag: data.tag || undefined,
+        data: { url: data.url || '/' },
+    }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close();
+    const target = (event.notification.data && event.notification.data.url) || '/';
+    event.waitUntil(
+        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+            for (const client of list) {
+                if ('focus' in client) { client.navigate(target).catch(() => {}); return client.focus(); }
+            }
+            return self.clients.openWindow(target);
+        })
+    );
+});
+

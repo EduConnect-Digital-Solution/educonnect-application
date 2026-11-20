@@ -1,3 +1,4 @@
+import { formatMinor } from '../../../../utils/schoolLocale.js';
 import apiClient from '../../../../utils/axiosConfig.js';
 
 /**
@@ -33,8 +34,6 @@ import apiClient from '../../../../utils/axiosConfig.js';
  */
 
 export const FEE_BACKEND_LIVE = true;
-
-const delay = (ms = 400) => new Promise(r => setTimeout(r, ms));
 
 // ── ID normalisation (live-mode only) ────
 const normalizeId = (obj) => {
@@ -126,14 +125,10 @@ export const FEE_EVENTS = [
 //  MONEY HELPERS
 // ═════════════════════════════════════════════════════════════════════════════
 
-/** Format kobo (integer) → ₦ display string. */
+/** Format minor units (integer) → currency display string in the school's currency. */
 export function formatNaira(kobo = 0) {
-  const naira = (Number(kobo) || 0) / 100;
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    maximumFractionDigits: 0,
-  }).format(naira);
+  // Despite the name this formats in the SCHOOL'S currency (Naira by default).
+  return formatMinor(kobo);
 }
 
 /** Convert a Naira input (number/string)GO  → kobo integer for transmission. */
@@ -146,9 +141,6 @@ export function sumItems(items = []) {
   return items.reduce((acc, it) => acc + (Number(it.amount) || 0), 0);
 }
 
-// ── Mock id helper ──────────────
-let _seq = 0;
-const mockId = (prefix) => `${prefix}_${Date.now().toString(36)}_${_seq++}`;
 
 // ═════════════════════════════════════════════════════════════════════════════
 //  A. FEE CONFIGURATION LAYER

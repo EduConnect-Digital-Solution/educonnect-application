@@ -1,3 +1,4 @@
+import '../../../dark-mode.css';
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { X, ChevronDown, ChevronLeft, ChevronRight, School } from 'lucide-react';
@@ -6,7 +7,6 @@ import { Images } from '../../../../../components/images.jsx';
 import { NAV_GROUPS, SETTINGS_NAV } from '../../navigation/navConfig.js';
 import Topbar from '../topbar/Topbar.jsx';
 import useSchoolBrand from '../../hooks/useSchoolBrand.js';
-import { ToastHost } from '../../../../../components/patterns';
 
 /**
  * AdminLayout — the application shell for every admin page.
@@ -134,15 +134,11 @@ const SidebarFooter = ({ collapsed, onNavigate }) => {
 
     return (
         <div className="shrink-0 border-t border-gray-100 px-3 py-3 space-y-1.5">
-            {/* School branding block — shows the uploaded logo when present */}
+            {/* School name block: the sidebar carries EduConnect branding; the school's own logo lives on its profile page */}
             <div className={`flex items-center ${collapsed && !onNavigate ? 'justify-center' : 'gap-2.5 px-2'} py-1.5`}>
-                {brand?.logoUrl ? (
-                    <img src={brand.logoUrl} alt={schoolName} className="w-8 h-8 rounded-lg object-cover shrink-0 ring-1 ring-gray-200" />
-                ) : (
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-blue-500 text-white flex items-center justify-center text-[11px] font-bold shrink-0 shadow-sm">
-                        {initials || <School size={14} />}
-                    </div>
-                )}
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-blue-500 text-white flex items-center justify-center text-[11px] font-bold shrink-0 shadow-sm">
+                    {initials || <School size={14} />}
+                </div>
                 {(!collapsed || onNavigate) && (
                     <div className="min-w-0">
                         <p className="text-[13px] font-bold text-gray-800 truncate leading-tight">{schoolName}</p>
@@ -262,7 +258,6 @@ const AdminLayout = ({ children, className = '' }) => {
                 </main>
             </div>
 
-            <ToastHost />
         </div>
     );
 };

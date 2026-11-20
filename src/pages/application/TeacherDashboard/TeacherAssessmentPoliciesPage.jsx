@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-    Plus, Trash2, Loader2, Check, X,
-    BookOpen, Layers, Users, FlaskConical,
-    Info, AlertCircle, Lock,
-} from 'lucide-react';
+import { Plus, Trash2, Check, X, BookOpen, Layers, Users, FlaskConical, Info, AlertCircle, Lock } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import TeacherLayout from './components/layout/TeacherLayout.jsx';
 import {
     WorkbenchTable, ConfirmDestructiveDialog, Drawer, pushToast, EmptyState,

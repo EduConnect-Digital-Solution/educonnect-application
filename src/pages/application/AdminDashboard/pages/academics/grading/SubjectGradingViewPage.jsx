@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { ChevronLeft, Loader2, Users, TrendingUp, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, Users, TrendingUp, AlertTriangle } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import AdminLayout from '../../../components/layout/AdminLayout.jsx';
 import { EmptyState, pushToast } from '../../../../../../components/patterns';
 import { useAcademic } from '../../../../../../contexts/AcademicContext.jsx';

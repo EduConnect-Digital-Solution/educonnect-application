@@ -33,8 +33,10 @@ export const ROUTES = {
 
     classes:         `${BASE}/academics/classes`,
     subjects:        `${BASE}/academics/subjects`,
+    subjectMapping:  `${BASE}/academics/subject-mapping`,
     grading:         `${BASE}/academics/grading`,
     reportCards:     `${BASE}/academics/report-cards`,
+    lessonPlans:     `${BASE}/academics/lesson-plans`,
     timetables:      `${BASE}/academics/timetables`,
     timetableView:   `${BASE}/academics/timetables/view`,
     timetableBuilder:`${BASE}/academics/timetables/builder`,
@@ -59,6 +61,12 @@ export const ROUTES = {
     settingsIdentity:           `${BASE}/settings/identity`,
     settingsAcademic:           `${BASE}/settings/academic`,
     settingsGradingSetup:       `${BASE}/settings/grading`,
+    settingsLocale:             `${BASE}/settings/locale`,
+    settingsAttendance:         `${BASE}/settings/attendance`,
+    settingsAuditLog:           `${BASE}/settings/audit-log`,
+    settingsData:               `${BASE}/settings/data`,
+    settingsNotifications:      `${BASE}/settings/notifications`,
+    settingsDocuments:          `${BASE}/settings/documents`,
 
     adminProfile:    `${BASE}/profile`,
 };
@@ -89,8 +97,10 @@ export const NAV_GROUPS = [
         children: [
             { name: 'Classes & Arms',    link: ROUTES.classes },
             { name: 'Subjects',          link: ROUTES.subjects },
+            { name: 'Subject mapping',   link: ROUTES.subjectMapping },
             { name: 'Grading & Results', link: ROUTES.grading },
             { name: 'Report Cards',      link: ROUTES.reportCards },
+            { name: 'Lesson Plans',      link: ROUTES.lessonPlans },
             { name: 'Timetables',        link: ROUTES.timetables },
         ],
     },
@@ -148,6 +158,7 @@ export const PAGE_INDEX = [
     { label: 'Admissions',          group: 'Navigation', route: ROUTES.admissions,       keywords: 'applications enrol enroll intake' },
     { label: 'Classes & Arms',      group: 'Navigation', route: ROUTES.classes,          keywords: 'class setup sections streams config' },
     { label: 'Subjects',            group: 'Navigation', route: ROUTES.subjects,         keywords: 'subject setup curriculum config' },
+    { label: 'Subject mapping',     group: 'Navigation', route: ROUTES.subjectMapping,   keywords: 'subjects classes arms assign apply curriculum grid' },
     { label: 'Grading & Results',   group: 'Navigation', route: ROUTES.grading,          keywords: 'scores grades assessment exams marks schemes submission matrix broadsheet publish results positions average' },
     { label: 'Report Cards',        group: 'Navigation', route: ROUTES.reportCards,      keywords: 'results terminal report template builder comments traits sign off principal publish parents print' },
     { label: 'Timetables',          group: 'Navigation', route: ROUTES.timetables,       keywords: 'timetable library schedule periods' },
@@ -157,7 +168,7 @@ export const PAGE_INDEX = [
     { label: 'Fee Structures',      group: 'Navigation', route: ROUTES.feeStructures,    keywords: 'fees tuition billing setup' },
     { label: 'Invoices',            group: 'Navigation', route: ROUTES.invoices,         keywords: 'fees bills billing' },
     { label: 'Payments',            group: 'Navigation', route: ROUTES.payments,         keywords: 'fees ledger receipts transactions' },
-    { label: 'Defaulters',          group: 'Navigation', route: ROUTES.defaulters,       keywords: 'fees owing overdue debtors' },
+    // Defaulters has no page yet (its route is switched off in App.jsx), so it is not offered here
     { label: 'Finance Reports',     group: 'Navigation', route: ROUTES.financeReports,   keywords: 'fees aging collections reconciliation' },
     { label: 'Announcements',       group: 'Navigation', route: ROUTES.announcements,    keywords: 'broadcast circular message communication' },
     { label: 'Events',              group: 'Navigation', route: ROUTES.events,           keywords: 'events planner calendar communication' },
@@ -170,6 +181,12 @@ export const PAGE_INDEX = [
     { label: 'Settings',                       group: 'Settings', route: ROUTES.settings,         keywords: 'configuration preferences' },
     { label: 'Settings · Identity & Branding',      group: 'Settings', route: ROUTES.settingsIdentity,           keywords: 'school profile logo name address contact deactivate' },
     { label: 'Settings · Academic Calendar',         group: 'Settings', route: ROUTES.settingsAcademic,           keywords: 'calendar years terms sessions config' },
+    { label: 'Settings · Locale',                    group: 'Settings', route: ROUTES.settingsLocale,   keywords: 'currency timezone date format naira language' },
+    { label: 'Settings · Attendance Policy',         group: 'Settings', route: ROUTES.settingsAttendance, keywords: 'attendance late grace edit window parent email absent' },
+    { label: 'Settings · Audit Log',                 group: 'Settings', route: ROUTES.settingsAuditLog, keywords: 'audit history who changed activity log security' },
+    { label: 'Settings · Notifications',             group: 'Settings', route: ROUTES.settingsNotifications, keywords: 'notifications channels email push sms defaults alerts' },
+    { label: 'Settings · Documents',                group: 'Settings', route: ROUTES.settingsDocuments, keywords: 'documents types admission requirements retention files upload birth certificate identity' },
+    { label: 'Settings · Data & Import',             group: 'Settings', route: ROUTES.settingsData,     keywords: 'import export csv upload students teachers spreadsheet' },
     { label: 'Settings · Grading & Assessment',      group: 'Settings', route: ROUTES.settingsGradingSetup, keywords: 'grading scheme scale bands grade points assessment policy ca exam marks breakdown continuous components setup' },
 ];
 

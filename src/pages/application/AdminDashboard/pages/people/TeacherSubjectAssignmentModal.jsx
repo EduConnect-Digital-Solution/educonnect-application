@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2, BookOpen, Check } from 'lucide-react';
+import { BookOpen, Check } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import { Drawer, EmptyState, pushToast } from '../../../../../components/patterns';
 import { assignSubjects } from '../../../../auth/authAPIs.js';
 import { getSchoolSubjects } from '../../services/subjectAPIs.js';
@@ -31,7 +32,7 @@ export default function TeacherSubjectAssignmentModal({ teacher, onClose, onAssi
                 const pre = new Set(list.filter(s => alreadyAssigned.has(String(s.name).toLowerCase())).map(s => s.id));
                 setSelected(pre);
             } catch {
-                pushToast({ message: 'Could not load subjects.' });
+                pushToast({ message: 'Could not load subjects.', type: 'error' });
             } finally {
                 setLoading(false);
             }

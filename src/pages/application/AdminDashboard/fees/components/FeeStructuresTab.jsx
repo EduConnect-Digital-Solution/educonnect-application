@@ -1,3 +1,4 @@
+import { currencySymbol, formatSchoolDate } from '../../../../../utils/schoolLocale.js';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   getFeeStructureById,
@@ -13,19 +14,8 @@ import {
   sumItems,
   FEE_TYPES,
 } from '../../services/feeAPIs.js';
-import {
-  Plus,
-  Trash2,
-  Pencil,
-  Copy,
-  CheckCircle2,
-  AlertTriangle,
-  X,
-  Loader2,
-  FileStack,
-  Eye,
-  History,
-} from 'lucide-react';
+import { Plus, Trash2, Pencil, Copy, CheckCircle2, AlertTriangle, X, FileStack, Eye, History } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import { WorkbenchTable, StatusChip } from '../../../../../components/patterns';
 
 // ─── Status pill ────────────────
@@ -37,11 +27,7 @@ function formatDate(dateStr) {
   try {
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) return '—';
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
+    return formatSchoolDate(date);
   } catch {
     return '—';
   }
@@ -79,23 +65,6 @@ function formatItemSummary(items = []) {
         )}
     </span>
   );
-}
-
-// ─── Section Grouping Categorizer ───
-function getSectionCategory(className = '') {
-  const name = String(className).toUpperCase().trim();
-  if (name.includes('SSS') || name.includes('SENIOR') || /^SS\s*\d/.test(name)) return 'Senior Secondary';
-  if (name.includes('JSS') || name.includes('JUNIOR') || /^JS\s*\d/.test(name)) return 'Junior Secondary';
-  if (name.includes('PRIMARY') || name.includes('BASIC') || /^PR\s*\d/.test(name)) return 'Primary School';
-  if (
-    name.includes('NURSERY') ||
-    name.includes('KG') ||
-    name.includes('CRECHE') ||
-    name.includes('RECEPTION') ||
-    name.includes('KINDER')
-  )
-    return 'Nursery & Early Years';
-  return 'General / Uncategorized';
 }
 
 // ─── Fee Structure Detail View Modal ──────────────
@@ -541,7 +510,7 @@ function StructureBuilder({ initial, onClose, onSaved, showToast, classes = [], 
                       className="flex-1 min-w-32 px-2 py-1.5 border border-gray-200 rounded text-xs"
                     />
                     <div className="relative">
-                      <span className="absolute left-2 top-1.5 text-xs text-gray-400">₦</span>
+                      <span className="absolute left-2 top-1.5 text-xs text-gray-400">{currencySymbol()}</span>
                       <input
                         type="number"
                         value={it.amount}
@@ -648,9 +617,9 @@ function StructureBuilder({ initial, onClose, onSaved, showToast, classes = [], 
 
 // ─── Clone Structure Modal ──────────────
 function CloneStructureModal({ structure, classes, onClose, onConfirm, cloning }) {
-  if (!structure) return null;
-  const [cloneName, setCloneName] = useState(`${structure.name} (Draft)`);
-  const [targetClassId, setTargetClassId] = useState(structure.classId || '');
+  // Hooks first: returning early before them changes the hook order between renders
+  const [cloneName, setCloneName] = useState(`${structure?.name ?? ''} (Draft)`);
+  const [targetClassId, setTargetClassId] = useState(structure?.classId || '');
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -660,6 +629,8 @@ function CloneStructureModal({ structure, classes, onClose, onConfirm, cloning }
       classId: targetClassId,
     });
   };
+
+  if (!structure) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -1045,6 +1016,8 @@ export default function FeeStructuresTab({ showToast, classes = [], currentYear,
         );
       },
     },
+    // The row handlers only call state setters and the API, so the copies captured here stay correct
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   ], [classes, loadingDetail, publishedCountByClass]);
 
   // ── WorkbenchTable Filters ──────────────────

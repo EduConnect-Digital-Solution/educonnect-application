@@ -1,8 +1,7 @@
+import { formatSchoolDate, formatSchoolDateTime } from '../../../../utils/schoolLocale.js';
 import React, {useState, useEffect} from 'react';
-import {
-    Mail, BookOpen, Users, UserCheck, GraduationCap, Clock, UserPlus, ChevronRight, RefreshCw, XCircle, X,
-    MailPlus, Trash2, Loader2
-} from 'lucide-react';
+import { Mail, BookOpen, Users, UserCheck, GraduationCap, Clock, UserPlus, ChevronRight, RefreshCw, XCircle, X, MailPlus, Trash2 } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import AdminLayout from '../components/layout/AdminLayout';
 import AnalyticsComponent from '../AnalyticsComponent';
 import {useAuth} from "../../../../contexts/AuthContext.jsx";
@@ -87,7 +86,7 @@ const RecentActivity = ({ activities = { users: [], students: [], invitations: [
                                 </p>
                                 <div className="flex items-center gap-2 mt-1">
                                     <Clock size={12} className="text-gray-400" />
-                                    <span className="text-xs text-gray-400">{new Date(item.createdAt).toLocaleDateString()}</span>
+                                    <span className="text-xs text-gray-400">{formatSchoolDate(item.createdAt)}</span>
                                     <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium uppercase ${item.isActive || item.status === 'pending' ? 'bg-yellow-100 text-yellow-700' : item.status === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>
                                         {item.status || (item.isActive ? 'Active' : 'Inactive')}
                                     </span>
@@ -190,12 +189,7 @@ const InvitationItem = ({inv, onRemove}) => {
     // Basic date formatter for "invitedAt"
     const formatDate = (dateString) => {
         const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+        return formatSchoolDateTime(date);
     };
     const resendCount = inv.resendCount || 0;
     const isExpired = inv.status?.toLowerCase() === 'expired';
@@ -481,6 +475,8 @@ const DashboardPage = () => {
     const [userActivities, setUserActivities] = useState([]);
     const [error, setError] = useState(null);
     const [isOffline, setIsOffline] = useState(false);
+    const [invitesError, setInvitesError] = useState(false);
+    const [retry, setRetry] = useState(0);
 
     const handleRemoveInvitation = (invId) => {
         setInvitations(prev => prev.filter(inv => inv.id !== invId));
@@ -490,6 +486,8 @@ const DashboardPage = () => {
         const fetchAnalytics = async () => {
             try {
                 setLoading(true);
+                setError(null);
+                setInvitesError(false);
 
                 // Check if online before attempting to fetch
                 if (!navigator.onLine) {
@@ -501,14 +499,15 @@ const DashboardPage = () => {
 
                 setIsOffline(false);
 
-                const [analyticsData, invitesData] = await Promise.all([
+                const [analyticsResult, invitesResult] = await Promise.allSettled([
                     getDashboardAnalytics(),
                     getInvitations()
                 ]);
 
-                const { recentActivity, overview: fetchedOverview, userStatistics } = analyticsData.data;
-
-                const pendingInvites = invitesData.data.invitations;
+                if (analyticsResult.status === 'rejected') throw analyticsResult.reason;
+                const { recentActivity, overview: fetchedOverview, userStatistics } = analyticsResult.value.data;
+                if (invitesResult.status === 'rejected') setInvitesError(true);
+                const pendingInvites = invitesResult.status === 'fulfilled' ? (invitesResult.value.data?.invitations ?? []) : [];
 
                 setUserStats(userStatistics);
                 setOverview(fetchedOverview);
@@ -534,18 +533,19 @@ const DashboardPage = () => {
         };
 
         fetchAnalytics();
-    }, []);
+    }, [retry]);
 
     if (loading) {
         return <AdminLayout><DashboardSkeleton /></AdminLayout>;
     }
 
     if (error) {
-        return <div className="text-center py-8 text-red-500">Failed to load dashboard data.</div>;
+        return <AdminLayout><div className="text-center py-8 text-red-500">Failed to load dashboard data. <button type="button" className="underline" onClick={() => setRetry(n => n + 1)}>Try again</button></div></AdminLayout>;
     }
 
     return (
         <AdminLayout>
+            {invitesError && <div role="alert" className="p-3 text-sm text-amber-800 bg-amber-50">Could not load invitations. <button type="button" className="underline" onClick={() => setRetry(n => n + 1)}>Try again</button></div>}
             {isOffline && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6 mx-2">
                     <div className="flex items-center">
@@ -576,3 +576,4 @@ const DashboardPage = () => {
 };
 
 export default DashboardPage;
+

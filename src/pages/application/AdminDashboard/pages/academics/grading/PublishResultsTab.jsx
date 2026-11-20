@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
-    Loader2, CheckCircle2, XCircle, Lock, Send, FileDown, ShieldCheck,
-} from 'lucide-react';
+import { formatSchoolDateTime } from '../../../../../../utils/schoolLocale.js';
+import React, { useState, useEffect, useRef } from 'react';
+import { CheckCircle2, XCircle, Lock, Send, FileDown, ShieldCheck } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import { StatusChip, EmptyState, ConfirmDestructiveDialog, pushToast } from '../../../../../../components/patterns';
 import { useAcademic } from '../../../../../../contexts/AcademicContext.jsx';
 import { getSchoolClasses } from '../../../services/classAPIs.js';
 import {
     getPublishStatus, publishResults, generateResultPdfs, getPdfJob,
 } from '../../../services/gradingAPIs.js';
+import { openPdfJobFile } from '../../../services/pdfJobDownload.js';
 
 // ─── Checklist row ───────────────────────────────────────────────────────────────
 
@@ -41,13 +42,30 @@ export default function PublishResultsTab() {
     const [loading, setLoading]   = useState(false);
     const [error, setError]       = useState(null);
     const [status, setStatus]     = useState(null);
+    const [statusScope, setStatusScope] = useState(null);
+    const [retry, setRetry] = useState(0);
+    const targetScope = `${classId}:${currentTerm?.id ?? ''}`;
 
     const [confirmOpen, setConfirmOpen] = useState(false);
 
     // PDF job state
-    const [pdfJob, setPdfJob]     = useState(null); // { jobId, status, progress, downloadUrl }
+    const [pdfJob, setPdfJob]     = useState(null); // { jobId, status, progress, hasFile }
     const [generating, setGenerating] = useState(false);
+    const [opening, setOpening]   = useState(false);
+
+    // The file is private: ask for a fresh link each time it is opened
+    const openPdf = async () => {
+        setOpening(true);
+        try { await openPdfJobFile(pdfJob.jobId); }
+        catch (e) {
+            pushToast({ message: e.message, type: 'error' });
+            if (e.gone) setPdfJob(j => (j ? { ...j, hasFile: false } : j));
+        }
+        finally { setOpening(false); }
+    };
     const pollRef = useRef(null);
+    const requestRef = useRef(0);
+    const generationRef = useRef(0);
 
     useEffect(() => {
         setLoadingClasses(true);
@@ -57,65 +75,64 @@ export default function PublishResultsTab() {
             .finally(() => setLoadingClasses(false));
     }, []);
 
-    const load = useCallback(async () => {
-        if (!classId || !currentTerm?.id) { setStatus(null); return; }
-        setLoading(true); setError(null);
-        try {
-            const res = await getPublishStatus(currentTerm.id, classId);
-            setStatus(res.data);
-        } catch (e) {
-            setError(e?.message || 'Failed to load publish status.');
-        } finally {
-            setLoading(false);
-        }
-    }, [classId, currentTerm?.id]);
-
-    useEffect(() => { load(); }, [load]);
-
-    // Cleanup poll on unmount
-    useEffect(() => () => clearInterval(pollRef.current), []);
+    const termId = currentTerm?.id;
+    useEffect(() => {
+        // These refs are counters, not DOM nodes: bumping them is how in-flight requests and PDF polls are cancelled
+        const requests = requestRef;
+        const generations = generationRef;
+        const request = ++requests.current;
+        generations.current++;
+        clearTimeout(pollRef.current);
+        setPdfJob(null); setGenerating(false); setStatus(null); setError(null); setConfirmOpen(false);
+        if (!classId || !termId) { setLoading(false); return undefined; }
+        const scope = `${classId}:${termId}`;
+        setLoading(true);
+        getPublishStatus(termId, classId)
+            .then(res => { if (requests.current === request) setStatus(res.data); })
+            .catch(e => { if (requests.current === request) setError(e?.message || 'Failed to load publish status.'); })
+            .finally(() => { if (requests.current === request) { setStatusScope(scope); setLoading(false); } });
+        return () => { requests.current++; generations.current++; clearTimeout(pollRef.current); };
+    }, [classId, termId, retry]);
 
     const checklist = status?.checklist;
     const allPass   = checklist && Object.values(checklist).every(c => c.passed);
     const published = status?.published;
     const className = classes.find(c => c.id === classId)?.name ?? '';
-    const isLoading = scopeLoading || loading;
+    const isLoading = scopeLoading || loading || Boolean(classId && currentTerm?.id && statusScope !== targetScope);
 
     // Thrown errors surface inline inside the dialog; success auto-closes it.
     const handlePublish = async () => {
+        const request = requestRef.current;
         const res = await publishResults({ termId: currentTerm.id, classId });
+        if (request !== requestRef.current) return;
         setStatus(prev => ({ ...prev, published: true, publishedAt: res.data.publishedAt }));
         pushToast({ message: `Results published for ${className} · ${currentTerm.name}.`, type: 'success' });
     };
 
     const startPdfGeneration = async () => {
-        setGenerating(true);
-        setPdfJob(null);
+        const generation = ++generationRef.current;
+        setGenerating(true); setPdfJob(null);
         try {
             const res = await generateResultPdfs({ termId: currentTerm.id, classId });
+            if (generation !== generationRef.current) return;
             const jobId = res.data.jobId;
-            setPdfJob({ jobId, status: 'processing', progress: 0, downloadUrl: null });
-
-            clearInterval(pollRef.current);
-            pollRef.current = setInterval(async () => {
+            setPdfJob({ jobId, status: 'processing', progress: 0, hasFile: false });
+            const poll = async () => {
                 try {
                     const jobRes = await getPdfJob(jobId);
+                    if (generation !== generationRef.current) return;
                     setPdfJob(jobRes.data);
-                    if (jobRes.data.status === 'completed' || jobRes.data.status === 'failed') {
-                        clearInterval(pollRef.current);
+                    if (['completed', 'failed'].includes(jobRes.data.status)) {
                         setGenerating(false);
-                        if (jobRes.data.status === 'completed') {
-                            pushToast({ message: 'Result PDFs generated.', type: 'success' });
-                        }
-                    }
+                        if (jobRes.data.status === 'completed') pushToast({ message: 'Result PDFs generated.', type: 'success' });
+                    } else pollRef.current = setTimeout(poll, 600);
                 } catch {
-                    clearInterval(pollRef.current);
-                    setGenerating(false);
+                    if (generation === generationRef.current) { setGenerating(false); pushToast({ message: 'Could not check PDF generation.', type: 'error' }); }
                 }
-            }, 600);
+            };
+            pollRef.current = setTimeout(poll, 600);
         } catch (e) {
-            pushToast({ message: e?.message || 'Could not start PDF generation.', type: 'error' });
-            setGenerating(false);
+            if (generation === generationRef.current) { pushToast({ message: e?.message || 'Could not start PDF generation.', type: 'error' }); setGenerating(false); }
         }
     };
 
@@ -165,7 +182,7 @@ export default function PublishResultsTab() {
             {/* Error */}
             {!isLoading && error && (
                 <div className="bg-white border border-gray-200 rounded-2xl">
-                    <EmptyState variant="error" description={error} onRetry={load} />
+                    <EmptyState variant="error" description={error} onRetry={() => setRetry(n => n + 1)} />
                 </div>
             )}
 
@@ -194,7 +211,7 @@ export default function PublishResultsTab() {
                                 <p className="text-xs text-green-700 mt-0.5">
                                     Grades for this term are locked. Published on{' '}
                                     {status.publishedAt
-                                        ? new Date(status.publishedAt).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                                        ? formatSchoolDateTime(status.publishedAt)
                                         : '—'}.
                                     Un-publishing requires a separate admin action.
                                 </p>
@@ -259,14 +276,29 @@ export default function PublishResultsTab() {
                                 </div>
                             )}
 
-                            {pdfJob && pdfJob.status === 'completed' ? (
-                                <a
-                                    href={pdfJob.downloadUrl}
-                                    onClick={(e) => { e.preventDefault(); pushToast({ message: 'Mock download — backend will return a real file URL.', type: 'success' }); }}
-                                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors"
+                            {pdfJob && pdfJob.status === 'completed' && !pdfJob.hasFile ? (
+                                <div>
+                                    <p role="alert" className="text-sm text-red-600 mb-3">
+                                        The PDFs were generated but the file is not available. Generate them again.
+                                    </p>
+                                    <button
+                                        type="button"
+                                        onClick={startPdfGeneration}
+                                        disabled={generating}
+                                        className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-sm font-semibold text-gray-700 rounded-xl hover:bg-gray-50 hover:border-gray-300 disabled:opacity-50 transition-colors"
+                                    >
+                                        <FileDown size={15} /> Generate again
+                                    </button>
+                                </div>
+                            ) : pdfJob && pdfJob.status === 'completed' ? (
+                                <button
+                                    type="button"
+                                    onClick={openPdf}
+                                    disabled={opening}
+                                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-colors"
                                 >
-                                    <FileDown size={15} /> Download all PDFs
-                                </a>
+                                    {opening ? <Loader2 size={15} className="animate-spin" /> : <FileDown size={15} />} Download all PDFs
+                                </button>
                             ) : (
                                 <button
                                     type="button"
@@ -297,3 +329,4 @@ export default function PublishResultsTab() {
         </div>
     );
 }
+

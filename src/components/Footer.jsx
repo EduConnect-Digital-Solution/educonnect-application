@@ -1,25 +1,17 @@
+import { notify } from '@/components/patterns/toastBus.js';
 import React, {useCallback, useState} from 'react';
 import { MapPin, Mail, Phone, Send } from 'lucide-react';
 import {Images} from "./images.jsx";
-import ContactPage from "../pages/ContactForm.jsx";
 import { FaTiktok, FaLinkedinIn, FaFacebookF } from "react-icons/fa";
 import { FaXTwitter } from "react-icons/fa6";
 import {navItems} from "../utils/imports.jsx";
 
 export default function Footer() {
-    const [formData, setFormData] = useState({
-        name: '',
-        email: '',
-        company: '',
-        phone: '',
-        message: ''
-    });
-
     const [newsletterEmail, setNewsletterEmail] = useState('');
 
     const handleNewsletterSubmit = () => {
         // Add your newsletter subscription logic here
-        alert('Successfully subscribed to our newsletter!');
+        notify.success('Successfully subscribed to our newsletter.');
         setNewsletterEmail('');
     };
     const mapNavKeytoID = useCallback((key) => {

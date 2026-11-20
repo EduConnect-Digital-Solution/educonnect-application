@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Check, ChevronLeft, ChevronRight, Loader2, X, PartyPopper } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, X, PartyPopper } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import { Link } from 'react-router-dom';
 
 /**

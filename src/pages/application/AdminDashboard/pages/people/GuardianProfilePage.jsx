@@ -38,6 +38,7 @@ export default function GuardianProfilePage() {
             if (!raw) throw new Error('Guardian not found.');
             setGuardian({
                 id: raw.id ?? guardianId,
+                role: 'parent', // the status and remove dialogs choose their action from this
                 name: `${raw.firstName ?? ''} ${raw.lastName ?? ''}`.trim() || raw.name || 'Guardian',
                 email: raw.email || '—',
                 phone: raw.phone || '—',

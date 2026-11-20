@@ -4,6 +4,7 @@ import {
     RecentActivity,
     TeacherAnalyticsBox, QuickActions, TeacherResponsibilities
 } from "./teacherUtils/teacherComponents.jsx";
+import TodaySchedule from './TodaySchedule.jsx';
 import TeacherLayout from "./components/layout/TeacherLayout.jsx";
 import {getTeacherClasses, getTeacherDashboard, getTeacherStudents} from "../../auth/authAPIs.js";
 import {DashboardSkeleton} from "../../../components/patterns/index.js";
@@ -22,8 +23,6 @@ export default function TeacherDashboard() {
     });
     const [recentActivity, setRecentActivity] = useState();
     const [students, setStudents] = useState([]);
-    const [subjects, setSubjects] = useState([]);
-    const [teacher, setTeacher] = useState(null);
 
     const [error, setError] = useState(null);
 
@@ -38,8 +37,6 @@ export default function TeacherDashboard() {
                 ]);
 
                 setStatistics(dashboardRes.data.statistics);
-                setTeacher(dashboardRes.data.teacher);
-                setSubjects(dashboardRes.data.teacher.subjects);
                 setClasses(classRes.data.classes);
                 setRecentActivity(dashboardRes.data.recentActivity.map(notification => ({
                     type: notification.type,
@@ -48,6 +45,7 @@ export default function TeacherDashboard() {
                 })));
                 setStudents(StudentsRes.data.students.map(std => ({
                     id: std.studentId,
+                    studentId: std.studentId,
                     fullName: std.fullName,
                     email: std.email,
                     class: std.classDisplay,
@@ -77,10 +75,29 @@ export default function TeacherDashboard() {
             </TeacherLayout>
         );
     }
+    if (error) {
+        return (
+            <TeacherLayout>
+                <div className="max-w-md mx-auto mt-16 text-center bg-white border border-red-100 rounded-2xl p-8">
+                    <p className="font-semibold text-gray-900">We couldn't load your dashboard</p>
+                    <p className="text-sm text-gray-500 mt-1">
+                        {error.response?.data?.message || 'Please check your connection and try again.'}
+                    </p>
+                    <button onClick={() => window.location.reload()}
+                        className="mt-4 px-4 py-2 text-sm font-medium text-white bg-[#002684] rounded-lg">
+                        Try again
+                    </button>
+                </div>
+            </TeacherLayout>
+        );
+    }
+
     return (
         <>
             <TeacherLayout>
                 <EducationOverviewDashboard statistics={statistics}/>
+
+                <div className="p-2 mt-2"><TodaySchedule /></div>
 
                 <div className="grid grid-cols-1 p-2 lg:grid-cols-3 gap-6">
                     <TeacherResponsibilities classes={classes} students={students} />

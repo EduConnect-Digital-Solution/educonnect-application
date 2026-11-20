@@ -1,0 +1,43 @@
+/* EduConnect brand loader. Three shapes traced from the logo, animated with CSS only. */
+.ec-mark { display: block; overflow: visible; flex: none; --ec-d: 2.4s; --ec-navy: #002684; --ec-yellow: #FEC01D; }
+.dark .ec-mark, [data-theme="dark"] .ec-mark { --ec-navy: #3D63E0; }
+.ec-mark path { transform-box: fill-box; }
+.ec-mark .p-left, .ec-mark .p-base { fill: var(--ec-navy); }
+.ec-mark .p-right { fill: var(--ec-yellow); }
+.ec-mark[data-tone="on-dark"] .p-left, .ec-mark[data-tone="on-dark"] .p-base { fill: #fff; }
+.ec-mark[data-mono] .p-left, .ec-mark[data-mono] .p-right, .ec-mark[data-mono] .p-base { fill: currentColor; }
+
+.ec-mark[data-variant="open"] .p-left  { transform-origin: 100% 50%; animation: ec-open-l var(--ec-d) cubic-bezier(.65,0,.35,1) infinite both; }
+.ec-mark[data-variant="open"] .p-right { transform-origin: 0% 50%;   animation: ec-open-r var(--ec-d) cubic-bezier(.65,0,.35,1) infinite both; }
+.ec-mark[data-variant="open"] .p-base  { animation: ec-open-b var(--ec-d) cubic-bezier(.22,1,.36,1) infinite both; }
+@keyframes ec-open-b { 0% { opacity: 0; transform: translateY(34px); } 14%, 82% { opacity: 1; transform: none; } 96%, 100% { opacity: 0; transform: translateY(18px); } }
+@keyframes ec-open-l { 0%, 10% { opacity: 0; transform: scaleX(.04); } 34%, 70% { opacity: 1; transform: none; } 90%, 100% { opacity: 0; transform: scaleX(.04); } }
+@keyframes ec-open-r { 0%, 16% { opacity: 0; transform: scaleX(.04); } 40%, 70% { opacity: 1; transform: none; } 90%, 100% { opacity: 0; transform: scaleX(.04); } }
+
+.ec-mark[data-variant="assemble"] .p-left  { animation: ec-as-l var(--ec-d) cubic-bezier(.22,1,.36,1) infinite both; }
+.ec-mark[data-variant="assemble"] .p-right { animation: ec-as-r var(--ec-d) cubic-bezier(.22,1,.36,1) infinite both; }
+.ec-mark[data-variant="assemble"] .p-base  { animation: ec-as-b var(--ec-d) cubic-bezier(.22,1,.36,1) infinite both; }
+@keyframes ec-as-l { 0% { opacity: 0; transform: translate(-110px,-50px) rotate(-10deg); } 24% { opacity: 1; transform: translate(8px,4px) rotate(1deg); } 32%, 74% { opacity: 1; transform: none; } 92%, 100% { opacity: 0; transform: translate(-50px,-24px) rotate(-5deg); } }
+@keyframes ec-as-r { 0%, 4% { opacity: 0; transform: translate(110px,-50px) rotate(10deg); } 28% { opacity: 1; transform: translate(-8px,4px) rotate(-1deg); } 36%, 74% { opacity: 1; transform: none; } 92%, 100% { opacity: 0; transform: translate(50px,-24px) rotate(5deg); } }
+@keyframes ec-as-b { 0%, 8% { opacity: 0; transform: translateY(120px); } 32% { opacity: 1; transform: translateY(-8px); } 40%, 74% { opacity: 1; transform: none; } 92%, 100% { opacity: 0; transform: translateY(60px); } }
+
+.ec-mark[data-variant="pulse"] .p-left  { animation: ec-pulse 1.6s ease-in-out infinite; }
+.ec-mark[data-variant="pulse"] .p-right { animation: ec-pulse 1.6s ease-in-out infinite; animation-delay: -.8s; }
+@keyframes ec-pulse { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+@keyframes ec-breathe { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ec-mark .p-left, .ec-mark .p-right, .ec-mark .p-base { animation: none !important; opacity: 1 !important; transform: none !important; }
+  .ec-mark { animation: ec-breathe 2.4s ease-in-out infinite; }
+}
+
+.ec-loader { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; }
+.ec-loader-label { font-size: 15px; font-weight: 500; color: #5B6482; }
+.dark .ec-loader-label { color: #9AA3C2; }
+.ec-lockup { display: flex; align-items: center; gap: 11px; }
+.ec-lockup img { width: auto; max-width: none; }
+.ec-wm-dark { display: none; }
+.dark .ec-wm-light, [data-theme="dark"] .ec-wm-light { display: none; }
+.dark .ec-wm-dark, [data-theme="dark"] .ec-wm-dark { display: block; }
+.ec-retry { font: inherit; font-size: 13px; font-weight: 600; color: #fff; background: #002684; border: 0; border-radius: 8px; padding: 7px 14px; cursor: pointer; }
+.dark .ec-retry { background: #FEC01D; color: #0A0F20; }

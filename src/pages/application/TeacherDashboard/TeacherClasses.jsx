@@ -1,3 +1,4 @@
+import { BrandLoader } from '@/components/brand/BrandLoader.jsx';
 import React, {Fragment, useState, useEffect} from 'react';
 import TeacherLayout from './components/layout/TeacherLayout.jsx';
 import { Link } from 'react-router-dom';
@@ -16,7 +17,7 @@ const TeacherClasses = () => {
             try {
                 setLoading(true);
                 const classRes = await getTeacherClasses();
-                setClasses(classRes.data.classes);
+                setClasses(classRes?.data?.classes ?? []);
             } catch (err) {
                 console.error('Failed to fetch classes:', err);
                 setError(err);
@@ -39,7 +40,7 @@ const TeacherClasses = () => {
         setLoadingSubjects(true);
         try {
             const response = await getSubjectsByClass(cls.name);
-            setSubjects(response.data.subjects);
+            setSubjects(response?.data?.subjects ?? []);
         } catch (error) {
             console.error("Failed to fetch subjects:", error);
             // Handle error state in UI
@@ -144,14 +145,14 @@ const TeacherClasses = () => {
                                     <div className="mt-4">
                                         {loadingSubjects ? (
                                             <div className="flex justify-center">
-                                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                                                <BrandLoader label="Loading subjects…" size={56} delay={0} />
                                             </div>
                                         ) : subjects.length > 0 ? (
                                             <div className="space-y-2">
                                                 {subjects.map(subject => (
                                                     <Link
                                                         key={subject.name}
-                                                        to={`/dashboard/teacher/students/${selectedClass.name}/${subject.name}`}
+                                                        to={`/dashboard/teacher/students/${encodeURIComponent(selectedClass.name)}/${encodeURIComponent(subject.name)}`}
                                                         className="block w-full text-left p-3 bg-gray-100 rounded-md hover:bg-gray-200"
                                                     >
                                                         {subject.name} ({subject.studentCount} students)

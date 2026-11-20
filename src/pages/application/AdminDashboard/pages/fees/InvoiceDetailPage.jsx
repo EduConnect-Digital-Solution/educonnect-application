@@ -1,3 +1,4 @@
+import { formatSchoolDate } from '../../../../../utils/schoolLocale.js';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Wallet, Ban, BookText, FilePlus2, CheckCircle2 } from 'lucide-react';
@@ -79,7 +80,7 @@ export default function InvoiceDetailPage() {
                     { label: 'Amount', value: formatNaira(invoice?.amount) },
                     { label: 'Paid', value: formatNaira(invoice?.amountPaid), tone: 'green' },
                     { label: 'Balance', value: formatNaira(due), tone: due > 0 ? 'red' : 'green' },
-                    { label: 'Due date', value: invoice?.dueDate ? new Date(invoice.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—' },
+                    { label: 'Due date', value: invoice?.dueDate ? formatSchoolDate(invoice.dueDate) : '—' },
                     { label: 'Status', value: invoice?.status ?? '—' },
                 ]}
                 tabs={[
@@ -104,7 +105,7 @@ export default function InvoiceDetailPage() {
                                     <div key={p.id ?? i} className="flex items-center justify-between py-2.5">
                                         <div>
                                             <p className="text-[13px] font-semibold text-gray-800">{formatNaira(p.amount)}</p>
-                                            <p className="text-[11px] text-gray-400 capitalize">{(p.method || '').replace('_', ' ')} · {p.paidAt ? new Date(p.paidAt).toLocaleDateString() : '—'}</p>
+                                            <p className="text-[11px] text-gray-400 capitalize">{(p.method || '').replace('_', ' ')} · {p.paidAt ? formatSchoolDate(p.paidAt) : '—'}</p>
                                         </div>
                                         {p.id && (
                                             <button onClick={() => navigate(`${ROUTES.payments}/${p.id}`)}

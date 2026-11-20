@@ -369,6 +369,11 @@
         border-color:     var(--border-strong) !important;
         color:            var(--text-tertiary) !important;
     }
+    .bg-white\/95                 { background-color: color-mix(in srgb, var(--bg-base) 95%, transparent) !important; }
+    .bg-white\/90                 { background-color: color-mix(in srgb, var(--bg-base) 90%, transparent) !important; }
+    .bg-white\/80                 { background-color: color-mix(in srgb, var(--bg-base) 80%, transparent) !important; }
+    .bg-white\/70                 { background-color: color-mix(in srgb, var(--bg-base) 70%, transparent) !important; }
+    .bg-white\/60                 { background-color: color-mix(in srgb, var(--bg-base) 60%, transparent) !important; }
     .hover\:bg-gray-50:hover      { background-color: var(--bg-muted)    !important; }
     .hover\:bg-gray-100:hover     { background-color: var(--bg-muted)    !important; }
 
@@ -532,6 +537,33 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
 });
 */
 
+
+/* ────────────── */
+/*  4b. ADMIN COVERAGE ADDITIONS                                */
+/*      Classes the admin screens use that had no dark rule.    */
+/* ────────────── */
+
+[data-theme="dark"],
+.dark {
+    .bg-gray-200                  { background-color: var(--border-strong) !important; }
+    .bg-gray-300                  { background-color: var(--border-strong) !important; }
+    .bg-slate-300                 { background-color: var(--border-strong) !important; }
+    .border-gray-300              { border-color: var(--border-strong) !important; }
+    .border-slate-300             { border-color: var(--border-strong) !important; }
+    .border-gray-50               { border-color: var(--border-default) !important; }
+    .text-gray-300                { color: var(--text-faint) !important; }
+    .text-blue-500                { color: var(--brand-600) !important; }
+    .text-blue-800                { color: var(--brand-700) !important; }
+    .text-blue-900                { color: var(--brand-700) !important; }
+    .text-indigo-600,
+    .text-indigo-700              { color: var(--brand-700) !important; }
+    .bg-indigo-50                 { background-color: var(--brand-50)  !important; }
+    .bg-indigo-100                { background-color: var(--brand-100) !important; }
+    .bg-blue-200                  { background-color: var(--brand-100) !important; }
+    .hover\:bg-gray-50:hover      { background-color: var(--bg-muted) !important; }
+    .hover\:bg-gray-100:hover     { background-color: var(--bg-muted) !important; }
+    .hover\:bg-slate-50:hover     { background-color: var(--bg-muted) !important; }
+}
 
 /* ────────────── */
 /*  5. SYSTEM PREFERENCE FALLBACK                               */

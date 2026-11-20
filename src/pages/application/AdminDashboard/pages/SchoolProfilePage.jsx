@@ -4,7 +4,8 @@ import AdminLayout from '../components/layout/AdminLayout';
 import Input from '../components/ui/Input';
 import {getSchoolProfile, updateSchool, deactivateSchool, reactivateSchool} from "../../../auth/authAPIs.js";
 import SettingsBreadcrumb from '../components/ui/SettingsBreadcrumb.jsx';
-import { pushToast, DetailSkeleton } from '../../../../components/patterns';
+import { pushToast, DetailSkeleton, ImageUploadField, EmptyState } from '../../../../components/patterns';
+import { getSchoolSettings, saveSchoolLogo } from '../services/onboardingAPIs.js';
 
 const Field = ({ label, value, icon: Icon, editable, name, onChange }) => (
     <div>
@@ -32,7 +33,25 @@ const SchoolProfilePage = () => {
     const [showStatusModal, setShowStatusModal] = useState(false);
     const [statusReason, setStatusReason] = useState('');
     const [loading, setLoading] = useState(false);
+    const [loadError, setLoadError] = useState(null);
     const [school, setSchool] = useState({});
+    const [logoUrl, setLogoUrl] = useState(null);
+
+    useEffect(() => {
+        getSchoolSettings().then(r => setLogoUrl(r.logoUrl)).catch(() => {});
+    }, []);
+
+    const handleLogoChange = async (url) => {
+        const previous = logoUrl;
+        setLogoUrl(url || null);
+        try {
+            await saveSchoolLogo(url || null);
+            pushToast({ type: 'success', message: url ? 'School logo updated.' : 'School logo removed.' });
+        } catch (e) {
+            setLogoUrl(previous);
+            pushToast({ type: 'error', message: e?.message || 'Could not save the school logo.' });
+        }
+    };
 
     const showToast = (message, type) => pushToast({ message, type });
 
@@ -51,6 +70,7 @@ const SchoolProfilePage = () => {
     };
 
     const fetchSchoolProfile = async () => {
+        setLoadError(null);
         try {
             setLoading(true);
             const response = await getSchoolProfile();
@@ -79,8 +99,8 @@ const SchoolProfilePage = () => {
                 description: schoolInformation.description || '',
             });
         } catch (error) {
-            console.error(error)
-            showToast(error.message || 'Failed to fetch school profile.', 'error');
+            // Shown in place of the form: an empty form would invite saving blank details over the real ones
+            setLoadError(error?.response?.data?.message || error.message || 'Failed to load the school profile.');
         } finally {
             setLoading(false);
         }
@@ -88,6 +108,8 @@ const SchoolProfilePage = () => {
 
     useEffect(() => {
         fetchSchoolProfile();
+        // Load once when the page opens
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleUpdateSchool = async () => {
@@ -95,6 +117,7 @@ const SchoolProfilePage = () => {
             await updateSchool(formData);
             showToast('School profile updated successfully!', 'success');
             setIsEditing(false);
+            window.dispatchEvent(new Event('school-brand-changed'));
             fetchSchoolProfile(); // Refresh school data
         } catch (error) {
             console.error(error);
@@ -144,6 +167,15 @@ const SchoolProfilePage = () => {
         );
     }
 
+    if (loadError) {
+        return (
+            <AdminLayout>
+                <SettingsBreadcrumb section="Identity & Branding" />
+                <EmptyState variant="error" description={loadError} onRetry={fetchSchoolProfile} />
+            </AdminLayout>
+        );
+    }
+
     return (
         <AdminLayout>
             <SettingsBreadcrumb section="Identity & Branding" />
@@ -157,6 +189,11 @@ const SchoolProfilePage = () => {
                         >
                             <PencilLine size={18} />
                         </button>
+                    </div>
+
+                    <div className="mb-6 pb-6 border-b border-gray-100">
+                        <ImageUploadField name={school.schoolName || ''} value={logoUrl} onChange={handleLogoChange} label="School logo" size={72} />
+                        <p className="text-xs text-gray-400 mt-1.5">Shown on report cards, receipts and emails. The sidebar always shows EduConnect.</p>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -259,3 +296,4 @@ const SchoolProfilePage = () => {
 };
 
 export default SchoolProfilePage;
+

@@ -1,3 +1,5 @@
+import { formatSchoolTime } from '../../../../../utils/schoolLocale.js';
+import { notify } from '@/components/patterns/toastBus.js';
 import React, { useState } from 'react';
 import { useTimetable } from '../TimetableContext';
 import { useAcademic } from '../../../../../contexts/AcademicContext.jsx';
@@ -14,13 +16,13 @@ import {deleteTimetableDraft} from "../timetableAPIs.js";
  * Shows context-sensitive details based on selection, plus global publish controls.
  */
 export default function PropertiesPanel({ resources }) {
-  const { state, dispatch, hasErrors, conflicts } = useTimetable();
+  const { state, dispatch, conflicts } = useTimetable();
   const { currentTerm } = useAcademic();
   const [showPublish, setShowPublish] = useState(false);
   const [showDuplicate, setShowDuplicate] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   
-  const { selectedEntry, isPublished, lastSavedAt, isSaving } = state;
+  const { selectedEntry, isPublished, lastSavedAt, isSaving, saveError } = state;
 
   const handleStartAfresh = async () => {
     if (!confirm('Are you sure you want to delete this draft and start entirely from scratch? This will destroy all scheduled blocks and reset the grid structure.')) return;
@@ -31,7 +33,7 @@ export default function PropertiesPanel({ resources }) {
       dispatch({ type: 'CLEAR_PERIODS_AND_SCHEDULES' });
     } catch (err) {
       console.error(err);
-      alert('Failed to delete draft.');
+      notify.error('Failed to delete draft.');
     } finally {
       setIsDeleting(false);
     }
@@ -99,13 +101,14 @@ export default function PropertiesPanel({ resources }) {
             </button>
           )}
 
+          {saveError && <p role="alert" className="text-xs text-red-700">Draft was not saved. <button type="button" className="underline" onClick={() => dispatch({ type: 'RETRY_SAVE' })}>Retry</button></p>}
           {/* Sync indicator */}
           {!isPublished && (lastSavedAt || isSaving) && (
             <p className="text-[10px] text-gray-400 text-center font-medium mt-1 flex justify-center items-center gap-1">
               {isSaving ? (
                 <><RefreshCw size={10} className="animate-spin" /> Saving draft...</>
               ) : (
-                `Draft saved ${new Date(lastSavedAt).toLocaleTimeString()}`
+                `Draft saved ${formatSchoolTime(lastSavedAt)}`
               )}
             </p>
           )}
@@ -151,13 +154,6 @@ export default function PropertiesPanel({ resources }) {
 function SelectionEditor({ entry, dispatch, state, resources }) {
   const isReadOnly = state.isPublished;
   const { teachers = [], rooms = [] } = resources || {};
-
-  const handleChange = (field, value) => {
-    dispatch({
-      type: 'UPDATE_SCHEDULE_ENTRY',
-      payload: { id: entry.id, [field]: value }
-    });
-  };
 
   const handleTeacherChange = (e) => {
     const tid = e.target.value;
@@ -245,3 +241,4 @@ function SelectionEditor({ entry, dispatch, state, resources }) {
     </div>
   );
 }
+

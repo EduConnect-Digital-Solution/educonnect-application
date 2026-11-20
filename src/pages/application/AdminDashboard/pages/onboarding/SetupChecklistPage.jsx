@@ -8,7 +8,7 @@ import AdminLayout from '../../components/layout/AdminLayout.jsx';
 import { useAuth } from '../../../../../contexts/AuthContext.jsx';
 import { getOnboardingState, markGoLive } from '../../services/onboardingAPIs.js';
 import useSchoolBrand from '../../hooks/useSchoolBrand.js';
-import { CardGridSkeleton, pushToast } from '../../../../../components/patterns';
+import { CardGridSkeleton, EmptyState, pushToast } from '../../../../../components/patterns';
 import ProgressRing from './ProgressRing.jsx';
 
 import PreviewSampleModal from './PreviewSampleModal.jsx';
@@ -28,6 +28,7 @@ export default function SetupChecklistPage() {
 
     const [state, setState] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(null);
 
     const [showPreview, setShowPreview] = useState(false);
     const [showCelebration, setShowCelebration] = useState(false);
@@ -36,6 +37,9 @@ export default function SetupChecklistPage() {
         try {
             const next = await getOnboardingState();
             setState(next);
+            setLoadError(null);
+        } catch {
+            setLoadError('The setup checklist could not be loaded.');
         } finally {
             setLoading(false);
         }
@@ -54,7 +58,7 @@ export default function SetupChecklistPage() {
         try {
             await markGoLive();
         } catch (err) {
-            pushToast({ message: err.message || 'Could not mark the school live. Please try again.' });
+            pushToast({ message: err.message || 'Could not mark the school live. Please try again.', type: 'error' });
             return;
         }
         setShowCelebration(true);
@@ -96,8 +100,16 @@ export default function SetupChecklistPage() {
                 </div>
 
                 {/* ── Steps ── */}
+                {state?.failedChecks?.length > 0 && (
+                    <p role="alert" className="mt-4 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5">
+                        We could not check {state.failedChecks.join(', ')}, so {state.failedChecks.length === 1 ? 'that step' : 'those steps'} may show as not done.{' '}
+                        <button type="button" onClick={load} className="font-semibold underline">Check again</button>
+                    </p>
+                )}
                 {loading && !state ? (
                     <div className="mt-6"><CardGridSkeleton cards={6} /></div>
+                ) : !state ? (
+                    <div className="mt-6"><EmptyState variant="error" description={loadError || 'The setup checklist could not be loaded.'} onRetry={load} /></div>
                 ) : (
                     <>
                         <div className="mt-6 grid lg:grid-cols-3 grid-cols-1 gap-4 space-y-3">

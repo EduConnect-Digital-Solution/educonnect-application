@@ -115,6 +115,16 @@ export async function updateGradingScale(id, payload) {
  * Expected response shape:
  * { success, message }
  */
+// PUT /api/admin/grading-scales/:id/classes — the scale grades exactly these classes; others use the default
+export async function assignGradingScaleClasses(id, classIds) {
+    try {
+        const { data } = await apiClient.put(`/api/admin/grading-scales/${id}/classes`, { classIds });
+        return data;
+    } catch (error) {
+        throw error?.response?.data || error;
+    }
+}
+
 export async function deleteGradingScale(id) {
     try {
         const { data } = await apiClient.delete(`/api/admin/grading-scales/${id}`);
@@ -369,6 +379,16 @@ export async function addPolicyAssignment(policyId, payload) {
  * Expected response shape:
  * { success: true, message: string }
  */
+// PUT /api/admin/assessment-policies/:id/class-assignments — the policy covers exactly these classes
+export async function setPolicyClassAssignments(policyId, classIds) {
+    try {
+        const { data } = await apiClient.put(`/api/admin/assessment-policies/${policyId}/class-assignments`, { classIds });
+        return data;
+    } catch (error) {
+        throw error?.response?.data || error;
+    }
+}
+
 export async function removePolicyAssignment(policyId, assignmentId) {
     // MOCK — replace with live call when backend is ready:
     try {
@@ -521,6 +541,16 @@ export async function getBroadsheet(armId, termId) {
 
 }
 
+// GET /api/admin/broadsheets/overview?termId= — one summary row per arm
+export async function getBroadsheetOverview(termId) {
+    try {
+        const { data } = await apiClient.get('/api/admin/broadsheets/overview', { params: { termId } });
+        return data;
+    } catch (error) {
+        throw error?.response?.data || error;
+    }
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // RESULT PUBLISHING — LIVE
 // ═════════════════════════════════════════════════════════════════════════════
@@ -595,7 +625,8 @@ export async function generateResultPdfs(payload) {
  * GET /api/admin/results/pdf-jobs/:jobId
  * Poll for bulk-PDF progress. The frontend polls until status = 'completed'.
  *
- * Response: { success, data: { jobId, status: 'processing'|'completed'|'failed', progress, downloadUrl } }
+ * Response: { success, data: { jobId, status: 'processing'|'completed'|'failed', progress, hasFile } }
+ * The file itself is opened with openPdfJobFile (services/pdfJobDownload.js).
  */
 export async function getPdfJob(jobId) {
     try {
@@ -686,6 +717,22 @@ export async function saveReportCardComment(studentId, payload) {
         throw error?.response?.data || error;
     }
 
+}
+
+/**
+ * GET /api/admin/report-cards/status?armId=&termId=
+ * Where an arm's report cards got to, so the release page can restore itself after a refresh.
+ *
+ * Response: { success, data: { signedOff, signedAt, released, releasedAt, publishedCount,
+ *   latestJob: { jobId, status, progress, hasFile, createdAt } | null } }
+ */
+export async function getReportCardStatus(armId, termId) {
+    try {
+        const { data } = await apiClient.get('/api/admin/report-cards/status', { params: { armId, termId } });
+        return data;
+    } catch (error) {
+        throw error?.response?.data || error;
+    }
 }
 
 /**
@@ -875,3 +922,4 @@ export async function getAdminSubjectScores(termId, className, armName, subjectN
         throw error?.response?.data || error;
     }
 }
+

@@ -1,10 +1,16 @@
-import React, { useState } from 'react';
+import { notify } from '@/components/patterns/toastBus.js';
+import { BrandLoader } from '@/components/brand/BrandLoader.jsx';
+import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, ArrowLeft, CheckCircle } from 'lucide-react';
+import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import { Images } from '../../components/images';
 import { LoginSchool, LoginUser, ForgotPassword, ResetPassword, ForgotUserPassword, ResetUserPassword } from './authAPIs';
-import { Toast } from '../application/AdminDashboard/components/ui/Toast';
 import { useAuth } from '../../contexts/AuthContext.jsx';
+import { passwordProblem } from '../../utils/password.js';
+import { takeReturnPath } from '../../utils/returnPath.js';
+
+// School IDs are issued in capitals (e.g. NUM1234); send them the same way from every form
+const normaliseSchoolId = (value) => String(value ?? '').trim().toUpperCase();
 
 // ─── Role Selection Card ───────
 const RoleCard = ({ title, description, icon, onClick }) => (
@@ -37,6 +43,18 @@ const inputCls = "w-full px-4 py-3 border border-gray-200 rounded-xl text-sm tex
 
 // ─── Main Component ─────────────
 export default function AuthPage() {
+    // Why the user was signed out (set by AuthContext), shown once on the portal picker
+    const [signOutNotice, setSignOutNotice] = useState(() => {
+        try {
+            const reason = sessionStorage.getItem('ec_signout_reason');
+            if (reason === 'idle') return 'You were signed out because there was no activity for a while. Please sign in again.';
+            if (reason === 'expired') return 'Your session has ended. Please sign in again to continue.';
+        } catch { /* storage unavailable */ }
+        return null;
+    });
+    useEffect(() => {
+        try { sessionStorage.removeItem('ec_signout_reason'); } catch { /* storage unavailable */ }
+    }, []);
     const [selectedRole, setSelectedRole] = useState(null);
     const [view, setView] = useState('login'); // 'login' | 'forgot' | 'reset' | 'confirmed'
     const [showPassword, setShowPassword] = useState(false);
@@ -44,20 +62,13 @@ export default function AuthPage() {
     const [forgotData, setForgotData] = useState({ schoolId: '', email: '' });
     const [resetIsAdmin, setResetIsAdmin] = useState(false); // locks the reset endpoint to the role used in the forgot step
     const [resetData, setResetData] = useState({ otp: '', email: '', schoolId: '', newPassword: '', confirmPassword: '' });
-    const [toast, setToast] = useState({ show: false, message: '', type: 'error' });
     const [isLoading, setIsLoading] = useState(false);
     const [checkedSession, setCheckedSession] = useState(false);
     const [showLoggedIn, setShowLoggedIn] = useState(false);
     const navigate = useNavigate();
     const { user, login, logout, checkAuthStatus } = useAuth();
 
-    const showToast = (message, type = 'error', duration = 3000, onClose = null) => {
-        setToast({ show: true, message, type });
-        setTimeout(() => {
-            setToast(p => ({ ...p, show: false }));
-            if (onClose) onClose();
-        }, duration);
-    };
+    const showToast = (message, type = 'error', duration, onClose = null) => notify(message, type, duration, onClose);
 
     const handleRoleSelection = async (role) => {
         setSelectedRole(role);
@@ -75,13 +86,14 @@ export default function AuthPage() {
     };
 
     const handleLogin = async () => {
-        if (!formData.schoolId) return showToast('Please enter your School ID.');
-        if (!formData.email) return showToast('Please enter your email address.');
+        if (!formData.schoolId.trim()) return showToast('Please enter your School ID.');
+        if (!formData.email.trim()) return showToast('Please enter your email address.');
         if (!formData.password) return showToast('Please enter your password.');
+        if (isLoading) return; // Enter pressed again while the first attempt is still in flight
 
         setIsLoading(true);
         try {
-            const payload = { schoolId: formData.schoolId.trim(), email: formData.email.trim().toLowerCase(), password: formData.password };
+            const payload = { schoolId: normaliseSchoolId(formData.schoolId), email: formData.email.trim().toLowerCase(), password: formData.password };
 
             const res = selectedRole === 'admin' ? await LoginSchool(payload) : await LoginUser(payload);
             if (res.success) {
@@ -100,16 +112,16 @@ export default function AuthPage() {
     };
 
     const handleForgotPassword = async () => {
-        if (!forgotData.schoolId) return showToast('Please enter your School ID.');
-        if (!forgotData.email) return showToast('Please enter your email address.');
+        if (!forgotData.schoolId.trim()) return showToast('Please enter your School ID.');
+        if (!forgotData.email.trim()) return showToast('Please enter your email address.');
         setIsLoading(true);
         try {
-            const forgotPayload = { email: forgotData.email.trim().toLowerCase(), schoolId: forgotData.schoolId.trim().toUpperCase() };
+            const forgotPayload = { email: forgotData.email.trim().toLowerCase(), schoolId: normaliseSchoolId(forgotData.schoolId) };
             const data = await (selectedRole === 'admin' ? ForgotPassword : ForgotUserPassword)(forgotPayload);
             
             if (data.success) {
                 setResetIsAdmin(selectedRole === 'admin');
-                setResetData(p => ({ ...p, email: forgotData.email.trim().toLowerCase(), schoolId: forgotData.schoolId.trim().toUpperCase() }));
+                setResetData(p => ({ ...p, email: forgotPayload.email, schoolId: forgotPayload.schoolId }));
                 showToast('OTP sent! Check your email.', 'success');
                 setView('reset');
             } else {
@@ -123,16 +135,23 @@ export default function AuthPage() {
     };
 
     const handleResetPassword = async () => {
-        if (!resetData.otp) return showToast('Please enter the OTP sent to your email.');
+        const otp = resetData.otp.trim();
+        if (!otp) return showToast('Please enter the OTP sent to your email.');
+        if (!/^\d{6}$/.test(otp)) return showToast('The OTP is the 6-digit code sent to your email.');
         if (!resetData.newPassword) return showToast('Please enter a new password.');
+        const problem = passwordProblem(resetData.newPassword);
+        if (problem) return showToast(problem);
         if (resetData.newPassword !== resetData.confirmPassword) return showToast('Passwords do not match.');
         setIsLoading(true);
         try {
             const data = resetIsAdmin
-                ? await ResetPassword(resetData)
-                : await ResetUserPassword({ email: resetData.email, schoolId: resetData.schoolId, otp: resetData.otp, newPassword: resetData.newPassword });
+                ? await ResetPassword({ ...resetData, otp })
+                : await ResetUserPassword({ email: resetData.email, schoolId: resetData.schoolId, otp, newPassword: resetData.newPassword });
             
             if (data.success) {
+                // The new password must not linger in memory, and the sign-in form starts with the right school
+                setResetData({ otp: '', email: '', schoolId: '', newPassword: '', confirmPassword: '' });
+                setFormData(p => ({ ...p, schoolId: resetData.schoolId, email: resetData.email, password: '' }));
                 showToast('Password reset successfully!', 'success', 2000, () => setView('login'));
             } else {
                 showToast(data.errors?.[0]?.msg || data.message || 'Password reset failed.');
@@ -163,10 +182,6 @@ export default function AuthPage() {
                 {/*</NavLink>*/}
             </div>
 
-            {/* Toast */}
-            {toast.show && (
-                <Toast message={toast.message} type={toast.type} onClose={() => setToast(p => ({ ...p, show: false }))} />
-            )}
 
             {/* Background */}
             <div className="min-h-screen flex items-center justify-center p-4 bg-[#F0F2F8]">
@@ -181,6 +196,12 @@ export default function AuthPage() {
                                 <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Welcome back</h1>
                                 <p className="text-gray-500 text-sm mt-1.5">Select your portal to sign in</p>
                             </div>
+                            {signOutNotice && (
+                                <div role="status" className="flex items-start justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-800">
+                                    <span>{signOutNotice}</span>
+                                    <button type="button" onClick={() => setSignOutNotice(null)} aria-label="Dismiss" className="font-semibold opacity-70 hover:opacity-100">✕</button>
+                                </div>
+                            )}
                             <div className="space-y-3">
                                 <RoleCard title="School Administrator" description="Manage staff, students, and school data" icon="🏫" onClick={() => handleRoleSelection('admin')} />
                                 <RoleCard title="Teacher" description="Access classrooms, grades, and lessons" icon="📚" onClick={() => handleRoleSelection('teacher')} />
@@ -193,11 +214,7 @@ export default function AuthPage() {
                     {/* ── Loading ── */}
                     {selectedRole && (isLoading && !checkedSession) && (
                         <div className="flex flex-col items-center justify-center gap-4 py-16">
-                            <div className="relative w-14 h-14">
-                                <div className="absolute inset-0 border-4 border-blue-100 rounded-full" />
-                                <div className="absolute inset-0 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                            </div>
-                            <p className="text-gray-400 text-sm animate-pulse">Loading...</p>
+                            <BrandLoader label="Loading..." size={88} />
                         </div>
                     )}
 
@@ -222,7 +239,7 @@ export default function AuthPage() {
 
                                     <div className={`flex flex-col`}>
                                         <button
-                                            onClick={() => navigate(`/dashboard/${user.role}`, { replace: true })}
+                                            onClick={() => navigate(takeReturnPath(user.role), { replace: true })}
                                             className="inline-flex items-center justify-center px-5 py-2.5 bg-gray-900 hover:bg-blue-700 text-white text-xs font-bold uppercase tracking-wider transition-all duration-200 rounded-sm w-full md:w-auto"
                                         >
                                             Enter Dashboard
@@ -280,10 +297,16 @@ export default function AuthPage() {
                             </div>
 
                             <div className="px-8 pb-8 text-center">
-                                <p className="text-sm text-gray-500">
-                                    New to EduConnect?{' '}
-                                    <NavLink to="/register/school" className="text-blue-600 font-semibold hover:underline">Create an account</NavLink>
-                                </p>
+                                {selectedRole === 'admin' ? (
+                                    <p className="text-sm text-gray-500">
+                                        New to EduConnect?{' '}
+                                        <NavLink to="/register/school" className="text-blue-600 font-semibold hover:underline">Register your school</NavLink>
+                                    </p>
+                                ) : (
+                                    <p className="text-sm text-gray-500">
+                                        Teachers and parents join through an invitation from their school.
+                                    </p>
+                                )}
                             </div>
                         </div>
                     )}
@@ -310,7 +333,7 @@ export default function AuthPage() {
 
                                     <div className={`flex flex-col`}>
                                         <button
-                                            onClick={() => navigate(`/dashboard/${user.role}`, { replace: true })}
+                                            onClick={() => navigate(takeReturnPath(user.role), { replace: true })}
                                             className="inline-flex items-center justify-center px-5 py-2.5 bg-gray-900 hover:bg-blue-700 text-white text-xs font-bold uppercase tracking-wider transition-all duration-200 rounded-sm w-full md:w-auto"
                                         >
                                             Enter Dashboard
@@ -365,7 +388,7 @@ export default function AuthPage() {
                             </div>
                             <div className="px-8 py-6 space-y-4">
                                 <Field label="OTP Code" required>
-                                    <input type="text" value={resetData.otp} onChange={e => setResetData(p => ({ ...p, otp: e.target.value }))} placeholder="Enter 6-digit OTP" maxLength={6} className={inputCls + ' tracking-widest text-center text-lg font-mono'} />
+                                    <input type="text" value={resetData.otp} inputMode="numeric" autoComplete="one-time-code" onChange={e => setResetData(p => ({ ...p, otp: e.target.value.replace(/\D/g, '').slice(0, 6) }))} placeholder="Enter 6-digit OTP" maxLength={6} className={inputCls + ' tracking-widest text-center text-lg font-mono'} />
                                 </Field>
                                 <Field label="New Password" required>
                                     <div className="relative">

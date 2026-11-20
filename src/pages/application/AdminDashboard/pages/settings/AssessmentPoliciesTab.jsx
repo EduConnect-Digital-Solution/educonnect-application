@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import {
-    Plus, Trash2, Loader2, Check, X,
-    BookOpen, GraduationCap, Users, Layers, FlaskConical, Globe,
-    Info, AlertCircle, User,
-} from 'lucide-react';
+import { Plus, Trash2, Check, X, BookOpen, GraduationCap, Users, Layers, FlaskConical, Globe, Info, AlertCircle, User } from 'lucide-react';
+import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import {
     WorkbenchTable, ConfirmDestructiveDialog, Drawer, pushToast, HelpCards,
 } from '../../../../../components/patterns';
@@ -14,8 +11,10 @@ import {
     deleteAssessmentPolicy,
     addPolicyAssignment,
     removePolicyAssignment,
+    setPolicyClassAssignments,
 } from '../../services/gradingAPIs.js';
 import { getSchoolClasses } from '../../services/classAPIs.js';
+import { getClassArms } from '../../services/armAPIs.js';
 import { getSchoolSubjects } from '../../services/subjectAPIs.js';
 
 // ─── Scope config ──────────────────────────────────────────────────────────────
@@ -175,6 +174,11 @@ function AddAssignmentForm({ onAdd, onCancel }) {
     // Primary selector state (class/subject/arm)
     const [selectedClassId, setSelectedClassId]     = useState('');
     const [selectedSubjectId, setSelectedSubjectId] = useState('');
+    const [arms, setArms] = useState([]);
+    const [selectedArmId, setSelectedArmId] = useState('');
+    const [loadingArms, setLoadingArms] = useState(false);
+    const [armsRetry, setArmsRetry] = useState(0);
+    const [armsError, setArmsError] = useState(false);
 
     // Secondary selector state (for subject_class)
     const [secondaryClassId, setSecondaryClassId] = useState('');
@@ -200,28 +204,45 @@ function AddAssignmentForm({ onAdd, onCancel }) {
     useEffect(() => {
         setSelectedClassId('');
         setSelectedSubjectId('');
+        setSelectedArmId('');
         setSecondaryClassId('');
         setError(null);
     }, [scope]);
 
+    useEffect(() => {
+        setSelectedArmId('');
+        setArms([]);
+        setArmsError(false);
+        if (scope !== 'arm' || !selectedClassId) { setLoadingArms(false); return undefined; }
+        let active = true;
+        setLoadingArms(true);
+        getClassArms(selectedClassId)
+            .then(res => { if (active) setArms(res.data?.arms ?? []); })
+            .catch(() => { if (active) setArmsError(true); })
+            .finally(() => { if (active) setLoadingArms(false); });
+        return () => { active = false; };
+    }, [scope, selectedClassId, armsRetry]);
+
     const handleAdd = async () => {
+        if (scope === 'arm' && (!selectedClassId || !selectedArmId || loadingArms)) { setError('Select a class and arm.'); return; }
         if (scopeMeta.needsPrimary === 'class'   && !selectedClassId)   { setError('Select a class.'); return; }
         if (scopeMeta.needsPrimary === 'subject' && !selectedSubjectId) { setError('Select a subject.'); return; }
         if (scopeMeta.needsSecondary === 'class' && !secondaryClassId)  { setError('Select a class.'); return; }
 
         const selectedClass   = classes.find(c => c.id === selectedClassId);
+        const selectedArm = arms.find(a => a.id === selectedArmId);
         const selectedSubject = subjects.find(s => s.id === selectedSubjectId);
         const secondaryClass  = classes.find(c => c.id === secondaryClassId);
 
         const payload = {
             scope,
             scopeId:             scope === 'class'         ? selectedClassId
-                               : scope === 'arm'           ? selectedClassId
+                               : scope === 'arm'           ? selectedArmId
                                : scope === 'subject'       ? selectedSubjectId
                                : scope === 'subject_class' ? selectedSubjectId
                                : null,
             scopeName:           scope === 'class'         ? selectedClass?.name
-                               : scope === 'arm'           ? selectedClass?.name
+                               : scope === 'arm'           ? `${selectedClass?.name} ${selectedArm?.name}`
                                : scope === 'subject'       ? selectedSubject?.name
                                : scope === 'subject_class' ? selectedSubject?.name
                                : null,
@@ -285,7 +306,7 @@ function AddAssignmentForm({ onAdd, onCancel }) {
                 </div>
             ) : (
                 <>
-                    {(scopeMeta.needsPrimary === 'class' || scopeMeta.needsSecondary === 'class') && scope !== 'subject_class' && (
+                    {(scopeMeta.needsPrimary === 'class' || scopeMeta.needsPrimary === 'arm') && scope !== 'subject_class' && (
                         <div>
                             <label className="block text-xs font-medium text-gray-500 mb-1">
                                 Select class <span className="text-red-400">*</span>
@@ -300,6 +321,17 @@ function AddAssignmentForm({ onAdd, onCancel }) {
                                     <option key={c.id} value={c.id}>{c.name}</option>
                                 ))}
                             </select>
+                        </div>
+                    )}
+
+                    {scope === 'arm' && selectedClassId && (
+                        <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">Select arm <span className="text-red-400">*</span></label>
+                            <select value={selectedArmId} onChange={e => setSelectedArmId(e.target.value)} disabled={loadingArms} className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white">
+                                <option value="">{loadingArms ? 'Loading arms…' : '— choose an arm —'}</option>
+                                {arms.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                            </select>
+                            {armsError && <button type="button" className="text-xs text-red-700 underline mt-1" onClick={() => setArmsRetry(n => n + 1)}>Could not load arms. Try again</button>}
                         </div>
                     )}
 
@@ -470,6 +502,70 @@ function AssignmentsSection({ assignments, onAdd, onRemove }) {
 }
 
 // ─── Policy drawer (create + manage/edit) ──────────────────────────────────────
+
+// Tick the classes that follow this policy. Saving moves a class over from any other policy it was on.
+function ClassAssignmentsSection({ policyId, assignments, onSaved }) {
+    const [classes, setClasses] = useState([]);
+    const [selected, setSelected] = useState([]);
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+        getSchoolClasses().then(res => setClasses(res.data?.classes ?? [])).catch(() => setClasses([]));
+    }, []);
+    const savedIds = assignments.filter(a => a.scope === 'class').map(a => a.scopeId);
+    useEffect(() => { setSelected(savedIds); }, [assignments.map(a => a.id).join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const toggle = (id) => setSelected(sel => (sel.includes(id) ? sel.filter(x => x !== id) : [...sel, id]));
+    const changed = selected.length !== savedIds.length || selected.some(id => !savedIds.includes(id));
+    const allSelected = classes.length > 0 && selected.length === classes.length;
+
+    const save = async () => {
+        setSaving(true);
+        try {
+            const res = await setPolicyClassAssignments(policyId, selected);
+            onSaved(res.data.assignments);
+            pushToast({ message: selected.length ? `This policy now applies to ${selected.length} ${selected.length === 1 ? 'class' : 'classes'}.` : 'This policy no longer applies to any class directly.', type: 'success' });
+        } catch (e) {
+            pushToast({ message: e?.message || 'Could not apply the policy to those classes.', type: 'error' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="space-y-3">
+            <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100 pb-2">Classes using this policy</h3>
+            <p className="text-xs text-gray-400">
+                Tick several classes at once. A class can follow only one class-level policy, so a ticked class moves here from its previous policy.
+            </p>
+            {classes.length === 0 ? (
+                <p className="text-xs text-gray-400">No classes yet. Create them in Classes &amp; Arms.</p>
+            ) : (
+                <>
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-500">{selected.length} of {classes.length} classes</span>
+                        <button type="button" onClick={() => setSelected(allSelected ? [] : classes.map(c => c.id))} className="text-xs font-semibold text-blue-700 hover:underline">
+                            {allSelected ? 'Clear all' : 'Select all'}
+                        </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        {classes.map(c => (
+                            <label key={c.id} className={`px-3 py-1.5 text-sm rounded-lg border cursor-pointer ${selected.includes(c.id) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}>
+                                <input type="checkbox" className="sr-only" checked={selected.includes(c.id)} onChange={() => toggle(c.id)} />
+                                {c.name}
+                            </label>
+                        ))}
+                    </div>
+                    <button type="button" onClick={save} disabled={saving || !changed}
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white text-sm font-semibold rounded-lg hover:bg-black disabled:opacity-40 transition-colors">
+                        {saving && <Loader2 size={13} className="animate-spin" />}
+                        Save classes
+                    </button>
+                </>
+            )}
+        </div>
+    );
+}
 
 function PolicyDrawer({ open, onClose, initial, onCreated, onUpdated }) {
     const isEdit = Boolean(initial?.id);
@@ -684,6 +780,15 @@ function PolicyDrawer({ open, onClose, initial, onCreated, onUpdated }) {
                 <p className="text-[12px] font-medium text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
                     {error}
                 </p>
+            )}
+
+            {/* ── Classes (edit mode only) ── */}
+            {isEdit && (
+                <ClassAssignmentsSection
+                    policyId={initial.id}
+                    assignments={assignments}
+                    onSaved={(updated) => { setAssignments(updated); onUpdated({ ...initial, assignments: updated }); }}
+                />
             )}
 
             {/* ── Assignments (edit mode only) ── */}
@@ -942,3 +1047,4 @@ export default function AssessmentPoliciesTab() {
         </div>
     );
 }
+

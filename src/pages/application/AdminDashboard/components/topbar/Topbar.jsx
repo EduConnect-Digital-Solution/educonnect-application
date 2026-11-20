@@ -2,7 +2,21 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Search, Menu } from 'lucide-react';
 import CommandPalette from './CommandPalette.jsx';
 import ScopePill, { ReadOnlyScopeBanner } from './ScopePill.jsx';
+import MobileBrandLogo from '../../../../../components/MobileBrandLogo.jsx';
 import { NotificationBell, ApprovalsChip, SetupProgressChip, ProfileMenu } from './TopbarMenus.jsx';
+
+// Mount each chip once: in the bar from md up, in a wrapping second row below
+function useIsMd() {
+    const query = '(min-width: 768px)';
+    const [matches, setMatches] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches);
+    useEffect(() => {
+        const mq = window.matchMedia(query);
+        const on = (e) => setMatches(e.matches);
+        mq.addEventListener('change', on);
+        return () => mq.removeEventListener('change', on);
+    }, []);
+    return matches;
+}
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 
@@ -12,6 +26,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigat
  */
 export default function Topbar({ onOpenMobileNav }) {
     const [paletteOpen, setPaletteOpen] = useState(false);
+    const isMd = useIsMd();
 
     const openPalette = useCallback(() => setPaletteOpen(true), []);
 
@@ -38,13 +53,17 @@ export default function Topbar({ onOpenMobileNav }) {
                         <Menu size={18} />
                     </button>
 
+                    {/* EduConnect logo: dashboards keep it in the sidebar, so mobile needs it here */}
+                    <MobileBrandLogo className="lg:hidden" />
+
                     {/* Global search trigger */}
                     <button
                         onClick={openPalette}
-                        className="group flex items-center gap-2.5 h-9 flex-1 max-w-sm px-3 rounded-lg bg-gray-50 border border-gray-200 text-left hover:border-gray-300 hover:bg-gray-100/70 transition-colors"
+                        aria-label="Search"
+                        className="group flex items-center gap-2.5 h-9 md:flex-1 md:max-w-sm px-2.5 md:px-3 rounded-lg bg-gray-50 border border-gray-200 text-left hover:border-gray-300 hover:bg-gray-100/70 transition-colors"
                     >
                         <Search size={15} className="text-gray-400 shrink-0" />
-                        <span className="flex-1 text-[13px] text-gray-400 font-medium truncate">
+                        <span className="hidden md:block flex-1 text-[13px] text-gray-400 font-medium truncate">
                             Search students, invoices, pages…
                         </span>
                         <kbd className="hidden md:flex items-center gap-0.5 text-[10px] font-semibold text-gray-400 bg-white border border-gray-200 rounded px-1.5 py-0.5 shrink-0">
@@ -56,14 +75,27 @@ export default function Topbar({ onOpenMobileNav }) {
 
                     {/* Right cluster */}
                     <div className="flex items-center gap-2">
-                        <SetupProgressChip />
-                        <ScopePill />
-                        <ApprovalsChip />
+                        {isMd && (
+                            <>
+                                <SetupProgressChip />
+                                <ScopePill />
+                                <ApprovalsChip />
+                            </>
+                        )}
                         <NotificationBell />
                         <div className="w-px h-6 bg-gray-200 mx-0.5 hidden sm:block" />
                         <ProfileMenu />
                     </div>
                 </div>
+
+                {/* Phones: the chips that don't fit above wrap into a second row (no scroll, so dropdowns aren't clipped) */}
+                {!isMd && (
+                    <div className="flex flex-wrap items-center gap-2 px-4 pb-2">
+                        <SetupProgressChip />
+                        <ScopePill />
+                        <ApprovalsChip />
+                    </div>
+                )}
             </header>
 
             <ReadOnlyScopeBanner />

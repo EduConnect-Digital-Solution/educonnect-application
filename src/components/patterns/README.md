@@ -36,7 +36,8 @@ Import from the barrel: `import { StatusChip, WorkbenchTable, … } from '../../
   and **attendance entry** (`TeacherDashboard/attendance/AttendanceRegister.jsx`) lands with the
   teacher-module rebuilds (roadmap WP 1.4 / 1.8), since both are teacher-dashboard surfaces outside
   the admin design-system pass.
-- Legacy `Toast.jsx` still used by non-admin surfaces (auth pages, teacher/parent dashboards);
-  migrate when those sections are modernized. `components/ui/Toast.jsx` is deprecated.
+- Toasts: `pushToast` / `notify` (`toastBus.js`) with one `ToastHost` mounted in `App.jsx`. Every
+  area, including the auth pages, uses it. The old per-page `Toast.jsx` and the unused Chakra
+  `toaster.jsx` were removed. Use `notify.success`, `notify.error` or `notify.info` and always pass a type.
 - Repo eslint config lacks `eslint-plugin-react`, so renamed icon params used only in JSX
   (`icon: Icon` → `<Icon/>`) false-flag as unused. Pre-existing repo-wide; not introduced here.
