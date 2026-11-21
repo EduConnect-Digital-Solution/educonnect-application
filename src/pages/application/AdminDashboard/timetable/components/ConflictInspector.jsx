@@ -81,10 +81,11 @@ function ConflictItem({ conflict, onJumpTo }) {
       </div>
       {onJumpTo && conflict.affectedEntryIds?.length > 0 && (
         <button
+          type="button"
           onClick={() => onJumpTo(conflict.affectedEntryIds[0])}
-          className={`mt-1.5 w-full text-[10px] font-bold ${styles.text} flex items-center justify-end gap-0.5 opacity-70 hover:opacity-100 transition-opacity`}
+          className={`mt-1.5 -mb-1 w-full py-2 text-xs font-bold ${styles.text} flex items-center justify-end gap-0.5 opacity-80 hover:opacity-100 transition-opacity`}
         >
-          Jump to slot <ChevronRight size={10} />
+          Jump to slot <ChevronRight size={12} />
         </button>
       )}
     </div>

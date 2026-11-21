@@ -1,10 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   DndContext,
   DragOverlay,
   pointerWithin,
+  MouseSensor,
+  TouchSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
 } from '@dnd-kit/core';
-import { useTimetable, uid } from './TimetableContext';
+import { useTimetable, makeScheduleEntry } from './TimetableContext';
+import { notify } from '@/components/patterns/toastBus.js';
+import useMediaQuery from '@/components/patterns/useMediaQuery.js';
 import { useAcademic } from '../../../../contexts/AcademicContext.jsx';
 import { saveTimetableDraft } from './timetableAPIs';
 
@@ -14,6 +22,29 @@ import WeeklyGrid from './components/WeeklyGrid';
 import PropertiesPanel from './components/PropertiesPanel';
 import PeriodBlock from './components/PeriodBlock';
 import PeriodSetupWizard from './components/PeriodSetupWizard';
+import MobileTray from './components/MobileTray';
+
+const isBlockTarget = (c) => String(c.id).startsWith('blockdrop_');
+
+/**
+ * Prefer the lesson under the pointer for teacher drops (so a teacher lands on that exact entry
+ * even in a crowded cell); for everything else use the cell or the palette's remove zone.
+ */
+function collisionDetection(args) {
+  const hits = pointerWithin(args);
+  if (args.active.data.current?.type === 'TEACHER') {
+    const blocks = hits.filter(isBlockTarget);
+    if (blocks.length) return blocks;
+  }
+  const rest = hits.filter(c => !isBlockTarget(c));
+  return rest.length ? rest : hits;
+}
+
+/** Delete/Backspace only act when focus is on the page itself or inside the grid — never in a field or on a toolbar button. */
+const keyboardInGridScope = () => {
+  const el = document.activeElement;
+  return !el || el === document.body || !!el.closest('[data-timetable-grid]');
+};
 
 /**
  * TimetableBuilder
@@ -33,9 +64,43 @@ import PeriodSetupWizard from './components/PeriodSetupWizard';
  * inside PeriodSetupWizard where it belongs (disabling the Generate button).
  */
 export default function TimetableBuilder({ resources }) {
-  const { state, dispatch } = useTimetable();
+  const { state, dispatch, selectedEntry, removeWithUndo } = useTimetable();
   const { currentYear, currentTerm } = useAcademic();
   const [activeDragData, setActiveDragData] = useState(null);
+  // Below xl the inspector column is hidden; its content opens as a sheet when the user asks
+  // (tapping a lesson or Details) — never just because a drop selected the new lesson.
+  const isCompact = useMediaQuery('(max-width: 1279px)');
+  const sheetOpen = isCompact && state.detailsOpen;
+  const closeSheet = () => dispatch({ type: 'CLOSE_DETAILS' });
+  useEffect(() => {
+    if (!isCompact && state.detailsOpen) dispatch({ type: 'HIDE_DETAILS' });
+  }, [isCompact, state.detailsOpen, dispatch]);
+
+  // A small movement starts a mouse drag (so a click still selects); on touch, press and hold
+  // briefly so scrolling the grid never picks a lesson up by accident.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+    useSensor(KeyboardSensor),
+  );
+
+  // Delete/Backspace removes the selected lesson (with Undo); Escape closes the sheet, tap mode or selection.
+  useEffect(() => {
+    const onKey = (e) => {
+      // Another dialog (publish, duplicate, confirm) owns the keyboard; our own sheet does not.
+      if (document.querySelector('[aria-modal="true"]:not([data-timetable-sheet])')) return;
+      if (e.key === 'Escape') {
+        if (state.detailsOpen) dispatch({ type: 'CLOSE_DETAILS' });
+        else if (state.tapMode) dispatch({ type: 'CLEAR_TAP_MODE' });
+        else dispatch({ type: 'DESELECT_ENTRY' });
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedEntry && !state.isPublished && keyboardInGridScope()) {
+        e.preventDefault();
+        removeWithUndo(selectedEntry);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedEntry, state.isPublished, state.detailsOpen, state.tapMode, dispatch, removeWithUndo]);
 
   // Auto-save debouncer
   const saveTimeoutRef = useRef(null);
@@ -91,44 +156,50 @@ export default function TimetableBuilder({ resources }) {
     const sourceData = active.data.current;
     const dropData = over.data.current;
 
-    if (!dropData || dropData.type !== 'CELL') return;
+    if (!dropData) return;
+
+    // Placed lesson dropped on the palette: remove it (with Undo).
+    if (dropData.type === 'REMOVE_ZONE') {
+      if (sourceData.type === 'PLACED_BLOCK') removeWithUndo(sourceData.entry);
+      return;
+    }
+
+    // Teacher dropped on a specific lesson: assign to exactly that lesson.
+    if (dropData.type === 'BLOCK') {
+      if (sourceData.type === 'TEACHER') {
+        const teacher = sourceData.payload;
+        dispatch({
+          type: 'UPDATE_SCHEDULE_ENTRY',
+          payload: { id: dropData.entry.id, teacherId: teacher.id, teacherName: teacher.name },
+        });
+      }
+      return;
+    }
+
+    if (dropData.type !== 'CELL') return;
+
+    const cellEntries = state.schedules.filter(
+        s => s.dayOfWeek === dropData.day && s.periodId === dropData.periodId
+    );
 
     if (sourceData.type === 'SUBJECT') {
-      const subject = sourceData.payload;
-      const newEntry = {
-        id: uid(),
-        classId: state.selectedClass.id,
-        className: state.selectedClass.name,
-        armId: state.selectedArm?.id ?? null,
-        armName: state.selectedArm?.name ?? null,
-        dayOfWeek: dropData.day,
-        periodId: dropData.periodId,
-        periodNumber: dropData.periodNumber,
-        startTime: dropData.startTime,
-        endTime: dropData.endTime,
-        subjectId: subject.id,
-        subjectName: subject.name,
-        teacherId: null,
-        teacherName: null,
-      };
+      const newEntry = makeScheduleEntry(state, sourceData.payload, dropData);
       dispatch({ type: 'ADD_SCHEDULE_ENTRY', payload: newEntry });
       dispatch({ type: 'SELECT_ENTRY', id: newEntry.id });
     } else if (sourceData.type === 'TEACHER') {
       const teacher = sourceData.payload;
-      const cellEntries = state.schedules.filter(
-          s => s.dayOfWeek === dropData.day && s.periodId === dropData.periodId
-      );
       if (cellEntries.length === 1) {
         dispatch({
           type: 'UPDATE_SCHEDULE_ENTRY',
           payload: { id: cellEntries[0].id, teacherId: teacher.id, teacherName: teacher.name },
         });
+      } else if (cellEntries.length === 0) {
+        notify.info('Place a subject in this slot first, then drop the teacher on it.');
+      } else {
+        notify.info(`This slot has ${cellEntries.length} lessons. Drop ${teacher.name} onto the one you mean.`);
       }
     } else if (sourceData.type === 'ARM') {
       const arm = sourceData.payload;
-      const cellEntries = state.schedules.filter(
-          s => s.dayOfWeek === dropData.day && s.periodId === dropData.periodId
-      );
       if (cellEntries.length === 1) {
         dispatch({
           type: 'UPDATE_SCHEDULE_ENTRY',
@@ -136,17 +207,23 @@ export default function TimetableBuilder({ resources }) {
         });
       }
     } else if (sourceData.type === 'PLACED_BLOCK') {
+      const { entry } = sourceData;
+      if (entry.dayOfWeek === dropData.day && entry.periodId === dropData.periodId) return; // dropped where it was
       dispatch({
         type: 'MOVE_SCHEDULE_ENTRY',
-        id: sourceData.entry.id,
+        id: entry.id,
         day: dropData.day,
         periodId: dropData.periodId,
         periodNumber: dropData.periodNumber,
         startTime: dropData.startTime,
         endTime: dropData.endTime,
       });
+      if (cellEntries.length > 0) {
+        notify.info(`That slot already had a lesson. Remove one of the two, or move ${entry.subjectName} again.`);
+      }
     }
   };
+
 
   const handleDragCancel = () => setActiveDragData(null);
 
@@ -167,21 +244,39 @@ export default function TimetableBuilder({ resources }) {
     setOverrideShowGrid(false);
   }, [state.selectedClass, state.selectedArm, currentTerm]);
 
+  // "Start Afresh" clears the periods; bring the setup wizard back instead of leaving an empty grid.
+  useEffect(() => {
+    if (state.periods.length === 0) setOverrideShowGrid(false);
+  }, [state.periods.length]);
+
   return (
       <DndContext
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
           onDragCancel={handleDragCancel}
-          collisionDetection={pointerWithin}
+          collisionDetection={collisionDetection}
+          sensors={sensors}
       >
-        <div className="flex h-full w-full overflow-hidden ">
+        {/* Clipped only from lg; below that the page scrolls, and a clipping box would stop the grid's day header sticking */}
+        <div className="flex h-full w-full lg:overflow-hidden">
           {showWizard ? (
               <PeriodSetupWizard onContinue={() => { dispatch({ type: 'SET_DRAFT', schedules: state.schedules, periods: state.periods, draftId: null }); setOverrideShowGrid(true); }} resources={resources} />
           ) : (
               <>
                 <PalettePanel resources={resources} />
                 <WeeklyGrid activeDragData={activeDragData} />
-                <PropertiesPanel resources={resources} />
+                {isCompact ? (
+                  <>
+                    <MobileTray resources={resources} />
+                    {sheetOpen && (
+                      <BottomSheet onClose={closeSheet}>
+                        <PropertiesPanel resources={resources} variant="sheet" onClose={closeSheet} />
+                      </BottomSheet>
+                    )}
+                  </>
+                ) : (
+                  <PropertiesPanel resources={resources} />
+                )}
               </>
           )}
         </div>
@@ -214,3 +309,32 @@ export default function TimetableBuilder({ resources }) {
       </DndContext>
   );
 }
+
+/**
+ * Details sheet for screens without the inspector column.
+ * Phones: a modal bottom sheet (backdrop tap closes it).
+ * Tablets/small laptops (md+): a floating card with no backdrop, so the grid stays usable for dragging.
+ */
+function BottomSheet({ onClose, children }) {
+  const isPhone = useMediaQuery('(max-width: 767px)');
+  return createPortal(
+    <div
+      data-timetable-sheet
+      role="dialog"
+      aria-modal={isPhone ? 'true' : undefined}
+      aria-label="Timetable details"
+      className={`fixed z-[70] xl:hidden ${isPhone ? 'inset-0' : 'right-4 bottom-24 lg:bottom-4 w-[380px]'}`}
+    >
+      {isPhone && <div className="absolute inset-0 bg-gray-900/30" onClick={onClose} />}
+      <div className={`flex flex-col bg-white shadow-2xl overflow-hidden ${isPhone
+        ? 'absolute inset-x-0 bottom-0 max-h-[85vh] rounded-t-2xl animate-in slide-in-from-bottom duration-200 pb-[env(safe-area-inset-bottom)]'
+        : 'max-h-[75vh] rounded-2xl border border-gray-200'}`}
+      >
+        {isPhone && <div className="mx-auto mt-2 mb-1 h-1 w-10 rounded-full bg-gray-200 shrink-0" />}
+        <div className="overflow-y-auto">{children}</div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+

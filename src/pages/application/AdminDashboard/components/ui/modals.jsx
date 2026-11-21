@@ -22,7 +22,11 @@ import { formatStatus, getInitials } from '../../utils/formatters.js';
 import { getSchoolClasses } from '../../services/classAPIs.js';
 import { getClassArms } from '../../services/armAPIs.js';
 import { getSchoolSubjects } from '../../services/subjectAPIs.js';
-import { Field, ImageUploadField, inputClass, useFieldErrors } from '../../../../../components/patterns';
+import {
+    Field, ImageUploadField, inputClass, useFieldErrors,
+    LeaveFormPrompt, DraftRestoredNotice, formDraftKey, readFormDraft, writeFormDraft, clearFormDraft, isSameForm, draftTimeLabel,
+} from '../../../../../components/patterns';
+import { useAuth } from '../../../../../contexts/AuthContext.jsx';
 
 export const UnassignClassesModal = ({ onClose, showToast, teacher, schoolId }) => {
     const [selectedClasses, setSelectedClasses] = useState([]);
@@ -333,19 +337,33 @@ export const StatusChangeModal = ({ onClose, showToast, user, schoolId }) => {
     );
 };
 
+const EMPTY_TEACHER_INVITE = { firstName: '', lastName: '', email: '', message: '', profileImage: null };
+
 export const InviteTeacherModal = ({ onClose, showToast }) => {
+    // ── local draft (kept until the invitation is sent) ─────
+    const { user } = useAuth();
+    // Fixed when the form opens: if the account were still loading, no draft is read or written (never deleted).
+    const [draftKey] = useState(() => formDraftKey(user, 'invite-teacher'));
+    const [restored, setRestored] = useState(() => readFormDraft(draftKey));
+
     // ── teacher form fields ─────
-    const [teacherFormData, setTeacherFormData] = useState({
-        firstName: '',
-        lastName: '',
-        email: '',
-        message: '',
-        profileImage: null,
-    });
+    const [teacherFormData, setTeacherFormData] = useState(() => ({ ...EMPTY_TEACHER_INVITE, ...restored?.data?.form }));
 
     // ── subjects sourced from the school's configured subject list ────────────
     const [schoolSubjects, setSchoolSubjects]   = useState([]);  // [{id, name, code, ...}]
-    const [selectedSubjects, setSelectedSubjects] = useState([]); // [subject names]
+    const [selectedSubjects, setSelectedSubjects] = useState(() => restored?.data?.subjects ?? []); // [subject names]
+
+    const draft = { form: teacherFormData, subjects: selectedSubjects };
+    const emptyDraft = { form: EMPTY_TEACHER_INVITE, subjects: [] };
+    const dirty = !isSameForm(draft, emptyDraft);
+    const draftJson = JSON.stringify(draft);
+    useEffect(() => { writeFormDraft(draftKey, JSON.parse(draftJson), emptyDraft); }, [draftKey, draftJson]); // eslint-disable-line react-hooks/exhaustive-deps
+    const startOver = () => {
+        clearFormDraft(draftKey);
+        setRestored(null);
+        setTeacherFormData(EMPTY_TEACHER_INVITE);
+        setSelectedSubjects([]);
+    };
     const [loadingSubjects, setLoadingSubjects] = useState(true);
 
     // ── search / dropdown state ─
@@ -414,6 +432,7 @@ export const InviteTeacherModal = ({ onClose, showToast }) => {
         };
         try {
             await inviteTeacher(payload);
+            clearFormDraft(draftKey);
             showToast('Teacher invited successfully', 'success');
             onClose();
         } catch (err) {
@@ -422,7 +441,7 @@ export const InviteTeacherModal = ({ onClose, showToast }) => {
     };
 
     return (
-        <Modal title="Invite Teacher" onClose={onClose} onSubmit={handleInviteTeacher}>
+        <Modal title="Invite Teacher" onClose={onClose} onSubmit={handleInviteTeacher} dirty={dirty} onDiscard={() => clearFormDraft(draftKey)}>
             {loadingSubjects ? (
                 // ── Loading skeleton while subjects are fetched ───────────────
                 <div className="flex flex-col items-center justify-center py-12 gap-3">
@@ -431,6 +450,7 @@ export const InviteTeacherModal = ({ onClose, showToast }) => {
                 </div>
             ) : (
                 <div className="space-y-5">
+                    {restored && <DraftRestoredNotice savedAtLabel={draftTimeLabel(restored.savedAt)} onStartOver={startOver} />}
                     <ImageUploadField
                         name={`${teacherFormData.firstName} ${teacherFormData.lastName}`.trim()}
                         value={teacherFormData.profileImage}
@@ -538,18 +558,34 @@ export const InviteTeacherModal = ({ onClose, showToast }) => {
     );
 };
 
+const EMPTY_PARENT_INVITE = { email: '', firstName: '', lastName: '', studentIds: [''], message: '', profileImage: null };
+
 export const InviteParentModal = ({ onClose, showToast }) => {
     const inputRef = useRef(null);
-    const [formData, setFormData] = useState({
-        email: '',
-        firstName: '',
-        lastName: '',
-        studentIds: [''],
-        message: '',
-        profileImage: null,
-    });
+    // Local draft, kept until the invitation is sent.
+    const { user } = useAuth();
+    // Fixed when the form opens: if the account were still loading, no draft is read or written (never deleted).
+    const [draftKey] = useState(() => formDraftKey(user, 'invite-parent'));
+    const [restored, setRestored] = useState(() => readFormDraft(draftKey));
+    const [formData, setFormData] = useState(() => ({ ...EMPTY_PARENT_INVITE, ...restored?.data?.form }));
     const [allStudents, setAllStudents] = useState([]);
-    const [selectedStudents, setSelectedStudents] = useState([]);
+    const [selectedStudents, setSelectedStudents] = useState(() => restored?.data?.students ?? []);
+
+    // Only what is needed to show the chosen children again is kept in the draft.
+    const draft = {
+        form: formData,
+        students: selectedStudents.map(s => ({ id: s.id, firstName: s.firstName, lastName: s.lastName, fullName: s.fullName, studentId: s.studentId })),
+    };
+    const emptyDraft = { form: EMPTY_PARENT_INVITE, students: [] };
+    const dirty = !isSameForm(draft, emptyDraft);
+    const draftJson = JSON.stringify(draft);
+    useEffect(() => { writeFormDraft(draftKey, JSON.parse(draftJson), emptyDraft); }, [draftKey, draftJson]); // eslint-disable-line react-hooks/exhaustive-deps
+    const startOver = () => {
+        clearFormDraft(draftKey);
+        setRestored(null);
+        setFormData(EMPTY_PARENT_INVITE);
+        setSelectedStudents([]);
+    };
     const [inputValue, setInputValue] = useState('');
     const [showDropdown, setShowDropdown] = useState(false);
 
@@ -567,6 +603,7 @@ export const InviteParentModal = ({ onClose, showToast }) => {
         try {
             const studentIds = selectedStudents.map(s => s.id);
             await inviteParent({ ...formData, studentIds, profileImage: formData.profileImage ?? null });
+            clearFormDraft(draftKey);
             showToast("Parent invited successfully!", "success");
             onClose();
         } catch (error) {
@@ -631,9 +668,10 @@ export const InviteParentModal = ({ onClose, showToast }) => {
 
     // Simplified student selection
     return (
-        <Modal title="Invite Parent" onClose={onClose} onSubmit={handleInvite}>
+        <Modal title="Invite Parent" onClose={onClose} onSubmit={handleInvite} dirty={dirty} onDiscard={() => clearFormDraft(draftKey)}>
 
             <div className="space-y-5">
+                {restored && <DraftRestoredNotice savedAtLabel={draftTimeLabel(restored.savedAt)} onStartOver={startOver} />}
                 <ImageUploadField
                     name={`${formData.firstName} ${formData.lastName}`.trim()}
                     value={formData.profileImage}
@@ -802,9 +840,18 @@ const todayISODate = () => new Date().toISOString().slice(0, 10);
  * backend; this form additionally requires a class (and an arm when the class has arms) so a
  * student is never created without a placement. Everything else is optional but validated
  * against the same rules the backend applies (email, phone, date, lengths).
+ *
+ * What is typed is kept as a local draft (see formHelpers) until the student is created, so closing
+ * the form by mistake never loses it; reopening restores it.
  */
 export const CreateStudentModal = ({ onClose, showToast, onStudentAdded }) => {
-    const [formData, setFormData] = useState(EMPTY_STUDENT_FORM);
+    const { user } = useAuth();
+    // Fixed when the form opens: if the account were still loading, no draft is read or written (never deleted).
+    const [draftKey] = useState(() => formDraftKey(user, 'add-student'));
+    const [restored, setRestored] = useState(() => readFormDraft(draftKey));
+    const [formData, setFormData] = useState(() => ({ ...EMPTY_STUDENT_FORM, ...restored?.data }));
+    const dirty = !isSameForm(formData, EMPTY_STUDENT_FORM);
+    useEffect(() => { writeFormDraft(draftKey, formData, EMPTY_STUDENT_FORM); }, [draftKey, formData]);
 
     // ── backend data ────────────
     const [classes, setClasses]       = useState([]);  // [{id, name}]
@@ -883,7 +930,14 @@ export const CreateStudentModal = ({ onClose, showToast, onStudentAdded }) => {
             try {
                 setLoadingInit(true);
                 const res = await getSchoolClasses();
-                setClasses(res.data?.classes ?? []);
+                const list = res.data?.classes ?? [];
+                setClasses(list);
+                // A restored draft's class may have been removed since; then the placement is cleared.
+                const draftClassId = restored?.data?.classId;
+                if (draftClassId) {
+                    if (list.some(c => c.id === draftClassId)) loadArms(draftClassId, restored.data.armId);
+                    else setFormData(prev => ({ ...prev, classId: '', armId: '' }));
+                }
             } catch (err) {
                 console.error('[CreateStudentModal] Failed to load classes:', err);
                 showToast('Could not load school classes.', 'error');
@@ -903,20 +957,28 @@ export const CreateStudentModal = ({ onClose, showToast, onStudentAdded }) => {
     };
 
     // ── fetch arms when a class is selected ───────────────────────────────────
-    const handleClassChange = async (classId) => {
+    const handleClassChange = (classId) => {
         setFormData((prev) => ({ ...prev, classId, armId: '' }));
-        setArms([]);
-        setArmsError(false);
         setFormError(null);
         if (v.errors.classId) v.validateField('classId', classId, { ...formData, classId });
         if (v.errors.armId) v.validateField('armId', '', { ...formData, classId, armId: '' });
+        loadArms(classId);
+    };
 
+    // Loads the arms for a class. For a restored draft, `keepArmId` is kept only if that arm still exists.
+    async function loadArms(classId, keepArmId) {
+        setArms([]);
+        setArmsError(false);
         const request = ++armsRequest.current;
         if (!classId) { setLoadingArms(false); return; }
         try {
             setLoadingArms(true);
             const res = await getClassArms(classId);
-            if (request === armsRequest.current) setArms(res.data?.arms ?? []);
+            if (request === armsRequest.current) {
+                const list = res.data?.arms ?? [];
+                setArms(list);
+                if (keepArmId && !list.some(a => a.id === keepArmId)) setFormData(prev => ({ ...prev, armId: '' }));
+            }
         } catch (err) {
             console.error('[CreateStudentModal] Failed to load arms:', err);
             if (request === armsRequest.current) {
@@ -927,6 +989,17 @@ export const CreateStudentModal = ({ onClose, showToast, onStudentAdded }) => {
         } finally {
             if (request === armsRequest.current) setLoadingArms(false);
         }
+    }
+
+    const startOver = () => {
+        armsRequest.current += 1; // ignore an arms load still running for the restored class
+        setLoadingArms(false);
+        clearFormDraft(draftKey);
+        setRestored(null);
+        setFormData(EMPTY_STUDENT_FORM);
+        setArms([]);
+        setFormError(null);
+        v.clearErrors();
     };
 
     // ── submit ──────────────────
@@ -963,6 +1036,7 @@ export const CreateStudentModal = ({ onClose, showToast, onStudentAdded }) => {
             };
 
             await createStudent(payload);
+            clearFormDraft(draftKey);
             showToast(`${payload.firstName} ${payload.lastName} was added to the student register.`, 'success');
             onStudentAdded?.();
             onClose();
@@ -979,6 +1053,8 @@ export const CreateStudentModal = ({ onClose, showToast, onStudentAdded }) => {
         <Modal
             title="Initialize Student Record"
             onClose={onClose}
+            dirty={dirty}
+            onDiscard={() => clearFormDraft(draftKey)}
             onSubmit={handleCreate}
             submitText={saving ? 'Creating…' : 'Create Student'}
             submitDisabled={loadingInit || loadingArms || armsError || saving || classes.length === 0}
@@ -991,6 +1067,8 @@ export const CreateStudentModal = ({ onClose, showToast, onStudentAdded }) => {
                 </div>
             ) : (
                 <div className="space-y-8 py-4">
+
+                    {restored && <DraftRestoredNotice savedAtLabel={draftTimeLabel(restored.savedAt)} onStartOver={startOver} />}
 
                     {formError && (
                         <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
@@ -1217,26 +1295,42 @@ export const CreateStudentModal = ({ onClose, showToast, onStudentAdded }) => {
     );
 };
 
-export const Modal = ({ title, onClose, onSubmit, children, submitText = 'Submit', submitDisabled = false, hideSubmit = false, cancelText = 'Cancel' }) => (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-        <div className="flex min-h-full items-center justify-center p-4">
-            <div className="fixed inset-0 bg-black/30" onClick={onClose} />
-            <div className="relative w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
-                <button onClick={onClose} className="absolute top-4 right-4 p-1 text-gray-400 hover:text-gray-600 rounded-full">
-                    <X size={20} />
-                </button>
-                <h3 className="text-lg font-bold text-gray-900 mb-6">{title}</h3>
-                <div className="space-y-5">{children}</div>
-                <div className="flex justify-end gap-3 pt-6">
-                    <button type="button" onClick={onClose} className="px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">{cancelText}</button>
-                    {!hideSubmit && (
-                        <button onClick={onSubmit} disabled={submitDisabled} className={`px-4 py-2 text-sm rounded-lg ${submitDisabled ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white`}>{submitText}</button>
-                    )}
+/**
+ * Modal — the shared admin dialog.
+ * Pass `dirty` (the form has unsaved entries) and `onDiscard` to protect typed work: X, Cancel and
+ * a backdrop click then ask "Leave this form?" instead of closing, and the entries stay as a local draft.
+ */
+export const Modal = ({ title, onClose, onSubmit, children, submitText = 'Submit', submitDisabled = false, hideSubmit = false, cancelText = 'Cancel', dirty = false, onDiscard }) => {
+    const [leaving, setLeaving] = useState(false);
+    const requestClose = () => (dirty ? setLeaving(true) : onClose());
+    return (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4">
+                <div className="fixed inset-0 bg-black/30" onClick={requestClose} />
+                <div className="relative w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
+                    <button type="button" onClick={requestClose} aria-label="Close" className="absolute top-4 right-4 p-1 text-gray-400 hover:text-gray-600 rounded-full">
+                        <X size={20} />
+                    </button>
+                    <h3 className="text-lg font-bold text-gray-900 mb-6">{title}</h3>
+                    <div className="space-y-5">{children}</div>
+                    <div className="flex justify-end gap-3 pt-6">
+                        <button type="button" onClick={requestClose} className="px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">{cancelText}</button>
+                        {!hideSubmit && (
+                            <button onClick={onSubmit} disabled={submitDisabled} className={`px-4 py-2 text-sm rounded-lg ${submitDisabled ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} text-white`}>{submitText}</button>
+                        )}
+                    </div>
                 </div>
             </div>
+            <LeaveFormPrompt
+                open={leaving}
+                hasDraft={!!onDiscard}
+                onKeepEditing={() => setLeaving(false)}
+                onClose={() => { setLeaving(false); onClose(); }}
+                onDiscard={() => { setLeaving(false); onDiscard?.(); onClose(); }}
+            />
         </div>
-    </div>
-);
+    );
+};
 
 
 

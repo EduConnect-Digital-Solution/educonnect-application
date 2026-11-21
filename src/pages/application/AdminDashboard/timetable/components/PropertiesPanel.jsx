@@ -3,7 +3,7 @@ import { notify } from '@/components/patterns/toastBus.js';
 import React, { useState } from 'react';
 import { useTimetable } from '../TimetableContext';
 import { useAcademic } from '../../../../../contexts/AcademicContext.jsx';
-import { Save, Lock, AlertTriangle, AlertCircle, Edit2, X, RefreshCw, ChevronDown, Trash2 } from 'lucide-react';
+import { Save, Lock, Edit2, X, RefreshCw, Trash2, Move } from 'lucide-react';
 import ConflictInspector from './ConflictInspector';
 import PublishScheduler from './PublishScheduler';
 import DuplicateWizard from './DuplicateWizard';
@@ -14,15 +14,19 @@ import {deleteTimetableDraft} from "../timetableAPIs.js";
  * ───────────────────────────────
  * The right-hand inspector panel.
  * Shows context-sensitive details based on selection, plus global publish controls.
+ * variant="side": the right-hand column on wide screens (xl and up).
+ * variant="sheet": the same content inside the bottom sheet on smaller screens; adds Move and a close button.
  */
-export default function PropertiesPanel({ resources }) {
-  const { state, dispatch, conflicts } = useTimetable();
+export default function PropertiesPanel({ resources, variant = 'side', onClose }) {
+  const isSheet = variant === 'sheet';
+  const { state, dispatch, conflicts, removeWithUndo, selectedEntry } = useTimetable();
   const { currentTerm } = useAcademic();
   const [showPublish, setShowPublish] = useState(false);
   const [showDuplicate, setShowDuplicate] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   
-  const { selectedEntry, isPublished, lastSavedAt, isSaving, saveError } = state;
+  // selectedEntry is derived in the context from state.selectedEntryId; it is not a state field.
+  const { isPublished, lastSavedAt, isSaving, saveError } = state;
 
   const handleStartAfresh = async () => {
     if (!confirm('Are you sure you want to delete this draft and start entirely from scratch? This will destroy all scheduled blocks and reset the grid structure.')) return;
@@ -40,12 +44,14 @@ export default function PropertiesPanel({ resources }) {
   };
 
   return (
-    <div className="w-80 bg-white border-l border-gray-200 flex flex-col h-full shrink-0 overflow-y-auto hidden xl:flex">
+    <div className={isSheet
+      ? 'bg-white flex flex-col min-h-0'
+      : 'w-80 bg-white border-l border-gray-200 flex-col h-full shrink-0 overflow-y-auto hidden xl:flex'}>
       
       {/* Top Header Controls */}
       <div className="p-4 border-b border-gray-100 shrink-0 space-y-4 bg-gray-50/50">
-        <div className="flex justify-between items-center">
-          <h2 className="font-bold text-gray-800">Properties</h2>
+        <div className="flex justify-between items-center gap-2">
+          <h2 className="font-bold text-gray-800 flex-1">{isSheet ? 'Timetable details' : 'Properties'}</h2>
           {isPublished ? (
              <span className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-green-700 bg-green-100 rounded-full flex items-center gap-1">
                <Lock size={10} /> Published
@@ -54,6 +60,11 @@ export default function PropertiesPanel({ resources }) {
             <span className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-100 rounded-full flex items-center gap-1">
                <Edit2 size={10} /> Draft
              </span>
+          )}
+          {isSheet && (
+            <button type="button" onClick={onClose} aria-label="Close" className="p-1.5 -mr-1 rounded-lg text-gray-400 hover:bg-gray-100">
+              <X size={16} />
+            </button>
           )}
         </div>
 
@@ -120,10 +131,17 @@ export default function PropertiesPanel({ resources }) {
 
         {/* Selected block properties (contextual) */}
         {selectedEntry ? (
-          <SelectionEditor entry={selectedEntry} dispatch={dispatch} state={state} resources={resources} />
+          <SelectionEditor
+            entry={selectedEntry}
+            dispatch={dispatch}
+            state={state}
+            resources={resources}
+            onRemove={removeWithUndo}
+            onMove={isSheet ? () => { dispatch({ type: 'SET_TAP_MODE', tapMode: { mode: 'move', entry: selectedEntry } }); onClose?.(); } : null}
+          />
         ) : (
            <div className="p-4 bg-gray-50 border border-gray-100 border-dashed rounded-xl text-center">
-             <p className="text-xs text-gray-500">Select a schedule block on the grid to edit its properties.</p>
+             <p className="text-xs text-gray-500">{isSheet ? 'Tap a lesson on the grid to change its teacher, move it or remove it.' : 'Select a schedule block on the grid to edit its properties.'}</p>
            </div>
         )}
 
@@ -137,7 +155,7 @@ export default function PropertiesPanel({ resources }) {
           </div>
           <ConflictInspector 
             conflicts={conflicts} 
-            onJumpTo={(id) => dispatch({ type: 'SELECT_ENTRY', id })} 
+            onJumpTo={(id) => dispatch({ type: 'JUMP_TO_ENTRY', id })} 
           />
         </div>
 
@@ -151,7 +169,9 @@ export default function PropertiesPanel({ resources }) {
 }
 
 // ─── Inline Editor for Selected Entry ────
-function SelectionEditor({ entry, dispatch, state, resources }) {
+const SHOW_ROOMS = false;
+
+function SelectionEditor({ entry, dispatch, state, resources, onMove, onRemove }) {
   const isReadOnly = state.isPublished;
   const { teachers = [], rooms = [] } = resources || {};
 
@@ -181,8 +201,10 @@ function SelectionEditor({ entry, dispatch, state, resources }) {
           <p className="text-xs text-gray-500 mt-0.5">{entry.dayOfWeek}, {entry.startTime} – {entry.endTime}</p>
         </div>
         <button 
+          type="button"
+          aria-label="Deselect lesson"
           onClick={() => dispatch({ type: 'DESELECT_ENTRY' })}
-          className="p-1 hover:bg-gray-100 rounded text-gray-400"
+          className="p-2 -m-1 hover:bg-gray-100 rounded text-gray-400"
         >
           <X size={14} />
         </button>
@@ -213,8 +235,8 @@ function SelectionEditor({ entry, dispatch, state, resources }) {
           </select>
         </div>
 
-        {/* Room */}
-        <div>
+        {/* Room: hidden until rooms come from the school's own setup (the list in useGlobalTimetableData is placeholder data) */}
+        {SHOW_ROOMS && <div>
           <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Assigned Room</label>
           <select
             disabled={isReadOnly}
@@ -227,13 +249,24 @@ function SelectionEditor({ entry, dispatch, state, resources }) {
               <option key={r} value={r}>{r}</option>
             ))}
           </select>
-        </div>
+        </div>}
       </div>
       
+      {!isReadOnly && onMove && (
+         <button
+           type="button"
+           onClick={onMove}
+           className="w-full py-2.5 mt-2 bg-blue-50 text-blue-700 text-sm font-semibold rounded-lg hover:bg-blue-100 transition border border-blue-100 flex justify-center items-center gap-1.5"
+         >
+           <Move size={14} /> Move to another slot
+         </button>
+      )}
+
       {!isReadOnly && (
          <button 
-           onClick={() => dispatch({ type: 'REMOVE_SCHEDULE_ENTRY', id: entry.id })}
-           className="w-full py-2 mt-2 bg-red-50 text-red-600 text-sm font-semibold rounded-lg hover:bg-red-100 transition border border-red-100 flex justify-center items-center gap-1.5"
+           type="button"
+           onClick={() => onRemove(entry)}
+           className="w-full py-2.5 mt-2 bg-red-50 text-red-600 text-sm font-semibold rounded-lg hover:bg-red-100 transition border border-red-100 flex justify-center items-center gap-1.5"
          >
            <X size={14} /> Remove from schedule
          </button>

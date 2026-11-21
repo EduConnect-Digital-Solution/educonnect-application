@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import axios from 'axios';
 import { API_BASE_URL } from '../utils/apiConfig';
 import { setAuthBridge, REQUEST_TIMEOUT_MS } from '../utils/authBridge';
+import { clearAllFormDrafts } from '../components/patterns/formHelpers.js';
 
 const AuthContext = createContext();
 
@@ -158,6 +159,8 @@ export const AuthProvider = ({ children }) => {
         }
     };
     const clearAuthState = () => {
+        // Unsent form drafts hold pupils' and parents' details; never leave them behind on a shared computer.
+        clearAllFormDrafts();
         setAccessToken(null);
         setUser(null);
         setTokenExpiry(null);
