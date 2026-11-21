@@ -1,0 +1,11 @@
+{
+  // Cloudflare Workers static-assets deploy of the built Vite app (npm run build → dist/).
+  "name": "educonnect-application",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./dist",
+    // Any path that isn't a real file (e.g. /dashboard/admin/...) serves index.html, so client-side
+    // routes and page refreshes work. This replaces the old Pages-style public/_redirects rule.
+    "not_found_handling": "single-page-application"
+  }
+}
