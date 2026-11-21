@@ -12,7 +12,7 @@ import { getSubjectColor } from '../TimetableContext';
  * - Conflict-aware: shows red ring on error, amber ring on warning
  * - Click: selects entry → PropertiesPanel activates
  */
-export default function PeriodBlock({ entry, isSelected, isConflicted, isWarned, onSelect, onRemove, readOnly = false }) {
+export default function PeriodBlock({ entry, isSelected, isConflicted, isWarned, onSelect, onRemove, readOnly = false, isAssignTarget = false }) {
   const color = getSubjectColor(entry.subjectId);
 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -55,7 +55,9 @@ export default function PeriodBlock({ entry, isSelected, isConflicted, isWarned,
         'group relative rounded-lg border p-1.5 cursor-grab active:cursor-grabbing select-none transition-all duration-150',
         color.bg, color.border, ringClass,
         isDragging ? 'opacity-40 scale-95' : 'hover:shadow-md',
+        isAssignTarget ? 'outline-2 outline-dashed outline-offset-1 outline-blue-400 cursor-pointer' : '',
       ].filter(Boolean).join(' ')}
+      data-entry-id={entry.id}
       onClick={e => { e.stopPropagation(); onSelect(entry.id); }}
       {...(!readOnly ? { ...listeners, ...attributes } : {})}
     >
@@ -98,8 +100,9 @@ export default function PeriodBlock({ entry, isSelected, isConflicted, isWarned,
         </div>
       )}
 
-      {/* Remove button — pressing it must not start a drag */}
-      {!readOnly && (
+      {/* Remove button — pressing it must not start a drag. Hidden while assigning a teacher, so a slightly
+          off tap on a lesson can never delete it. */}
+      {!readOnly && !isAssignTarget && (
         <button
           type="button"
           onMouseDown={e => e.stopPropagation()}

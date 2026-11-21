@@ -19,13 +19,14 @@ import {deleteTimetableDraft} from "../timetableAPIs.js";
  */
 export default function PropertiesPanel({ resources, variant = 'side', onClose }) {
   const isSheet = variant === 'sheet';
-  const { state, dispatch, conflicts, removeWithUndo } = useTimetable();
+  const { state, dispatch, conflicts, removeWithUndo, selectedEntry } = useTimetable();
   const { currentTerm } = useAcademic();
   const [showPublish, setShowPublish] = useState(false);
   const [showDuplicate, setShowDuplicate] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   
-  const { selectedEntry, isPublished, lastSavedAt, isSaving, saveError } = state;
+  // selectedEntry is derived in the context from state.selectedEntryId; it is not a state field.
+  const { isPublished, lastSavedAt, isSaving, saveError } = state;
 
   const handleStartAfresh = async () => {
     if (!confirm('Are you sure you want to delete this draft and start entirely from scratch? This will destroy all scheduled blocks and reset the grid structure.')) return;
@@ -154,7 +155,7 @@ export default function PropertiesPanel({ resources, variant = 'side', onClose }
           </div>
           <ConflictInspector 
             conflicts={conflicts} 
-            onJumpTo={(id) => dispatch({ type: 'SELECT_ENTRY', id })} 
+            onJumpTo={(id) => dispatch({ type: 'JUMP_TO_ENTRY', id })} 
           />
         </div>
 
@@ -168,6 +169,8 @@ export default function PropertiesPanel({ resources, variant = 'side', onClose }
 }
 
 // ─── Inline Editor for Selected Entry ────
+const SHOW_ROOMS = false;
+
 function SelectionEditor({ entry, dispatch, state, resources, onMove, onRemove }) {
   const isReadOnly = state.isPublished;
   const { teachers = [], rooms = [] } = resources || {};
@@ -198,8 +201,10 @@ function SelectionEditor({ entry, dispatch, state, resources, onMove, onRemove }
           <p className="text-xs text-gray-500 mt-0.5">{entry.dayOfWeek}, {entry.startTime} – {entry.endTime}</p>
         </div>
         <button 
+          type="button"
+          aria-label="Deselect lesson"
           onClick={() => dispatch({ type: 'DESELECT_ENTRY' })}
-          className="p-1 hover:bg-gray-100 rounded text-gray-400"
+          className="p-2 -m-1 hover:bg-gray-100 rounded text-gray-400"
         >
           <X size={14} />
         </button>
@@ -230,8 +235,8 @@ function SelectionEditor({ entry, dispatch, state, resources, onMove, onRemove }
           </select>
         </div>
 
-        {/* Room */}
-        <div>
+        {/* Room: hidden until rooms come from the school's own setup (the list in useGlobalTimetableData is placeholder data) */}
+        {SHOW_ROOMS && <div>
           <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Assigned Room</label>
           <select
             disabled={isReadOnly}
@@ -244,7 +249,7 @@ function SelectionEditor({ entry, dispatch, state, resources, onMove, onRemove }
               <option key={r} value={r}>{r}</option>
             ))}
           </select>
-        </div>
+        </div>}
       </div>
       
       {!isReadOnly && onMove && (
