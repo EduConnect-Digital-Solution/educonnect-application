@@ -2,6 +2,8 @@
   // Cloudflare Workers static-assets deploy of the built Vite app (npm run build → dist/).
   "name": "educonnect-application",
   "compatibility_date": "2026-11-01",
+  // Non-production branches (e.g. dev) deploy with `wrangler preview`, which needs this block; empty uses the settings above.
+  "previews": {},
   "assets": {
     "directory": "./dist",
     // Any path that isn't a real file (e.g. /dashboard/admin/...) serves index.html, so client-side
