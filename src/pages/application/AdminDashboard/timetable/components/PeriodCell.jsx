@@ -11,7 +11,8 @@ import { useTimetable, makeScheduleEntry } from '../TimetableContext';
  * - Droppable target logic (via dnd-kit)
  * - Rendering placed `<PeriodBlock>` entries
  * - Rendering drop indicator and visual conflict warnings (cell level)
- * - Tap-to-place on touch screens: a tap places the chosen subject or moves the chosen lesson here
+ * - Tap-to-place on touch screens: a tap places the chosen subject or moves the chosen lesson here;
+ *   with a teacher chosen, tapping a lesson gives it that teacher (tapping again takes them off)
  */
 export default function PeriodCell({ day, period, entries = [], isDropTarget }) {
   const { dispatch, selectedEntryId, conflictedIds, warnedIds, state, removeWithUndo } = useTimetable();
@@ -25,7 +26,18 @@ export default function PeriodCell({ day, period, entries = [], isDropTarget }) 
   });
 
   const tapMode = state.isPublished ? null : state.tapMode;
-  const isTapTarget = tapMode && !(tapMode.mode === 'move' && tapMode.entry.dayOfWeek === day && tapMode.entry.periodId === period.id);
+  const assigning = tapMode?.mode === 'assign';
+  // Placing and moving target cells; assigning a teacher targets the lessons in them instead.
+  const isTapTarget = tapMode && !assigning && !(tapMode.mode === 'move' && tapMode.entry.dayOfWeek === day && tapMode.entry.periodId === period.id);
+
+  const assignTeacher = (entry) => {
+    const { teacher } = tapMode;
+    const already = entry.teacherId === teacher.id;
+    dispatch({
+      type: 'UPDATE_SCHEDULE_ENTRY',
+      payload: { id: entry.id, teacherId: already ? null : teacher.id, teacherName: already ? null : teacher.name },
+    });
+  };
 
   const handleTap = () => {
     if (!isTapTarget) return;
@@ -68,7 +80,8 @@ export default function PeriodCell({ day, period, entries = [], isDropTarget }) 
             isConflicted={conflictedIds.has(entry.id)}
             isWarned={warnedIds.has(entry.id)}
             readOnly={state.isPublished}
-            onSelect={(id) => (isTapTarget ? handleTap() : dispatch({ type: 'SELECT_ENTRY', id, openDetails: true }))}
+            isAssignTarget={assigning}
+            onSelect={(id) => (assigning ? assignTeacher(entry) : isTapTarget ? handleTap() : dispatch({ type: 'SELECT_ENTRY', id, openDetails: true }))}
             onRemove={removeWithUndo}
           />
         ))}

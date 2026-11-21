@@ -81,8 +81,9 @@ const initialState = {
 
   // Selection
   selectedEntryId: null,
-  // Tap-to-place on touch screens: { mode: 'place', subject } | { mode: 'move', entry } | null
+  // Tap-to-place on touch screens: { mode: 'place', subject } | { mode: 'move', entry } | { mode: 'assign', teacher } | null
   tapMode: null,
+  jump: null, // last "Jump to slot" request: { id, n }
   // Below xl the inspector opens as a sheet, only when the user asks (tapping a lesson or Details).
   detailsOpen: false,
   // Bumped whenever a different timetable (class, arm, term draft) is swapped in or the grid is cleared,
@@ -108,13 +109,13 @@ function timetableReducer(state, action) {
     // ── Class selection ─────────
     // Changing class resets arm, periods, schedules and draft state.
     case 'SELECT_CLASS':
-      return { ...state, scopeVersion: state.scopeVersion + 1, selectedClass: action.payload, selectedArm: null, periods: [], schedules: [], draftId: null, selectedEntryId: null, tapMode: null, isPublished: false, loadedScope: null, otherSchedules: [] };
+      return { ...state, scopeVersion: state.scopeVersion + 1, selectedClass: action.payload, selectedArm: null, periods: [], schedules: [], draftId: null, selectedEntryId: null, tapMode: null, jump: null, isPublished: false, loadedScope: null, otherSchedules: [] };
 
     // ── Arm selection ───────────
     // Changing arm resets draft state so the new arm's timetable loads fresh.
     // Passing null means "whole class" (class has no arms).
     case 'SELECT_ARM':
-      return { ...state, scopeVersion: state.scopeVersion + 1, selectedArm: action.payload, periods: [], schedules: [], draftId: null, selectedEntryId: null, tapMode: null, isPublished: false, loadedScope: null, otherSchedules: [] };
+      return { ...state, scopeVersion: state.scopeVersion + 1, selectedArm: action.payload, periods: [], schedules: [], draftId: null, selectedEntryId: null, tapMode: null, jump: null, isPublished: false, loadedScope: null, otherSchedules: [] };
 
     // ── Periods config ──────────
     case 'SET_PERIODS':
@@ -125,7 +126,7 @@ function timetableReducer(state, action) {
 
     // ── Schedule entries ────────
     case 'SET_DRAFT':
-      return { ...state, scopeVersion: state.scopeVersion + 1, tapMode: null, schedules: action.schedules, periods: action.periods ?? state.periods, draftId: action.draftId, isDraft: true, isPublished: false };
+      return { ...state, scopeVersion: state.scopeVersion + 1, tapMode: null, jump: null, schedules: action.schedules, periods: action.periods ?? state.periods, draftId: action.draftId, isDraft: true, isPublished: false };
 
     case 'ADD_SCHEDULE_ENTRY':
       return { ...state, schedules: [...state.schedules, action.payload] };
@@ -160,10 +161,10 @@ function timetableReducer(state, action) {
       };
 
     case 'CLEAR_SCHEDULES':
-      return { ...state, scopeVersion: state.scopeVersion + 1, schedules: [], selectedEntryId: null, tapMode: null };
+      return { ...state, scopeVersion: state.scopeVersion + 1, schedules: [], selectedEntryId: null, tapMode: null, jump: null };
 
     case 'CLEAR_PERIODS_AND_SCHEDULES':
-      return { ...state, scopeVersion: state.scopeVersion + 1, periods: [], schedules: [], selectedEntryId: null, tapMode: null, draftId: null, isPublished: false, lastSavedAt: null };
+      return { ...state, scopeVersion: state.scopeVersion + 1, periods: [], schedules: [], selectedEntryId: null, tapMode: null, jump: null, draftId: null, isPublished: false, lastSavedAt: null };
 
     // ── Copy from another class/arm (bulk) ───────────────────────────────────
     case 'PASTE_SCHEDULES': {
@@ -180,7 +181,7 @@ function timetableReducer(state, action) {
         teacherId: null,
         teacherName: null,
       }));
-      return { ...state, scopeVersion: state.scopeVersion + 1, schedules: stampedEntries };
+      return { ...state, scopeVersion: state.scopeVersion + 1, schedules: stampedEntries, selectedEntryId: null, tapMode: null, jump: null };
     }
 
     case 'SET_SCOPE':
@@ -209,6 +210,10 @@ function timetableReducer(state, action) {
       return { ...state, tapMode: action.tapMode, selectedEntryId: null, detailsOpen: false };
     case 'CLEAR_TAP_MODE':
       return { ...state, tapMode: null };
+    // "Jump to slot" from a conflict: select the lesson, close the details sheet so the grid is visible,
+    // and let the grid switch to its day and scroll it into view (jump.n changes on every jump, even to the same lesson).
+    case 'JUMP_TO_ENTRY':
+      return { ...state, selectedEntryId: action.id, detailsOpen: false, tapMode: null, jump: { id: action.id, n: (state.jump?.n ?? 0) + 1 } };
 
     // ── Draft save state ────────
     case 'SET_SAVING':

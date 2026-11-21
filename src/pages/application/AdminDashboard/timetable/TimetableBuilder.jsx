@@ -244,6 +244,11 @@ export default function TimetableBuilder({ resources }) {
     setOverrideShowGrid(false);
   }, [state.selectedClass, state.selectedArm, currentTerm]);
 
+  // "Start Afresh" clears the periods; bring the setup wizard back instead of leaving an empty grid.
+  useEffect(() => {
+    if (state.periods.length === 0) setOverrideShowGrid(false);
+  }, [state.periods.length]);
+
   return (
       <DndContext
           onDragStart={handleDragStart}
@@ -252,7 +257,8 @@ export default function TimetableBuilder({ resources }) {
           collisionDetection={collisionDetection}
           sensors={sensors}
       >
-        <div className="flex h-full w-full overflow-hidden ">
+        {/* Clipped only from lg; below that the page scrolls, and a clipping box would stop the grid's day header sticking */}
+        <div className="flex h-full w-full lg:overflow-hidden">
           {showWizard ? (
               <PeriodSetupWizard onContinue={() => { dispatch({ type: 'SET_DRAFT', schedules: state.schedules, periods: state.periods, draftId: null }); setOverrideShowGrid(true); }} resources={resources} />
           ) : (

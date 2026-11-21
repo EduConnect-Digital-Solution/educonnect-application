@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { DAYS } from '../TimetableContext';
 import PeriodCell from './PeriodCell';
 import { useTimetable } from '../TimetableContext';
@@ -21,6 +21,27 @@ export default function WeeklyGrid({ activeDragData }) {
   const { state, scheduleByCell, conflictedIds } = useTimetable();
   const isPhone = useMediaQuery('(max-width: 767px)');
   const [activeDay, setActiveDay] = useState(todayOrMonday);
+
+  // "Jump to slot": show the lesson's day (phones show one day), then scroll the lesson into view.
+  const pendingScroll = useRef(null);
+  const jump = state.jump;
+  useEffect(() => {
+    if (!jump) return;
+    const entry = (state.schedules || []).find(s => s.id === jump.id);
+    if (!entry) return;
+    pendingScroll.current = entry.id;
+    if (isPhone) setActiveDay(entry.dayOfWeek);
+    // Only re-run for a new jump, not when the lessons change afterwards
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jump?.n]);
+  useEffect(() => {
+    const id = pendingScroll.current;
+    if (!id) return;
+    const el = document.querySelector(`[data-entry-id="${CSS.escape(id)}"]`);
+    if (!el) return;
+    pendingScroll.current = null;
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  });
 
   // If no class is selected, show empty placeholder
   if (!state.selectedClass) {
@@ -46,11 +67,11 @@ export default function WeeklyGrid({ activeDragData }) {
   const dayHasConflict = (day) => (state.schedules || []).some(s => s.dayOfWeek === day && conflictedIds.has(s.id));
 
   return (
-    <div data-timetable-grid className="flex-1 bg-white flex flex-col overflow-hidden relative group/grid">
+    <div data-timetable-grid className="flex-1 bg-white flex flex-col lg:overflow-hidden relative group/grid">
       
-      {/* Grid Header (Days) — tabs on phones */}
+      {/* Grid Header (Days) — tabs on phones. Below lg the page scrolls, so it sticks under the app's top bar */}
       {isPhone ? (
-        <div role="tablist" aria-label="Day" className="flex border-b border-gray-200 bg-gray-50 shrink-0 sticky top-0 z-10">
+        <div role="tablist" aria-label="Day" className="flex border-b border-gray-200 bg-gray-50 shrink-0 sticky top-0 max-lg:top-[var(--app-header-h,57px)] z-10">
           {DAYS.map(day => (
             <button
               key={day}
@@ -66,7 +87,7 @@ export default function WeeklyGrid({ activeDragData }) {
           ))}
         </div>
       ) : (
-        <div className={`grid ${cols} border-b border-gray-200 bg-gray-50 shrink-0 sticky top-0 z-10`}>
+        <div className={`grid ${cols} border-b border-gray-200 bg-gray-50 shrink-0 sticky top-0 max-lg:top-[var(--app-header-h,57px)] z-10`}>
           <div className="p-3 border-r border-gray-200 flex items-end justify-end">
             <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Time</span>
           </div>
