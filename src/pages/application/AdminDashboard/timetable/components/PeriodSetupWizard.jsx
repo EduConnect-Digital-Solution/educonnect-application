@@ -72,12 +72,28 @@ export default function PeriodSetupWizard({ onContinue, resources }) {
     setBreaks(breaks.filter(b => b.id !== id));
   };
 
+  // Number inputs give '' while being retyped; store '' (not 0 or NaN) and let the checks below block Generate.
+  const numberInput = (setter) => (e) => {
+    const n = parseInt(e.target.value, 10);
+    setter(Number.isNaN(n) ? '' : n);
+  };
+
   // ── Time math ────────────────
   const addMinutesToTime = (timeStr, minsToAdd) => {
     const [hours, mins] = timeStr.split(':').map(Number);
     const date = new Date(2000, 0, 1, hours, mins + minsToAdd);
     return date.toTimeString().slice(0, 5);
   };
+
+  // A day must have at least one lesson of a sensible length and a start time.
+  const settingsValid = Boolean(startTime) && totalPeriods >= 1 && totalPeriods <= 25 && periodDuration >= 5 && periodDuration <= 180;
+  const breaksWithoutLength = breaks.filter(b => !(b.durationMinutes >= 1 && b.durationMinutes <= 180));
+  const breaksValid = breaksWithoutLength.length === 0;
+  const usableBreaks = breaks.filter(b => b.afterPeriod <= totalPeriods);
+  const droppedBreaks = breaks.filter(b => b.afterPeriod > totalPeriods);
+  const dayEndsAt = settingsValid && breaksValid
+    ? addMinutesToTime(startTime, totalPeriods * periodDuration + usableBreaks.reduce((sum, b) => sum + b.durationMinutes, 0))
+    : null;
 
   const generatePeriods = () => {
     let currentStartTime = startTime;
@@ -97,7 +113,7 @@ export default function PeriodSetupWizard({ onContinue, resources }) {
       currentStartTime = endTime;
       periodNumber++;
 
-      const scheduledBreaks = breaks.filter(b => b.afterPeriod === i);
+      const scheduledBreaks = usableBreaks.filter(b => b.afterPeriod === i);
       for (const b of scheduledBreaks) {
         const breakEndTime = addMinutesToTime(currentStartTime, b.durationMinutes);
         generated.push({
@@ -118,7 +134,7 @@ export default function PeriodSetupWizard({ onContinue, resources }) {
   // ── Generate & save ──────────
   const handleGenerate = async () => {
     // Guard: this should not be callable without class/term, but be defensive.
-    if (!state.selectedClass || !currentTerm) return;
+    if (!state.selectedClass || !currentTerm || !settingsValid || !breaksValid) return;
 
     const generatedPeriods = generatePeriods();
     setSaving(true);
@@ -133,7 +149,7 @@ export default function PeriodSetupWizard({ onContinue, resources }) {
         schoolStart: startTime,
         periodDuration: periodDuration,
         totalPeriods: totalPeriods,
-        breaks: breaks.map(b => ({
+        breaks: usableBreaks.map(b => ({
           breakAfter: b.afterPeriod,
           breakDuration: b.durationMinutes,
           label: b.label,
@@ -168,13 +184,13 @@ export default function PeriodSetupWizard({ onContinue, resources }) {
 
   // ── Render ───────────────────
   return (
-      <div className="flex-1 flex items-center justify-center p-4 overflow-y-auto">
-        <div className=" max-w-4xl w-full p-8 rounded-2xl">
+      <div className="flex-1 flex overflow-y-auto p-3 sm:p-4">
+        <div className="m-auto max-w-4xl w-full p-2 sm:p-8 rounded-2xl">
 
           {/* Header */}
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-semibold text-gray-900">Period Configuration Wizard</h2>
-            <p className="text-gray-500 mt-2">
+          <div className="text-center mb-6 sm:mb-8">
+            <h2 className="text-xl sm:text-2xl font-semibold text-gray-900">Period Configuration Wizard</h2>
+            <p className="text-sm sm:text-base text-gray-500 mt-2">
               {state.selectedClass && state.selectedArm
               ? <>Let's structure the timetable grid for <span className="font-bold text-gray-700">{state.selectedClass.name} — {state.selectedArm.name}</span> before adding subjects.</>
               : state.selectedClass
@@ -185,12 +201,12 @@ export default function PeriodSetupWizard({ onContinue, resources }) {
 
           {/* Published Timetable Alert */}
           {isPublished && (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-8 mb-8 text-center animate-in zoom-in-95 duration-300">
+            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 sm:p-8 mb-8 text-center animate-in zoom-in-95 duration-300">
                 <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
                     <BookOpen size={32} />
                 </div>
                 <h3 className="text-xl font-bold text-emerald-900 mb-2">Timetable Already Published</h3>
-                <p className="text-emerald-700 mb-8 max-w-md mx-auto">
+                <p className="text-sm sm:text-base text-emerald-700 mb-6 sm:mb-8 max-w-md mx-auto">
                     A published timetable already exists for <span className="font-bold">{state.selectedClass?.name}{state.selectedArm ? ` — ${state.selectedArm.name}` : ''}</span> for this term. 
                     You can view it in the library or continue to the grid if you wish to edit it (which will convert it back to a draft).
                 </p>
@@ -238,55 +254,60 @@ export default function PeriodSetupWizard({ onContinue, resources }) {
                   </div>
               )}
 
-              <div className="space-y-8">
+              <div className="space-y-6 sm:space-y-8">
                 {/* General Period Settings */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6">
+                  <div className="col-span-2 sm:col-span-1">
+                    <label htmlFor="pw-start" className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
                       School Starts At
                     </label>
                     <div className="relative">
-                      <Clock className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+                      <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                       <input
+                          id="pw-start"
                           type="time"
                           value={startTime}
                           onChange={e => setStartTime(e.target.value)}
-                          className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 outline-none"
+                          className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 outline-none"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                    <label htmlFor="pw-duration" className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
                       Period Duration
                     </label>
                     <div className="relative">
                       <input
+                          id="pw-duration"
                           type="number"
+                          inputMode="numeric"
                           min="5"
                           max="180"
                           value={periodDuration}
-                          onChange={e => setPeriodDuration(Number(e.target.value))}
-                          className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 outline-none text-right pr-12"
+                          onChange={numberInput(setPeriodDuration)}
+                          className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 outline-none text-right pr-12"
                       />
-                      <span className="absolute right-3 top-2.5 text-xs font-bold text-gray-400">MINS</span>
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400 pointer-events-none">MINS</span>
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                    <label htmlFor="pw-total" className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
                       Total Periods
                     </label>
                     <div className="relative">
                       <input
+                          id="pw-total"
                           type="number"
+                          inputMode="numeric"
                           min="1"
                           max="25"
                           value={totalPeriods}
-                          onChange={e => setTotalPeriods(Number(e.target.value))}
-                          className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 outline-none text-right pr-16"
+                          onChange={numberInput(setTotalPeriods)}
+                          className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 outline-none text-right pr-16"
                       />
-                      <span className="absolute right-3 top-2.5 text-xs font-bold text-gray-400">PERIODS</span>
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400 pointer-events-none">PERIODS</span>
                     </div>
                   </div>
                 </div>
@@ -300,8 +321,9 @@ export default function PeriodSetupWizard({ onContinue, resources }) {
                       Breaks &amp; Lunches
                     </label>
                     <button
+                        type="button"
                         onClick={addBreak}
-                        className="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
+                        className="text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-lg flex items-center gap-1 transition-colors"
                     >
                       <Plus size={14} /> Add Break
                     </button>
@@ -313,53 +335,57 @@ export default function PeriodSetupWizard({ onContinue, resources }) {
                       </div>
                   ) : (
                       <div className="space-y-3">
-                        {breaks.map(b => (
+                        {breaks.map((b, index) => (
                             <div
                                 key={b.id}
-                                className="flex flex-wrap md:flex-nowrap items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg"
+                                className="relative grid grid-cols-2 md:grid-cols-[minmax(0,1fr)_11rem_8rem_auto] items-end gap-3 p-3 pr-12 md:pr-3 bg-gray-50 border border-gray-200 rounded-lg"
                             >
-                              <span className="text-sm font-semibold text-gray-600 whitespace-nowrap">
-                                Break occurs after
-                              </span>
-
-                              <select
-                                  value={b.afterPeriod}
-                                  onChange={e => updateBreak(b.id, 'afterPeriod', Number(e.target.value))}
-                                  className="bg-white border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                              >
-                                {Array.from({ length: totalPeriods }).map((_, i) => (
-                                    <option key={i + 1} value={i + 1}>
-                                      Period {i + 1}
-                                    </option>
-                                ))}
-                              </select>
-
-                              <span className="text-sm font-semibold text-gray-600 whitespace-nowrap">for</span>
-
-                              <div className="relative">
+                              <label className="col-span-2 md:col-span-1 block">
+                                <span className="block text-[11px] font-semibold text-gray-500 mb-1">Name</span>
                                 <input
-                                    type="number"
-                                    value={b.durationMinutes}
-                                    onChange={e => updateBreak(b.id, 'durationMinutes', Number(e.target.value))}
-                                    className="bg-white border border-gray-300 rounded pl-2 pr-10 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 w-24 text-right"
+                                    type="text"
+                                    value={b.label}
+                                    onChange={e => updateBreak(b.id, 'label', e.target.value)}
+                                    className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                                 />
-                                <span className="absolute right-2 top-1.5 text-[10px] font-bold text-gray-400">MINS</span>
-                              </div>
+                              </label>
 
-                              <span className="text-sm font-semibold text-gray-600 whitespace-nowrap flex-1 text-right">
-                                Label:
-                              </span>
+                              <label className="block">
+                                <span className="block text-[11px] font-semibold text-gray-500 mb-1">Comes after</span>
+                                <select
+                                    value={b.afterPeriod}
+                                    onChange={e => updateBreak(b.id, 'afterPeriod', Number(e.target.value))}
+                                    className="w-full bg-white border border-gray-300 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                                >
+                                  {Array.from({ length: Math.max(totalPeriods || 0, b.afterPeriod) }).map((_, i) => (
+                                      <option key={i + 1} value={i + 1}>
+                                        Period {i + 1}
+                                      </option>
+                                  ))}
+                                </select>
+                              </label>
 
-                              <input
-                                  type="text"
-                                  value={b.label}
-                                  onChange={e => updateBreak(b.id, 'label', e.target.value)}
-                                  className="bg-white border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 w-32"
-                              />
+                              <label className="block">
+                                <span className="block text-[11px] font-semibold text-gray-500 mb-1">Length</span>
+                                <div className="relative">
+                                  <input
+                                      type="number"
+                                      inputMode="numeric"
+                                      min="1"
+                                      max="180"
+                                      value={b.durationMinutes}
+                                      onChange={e => { const n = parseInt(e.target.value, 10); updateBreak(b.id, 'durationMinutes', Number.isNaN(n) ? '' : n); }}
+                                      className="w-full bg-white border border-gray-300 rounded-lg pl-3 pr-11 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-right"
+                                  />
+                                  <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400 pointer-events-none">MINS</span>
+                                </div>
+                              </label>
 
                               <button
+                                  type="button"
                                   onClick={() => removeBreak(b.id)}
-                                  className="p-1.5 text-red-500 hover:bg-red-100 rounded transition-colors ml-auto"
+                                  aria-label={`Remove ${b.label || `break ${index + 1}`}`}
+                                  className="absolute top-2 right-2 md:static p-2.5 text-red-500 hover:bg-red-100 rounded-lg transition-colors"
                               >
                                 <Trash2 size={16} />
                               </button>
@@ -369,11 +395,35 @@ export default function PeriodSetupWizard({ onContinue, resources }) {
                   )}
                 </div>
 
+                {/* What the settings produce, so mistakes show before the grid is built */}
+                <div className="space-y-2">
+                  {dayEndsAt ? (
+                      <p className="text-sm text-gray-600 text-center">
+                        {totalPeriods} {totalPeriods === 1 ? 'lesson' : 'lessons'}
+                        {usableBreaks.length > 0 && <> · {usableBreaks.length} {usableBreaks.length === 1 ? 'break' : 'breaks'}</>}
+                        {' '}· school day ends at <span className="font-semibold text-gray-900">{dayEndsAt}</span>
+                      </p>
+                  ) : !settingsValid ? (
+                      <p className="text-sm text-amber-700 text-center">Enter a start time, 1 to 25 periods, and a period length of 5 to 180 minutes.</p>
+                  ) : (
+                      <p className="text-sm text-amber-700 text-center">
+                        Give {breaksWithoutLength.map(b => b.label || 'an unnamed break').join(', ')} a length of 1 to 180 minutes, or remove {breaksWithoutLength.length === 1 ? 'it' : 'them'}.
+                      </p>
+                  )}
+                  {droppedBreaks.length > 0 && settingsValid && (
+                      <p className="flex items-start justify-center gap-1.5 text-xs text-amber-700 text-center">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        {droppedBreaks.map(b => b.label || 'A break').join(', ')} {droppedBreaks.length === 1 ? 'comes' : 'come'} after the last period and will be left out.
+                      </p>
+                  )}
+                </div>
+
                 {/* Generate Action */}
                 <button
+                    type="button"
                     onClick={handleGenerate}
-                    disabled={saving || !canGenerate}
-                    className="w-3/5 mx-auto rounded-xs py-3.5 bg-brand cursor-pointer text-white font-bold outline-none focus:ring-4 focus:ring-blue-500/30 transition-all flex justify-center items-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={saving || !canGenerate || !settingsValid || !breaksValid}
+                    className="w-full sm:w-3/5 mx-auto rounded-xs py-3.5 bg-brand cursor-pointer text-white font-bold outline-none focus:ring-4 focus:ring-blue-500/30 transition-all flex justify-center items-center gap-2 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {saving ? (
                       <>

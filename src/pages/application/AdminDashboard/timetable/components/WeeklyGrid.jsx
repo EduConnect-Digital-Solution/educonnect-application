@@ -46,11 +46,11 @@ export default function WeeklyGrid({ activeDragData }) {
   const dayHasConflict = (day) => (state.schedules || []).some(s => s.dayOfWeek === day && conflictedIds.has(s.id));
 
   return (
-    <div data-timetable-grid className="flex-1 bg-white flex flex-col overflow-hidden relative group/grid">
+    <div data-timetable-grid className="flex-1 bg-white flex flex-col lg:overflow-hidden relative group/grid">
       
-      {/* Grid Header (Days) — tabs on phones */}
+      {/* Grid Header (Days) — tabs on phones. Below lg the page scrolls, so it sticks under the app's top bar */}
       {isPhone ? (
-        <div role="tablist" aria-label="Day" className="flex border-b border-gray-200 bg-gray-50 shrink-0 sticky top-0 z-10">
+        <div role="tablist" aria-label="Day" className="flex border-b border-gray-200 bg-gray-50 shrink-0 sticky top-0 max-lg:top-[var(--app-header-h,57px)] z-10">
           {DAYS.map(day => (
             <button
               key={day}
@@ -66,7 +66,7 @@ export default function WeeklyGrid({ activeDragData }) {
           ))}
         </div>
       ) : (
-        <div className={`grid ${cols} border-b border-gray-200 bg-gray-50 shrink-0 sticky top-0 z-10`}>
+        <div className={`grid ${cols} border-b border-gray-200 bg-gray-50 shrink-0 sticky top-0 max-lg:top-[var(--app-header-h,57px)] z-10`}>
           <div className="p-3 border-r border-gray-200 flex items-end justify-end">
             <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Time</span>
           </div>

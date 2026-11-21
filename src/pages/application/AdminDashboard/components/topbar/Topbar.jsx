@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Search, Menu } from 'lucide-react';
 import CommandPalette from './CommandPalette.jsx';
 import ScopePill, { ReadOnlyScopeBanner } from './ScopePill.jsx';
@@ -41,9 +41,20 @@ export default function Topbar({ onOpenMobileNav }) {
         return () => window.removeEventListener('keydown', onKey);
     }, []);
 
+    // Publish the bar's height (it grows a second row on phones) so pages can stick headers just below it.
+    const headerRef = useRef(null);
+    useEffect(() => {
+        const el = headerRef.current;
+        if (!el || typeof ResizeObserver === 'undefined') return undefined;
+        const root = document.documentElement;
+        const observer = new ResizeObserver(() => root.style.setProperty('--app-header-h', `${el.offsetHeight}px`));
+        observer.observe(el);
+        return () => { observer.disconnect(); root.style.removeProperty('--app-header-h'); };
+    }, []);
+
     return (
         <>
-            <header className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-gray-200">
+            <header ref={headerRef} className="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-gray-200">
                 <div className="flex items-center gap-3 h-14 px-4 lg:px-6">
                     {/* Mobile nav trigger */}
                     <button
