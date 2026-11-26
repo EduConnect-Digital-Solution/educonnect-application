@@ -339,7 +339,7 @@ export const StatusChangeModal = ({ onClose, showToast, user, schoolId }) => {
 
 const EMPTY_TEACHER_INVITE = { firstName: '', lastName: '', email: '', message: '', profileImage: null };
 
-export const InviteTeacherModal = ({ onClose, showToast }) => {
+export const InviteTeacherModal = ({ onClose, showToast, onTeacherAdded }) => {
     // ── local draft (kept until the invitation is sent) ─────
     const { user } = useAuth();
     // Fixed when the form opens: if the account were still loading, no draft is read or written (never deleted).
@@ -431,9 +431,15 @@ export const InviteTeacherModal = ({ onClose, showToast }) => {
             profileImage: teacherFormData.profileImage ?? null,
         };
         try {
-            await inviteTeacher(payload);
+            const result = await inviteTeacher(payload);
             clearFormDraft(draftKey);
-            showToast('Teacher invited successfully', 'success');
+            if (result?.data?.emailSent === false) {
+                // The account exists, but the teacher never got their credentials.
+                showToast('Teacher account created, but the invitation email could not be sent. Resend it from the dashboard.', 'warning');
+            } else {
+                showToast('Teacher invited successfully', 'success');
+            }
+            onTeacherAdded?.();
             onClose();
         } catch (err) {
             showToast(err?.message || 'Registration failed', 'error');
