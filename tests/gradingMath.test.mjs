@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
     roundPoints, sumPoints, calcContribution, entryContribution,
-    findStudentScore, countRosterNames, buildStudentTotals,
+    findStudentScore, countRosterNames, buildStudentTotals, findTopStudents, rankStudents,
 } from '../src/pages/application/TeacherDashboard/teacherUtils/gradingMath.js';
 
 test('roundPoints removes binary float drift', () => {
@@ -70,4 +70,45 @@ test('buildStudentTotals weights every score before adding it up', () => {
     assert.equal(tunde.total, 10);
     // A total can never exceed the points on offer
     assert.ok(ada.total <= 100 && tunde.total <= 100);
+});
+
+test('findTopStudents marks the highest total and every tie', () => {
+    assert.deepEqual(findTopStudents([]), []);
+    assert.deepEqual(findTopStudents([{ id: 's1', total: 0 }, { id: 's2', total: 0 }]), []);
+
+    const leaders = findTopStudents([
+        { id: 's1', fullName: 'Ada Obi', total: 54.5 },
+        { id: 's2', fullName: 'Tunde Bello', total: 10 },
+        { id: 's3', fullName: 'Bola Eze', total: 54.5 },
+    ]);
+    assert.deepEqual(leaders.map((s) => s.id), ['s1', 's3']);
+
+    assert.deepEqual(
+        findTopStudents([{ id: 's1', total: '12.5' }, { id: 's2', total: 11 }]).map((s) => s.id),
+        ['s1'],
+    );
+    assert.deepEqual(findTopStudents([{ id: 's1' }, { id: 's2', total: null }]), []);
+});
+
+test('rankStudents shares ties, skips the next position and keeps roster order', () => {
+    const ranked = rankStudents([
+        { id: 's1', fullName: 'Ada', total: 50 },
+        { id: 's2', fullName: 'Tunde', total: 70 },
+        { id: 's3', fullName: 'Bola', total: 70 },
+        { id: 's4', fullName: 'Chidi', total: 10, mostRecentAssessment: { title: 'Quiz' } },
+        { id: 's5', fullName: 'No Marks', total: 0 },
+    ]);
+
+    assert.deepEqual(ranked.map((s) => [s.id, s.position]), [
+        ['s2', 1], ['s3', 1], ['s1', 3], ['s4', 4], ['s5', 5],
+    ]);
+    assert.deepEqual(ranked.map((s) => s.hasScore), [true, true, true, true, false]);
+    // The input array is not mutated or reordered.
+    assert.equal(ranked.length, 5);
+});
+
+test('rankStudents gives every pupil a position when nobody has marks', () => {
+    const ranked = rankStudents([{ id: 's1', total: 0 }, { id: 's2', total: 0 }]);
+    assert.deepEqual(ranked.map((s) => s.position), [1, 1]);
+    assert.deepEqual(ranked.map((s) => s.hasScore), [false, false]);
 });

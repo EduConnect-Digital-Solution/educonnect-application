@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft, Users, TrendingUp, AlertTriangle, BookOpen, ExternalLink, Calendar, CheckCircle2 } from 'lucide-react';
+import { ChevronLeft, Users, TrendingUp, AlertTriangle, BookOpen, ExternalLink, Calendar, CheckCircle2, Trophy, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react';
 import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import TeacherLayout from "./components/layout/TeacherLayout.jsx";
 import { getStudentsByClassandSubject } from "../../auth/authAPIs.js";
 import { getEffectivePolicy } from './services/scoreEntryAPIs.js';
 import { listAssessmentEntries } from './services/assessmentEntryAPIs.js';
 import { useAcademic } from '../../../contexts/AcademicContext.jsx';
-import { buildStudentTotals } from './teacherUtils/gradingMath.js';
+import { buildStudentTotals, findTopStudents, rankStudents } from './teacherUtils/gradingMath.js';
 
 function StatCard({ title, value, icon: Icon, className = '' }) {
     return (
@@ -21,6 +21,42 @@ function StatCard({ title, value, icon: Icon, className = '' }) {
             </div>
         </div>
     );
+}
+
+/** Clickable table heading with the same sort affordance as WorkbenchTable. */
+function SortableTh({ label, sortKey, sort, onSort, className = '' }) {
+    const active = sort.key === sortKey;
+    const Icon = !active ? ChevronsUpDown : sort.dir === 'asc' ? ChevronUp : ChevronDown;
+    return (
+        <th
+            className={className}
+            aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+        >
+            <button
+                type="button"
+                onClick={() => onSort(sortKey)}
+                className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                    active ? 'text-gray-700' : 'text-gray-500 hover:text-gray-700'
+                }`}
+                title={`Sort by ${label}`}
+            >
+                {label}
+                <Icon size={12} className={active ? 'opacity-90' : 'opacity-40'} />
+            </button>
+        </th>
+    );
+}
+
+/** Value used when a teacher table heading is clicked. */
+function sortValue(student, key) {
+    if (key === 'position') return Number(student.position) || 0;
+    if (key === 'name') return student.fullName || '';
+    if (key === 'recent') return student.mostRecentAssessment?.date || '';
+    if (key === 'total') return Number(student.total) || 0;
+    if (key === 'grade') return student.displayGrade || '';
+    if (key === 'exam') return Number(student.scores?.exam) || 0;
+    if (key.startsWith('ca:')) return Number(student.scores?.[key.slice(3)]) || 0;
+    return 0;
 }
 
 export default function ClassStudents() {
@@ -77,6 +113,33 @@ export default function ClassStudents() {
         fetchData();
     }, [fetchData]);
 
+    // Rank the roster by current total, then mark the leading student(s) the
+    // same way the admin broadsheet does.
+    const rankedStudents = useMemo(() => rankStudents(students), [students]);
+    const leaders = useMemo(() => findTopStudents(rankedStudents), [rankedStudents]);
+    const leadingIds = useMemo(() => new Set(leaders.map((s) => s.id)), [leaders]);
+    const topStudent = leaders[0];
+
+    // Column sorting. Rank is the default; clicking a heading toggles direction.
+    const [sort, setSort] = useState({ key: 'position', dir: 'asc' });
+    const toggleSort = useCallback((key) => {
+        setSort((current) => current.key === key
+            ? { key, dir: current.dir === 'asc' ? 'desc' : 'asc' }
+            : { key, dir: 'asc' });
+    }, []);
+    const sortedStudents = useMemo(() => {
+        const rows = [...rankedStudents];
+        rows.sort((a, b) => {
+            const av = sortValue(a, sort.key);
+            const bv = sortValue(b, sort.key);
+            const comparison = typeof av === 'number' && typeof bv === 'number'
+                ? av - bv
+                : String(av).localeCompare(String(bv), undefined, { numeric: true });
+            return sort.dir === 'asc' ? comparison : -comparison;
+        });
+        return rows;
+    }, [rankedStudents, sort]);
+
     return (
         <TeacherLayout>
             <div className="flex flex-col gap-6 max-w-7xl mx-auto pb-10">
@@ -132,11 +195,22 @@ export default function ClassStudents() {
 
                         {/* Table */}
                         <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-                            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                                <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                                    <Calendar size={16} className="text-gray-400" />
-                                    Academic Details of Students
-                                </h3>
+                            <div className="px-5 py-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                                        <Calendar size={16} className="text-gray-400" />
+                                        Academic Details of Students
+                                    </h3>
+                                    {topStudent && (
+                                        <span
+                                            className="inline-flex items-center gap-1.5 text-[11px] bg-amber-50/70 border border-amber-200 text-amber-700 rounded-full px-2.5 py-1 font-semibold dark:bg-amber-400/10 dark:border-amber-400/30"
+                                            title={leaders.map((s) => s.fullName).join(', ')}
+                                        >
+                                            <Trophy size={12} />
+                                            1st: {topStudent.fullName}{leaders.length > 1 ? ` +${leaders.length - 1}` : ''}
+                                        </span>
+                                    )}
+                                </div>
                                 {policy && (
                                     <div className="flex items-center gap-2">
                                         <span className="text-[10px] uppercase tracking-wider font-bold text-gray-400">Active Policy:</span>
@@ -150,31 +224,61 @@ export default function ClassStudents() {
                                 <table className="w-full text-sm whitespace-nowrap">
                                     <thead>
                                         <tr className="bg-gray-50/50 border-b border-gray-200">
-                                            <th className="px-5 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Student Details</th>
-                                            <th className="px-5 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Most Recent Assessment</th>
+                                            <SortableTh label="Position" sortKey="position" sort={sort} onSort={toggleSort} className="px-4 py-3 text-center" />
+                                            <SortableTh label="Student Details" sortKey="name" sort={sort} onSort={toggleSort} className="px-5 py-3 text-left" />
+                                            <SortableTh label="Most Recent Assessment" sortKey="recent" sort={sort} onSort={toggleSort} className="px-5 py-3 text-left" />
                                             {policy?.caComponents?.map(ca => (
-                                                <th key={ca.id} className="px-5 py-3 text-center text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                                                    {ca.name} ({ca.maxScore})
-                                                </th>
+                                                <SortableTh
+                                                    key={ca.id}
+                                                    label={`${ca.name} (${ca.maxScore})`}
+                                                    sortKey={`ca:${ca.id}`}
+                                                    sort={sort}
+                                                    onSort={toggleSort}
+                                                    className="px-5 py-3 text-center"
+                                                />
                                             ))}
-                                            <th className="px-5 py-3 text-center text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                                                Exam ({policy?.examMax ?? 60})
-                                            </th>
-                                            <th className="px-5 py-3 text-center text-[10px] font-bold text-gray-500 uppercase tracking-wider bg-blue-50/50">Current Total</th>
-                                            <th className="px-5 py-3 text-center text-[10px] font-bold text-gray-500 uppercase tracking-wider">Grade Name</th>
+                                            <SortableTh label={`Exam (${policy?.examMax ?? 60})`} sortKey="exam" sort={sort} onSort={toggleSort} className="px-5 py-3 text-center" />
+                                            <SortableTh label="Current Total" sortKey="total" sort={sort} onSort={toggleSort} className="px-5 py-3 text-center bg-blue-50/50" />
+                                            <SortableTh label="Grade Name" sortKey="grade" sort={sort} onSort={toggleSort} className="px-5 py-3 text-center" />
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
-                                        {students.map((student, idx) => {
+                                        {sortedStudents.map((student, idx) => {
                                             const rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30';
                                             const mra = student.mostRecentAssessment;
                                             const isPending = student.displayGrade === 'Pending';
+                                            const isLeading = leadingIds.has(student.id);
                                             
                                             return (
-                                                <tr key={student.id} className={`hover:bg-gray-50 transition-colors ${rowBg}`}>
+                                                <tr
+                                                    key={student.id}
+                                                    className={`transition-colors ${isLeading ? 'bg-amber-50/40 hover:bg-amber-50/60 dark:bg-amber-400/10 dark:hover:bg-amber-400/15' : `${rowBg} hover:bg-gray-50`}`}
+                                                >
+                                                    <td className="px-4 py-3 text-center">
+                                                        <span
+                                                            className={`inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 font-mono text-xs font-bold ${
+                                                                student.hasScore && student.position <= 3 ? 'text-amber-600' : 'text-gray-400'
+                                                            }`}
+                                                            title="Class position"
+                                                        >
+                                                            {student.hasScore ? student.position : '—'}
+                                                        </span>
+                                                    </td>
                                                     <td className="px-5 py-3">
-                                                        <p className="font-semibold text-gray-900">{student.fullName}</p>
-                                                        <p className="text-[10px] text-gray-500 mt-0.5 font-mono">{student.admissionNo || student.id.split('-')[0]}</p>
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="font-semibold text-gray-900">{student.fullName}</p>
+                                                            {isLeading && (
+                                                                <span
+                                                                    className="inline-flex items-center gap-1 rounded-full border border-amber-200/70 bg-amber-100 text-amber-700 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide dark:bg-amber-400/15 dark:border-amber-400/30"
+                                                                    title="Leading student"
+                                                                >
+                                                                    <Trophy size={10} /> 1st
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-[10px] text-gray-500 mt-0.5 font-mono" title="Admission number">
+                                                            {student.admissionNo || student.studentId || '—'}
+                                                        </p>
                                                     </td>
                                                     <td className="px-5 py-3">
                                                         {mra ? (
@@ -208,7 +312,7 @@ export default function ClassStudents() {
                                                 </tr>
                                             );
                                         })}
-                                        {students.length === 0 && (
+                                        {sortedStudents.length === 0 && (
                                             <tr>
                                                 <td colSpan={100} className="p-8 text-center text-sm text-gray-500 italic">
                                                     No students enrolled in this subject.
