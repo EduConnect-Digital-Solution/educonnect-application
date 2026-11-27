@@ -277,7 +277,7 @@ export default function ClassStudents() {
                                                             )}
                                                         </div>
                                                         <p className="text-[10px] text-gray-500 mt-0.5 font-mono" title="Admission number">
-                                                            {student.studentId || student.admissionNo || '—'}
+                                                            {student.admissionNo || student.studentId || '—'}
                                                         </p>
                                                     </td>
                                                     <td className="px-5 py-3">
