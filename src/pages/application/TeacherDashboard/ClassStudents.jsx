@@ -276,7 +276,9 @@ export default function ClassStudents() {
                                                                 </span>
                                                             )}
                                                         </div>
-                                                        <p className="text-[10px] text-gray-500 mt-0.5 font-mono">{student.admissionNo || student.id.split('-')[0]}</p>
+                                                        <p className="text-[10px] text-gray-500 mt-0.5 font-mono" title="Admission number">
+                                                            {student.studentId || student.admissionNo || '—'}
+                                                        </p>
                                                     </td>
                                                     <td className="px-5 py-3">
                                                         {mra ? (
