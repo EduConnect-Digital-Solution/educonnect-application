@@ -80,6 +80,33 @@ export function findTopStudents(students) {
 }
 
 /**
+ * Rank a roster by current total for display. Ties share a position and the
+ * next position skips (1, 2, 2, 4), matching the admin broadsheet. Equal totals
+ * keep the roster order. `hasScore` is false for a pupil with no marks yet.
+ */
+export function rankStudents(students) {
+    const rows = (students || []).map((student, index) => ({ student, index }));
+    rows.sort((a, b) => {
+        const difference = (Number(b.student.total) || 0) - (Number(a.student.total) || 0);
+        return difference || a.index - b.index;
+    });
+
+    let previousTotal = null;
+    let previousPosition = 0;
+    return rows.map(({ student }, index) => {
+        const total = Number(student.total) || 0;
+        const position = previousTotal !== null && total === previousTotal ? previousPosition : index + 1;
+        previousTotal = total;
+        previousPosition = position;
+        return {
+            ...student,
+            position,
+            hasScore: Boolean(student.mostRecentAssessment) || total > 0,
+        };
+    });
+}
+
+/**
  * Per-student weighted totals for a roster.
  * Returns [{ ...student, scores: { [componentId]: points, exam: points }, total, mostRecentAssessment }].
  */

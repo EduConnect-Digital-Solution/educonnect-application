@@ -7,7 +7,7 @@ import { getStudentsByClassandSubject } from "../../auth/authAPIs.js";
 import { getEffectivePolicy } from './services/scoreEntryAPIs.js';
 import { listAssessmentEntries } from './services/assessmentEntryAPIs.js';
 import { useAcademic } from '../../../contexts/AcademicContext.jsx';
-import { buildStudentTotals, findTopStudents } from './teacherUtils/gradingMath.js';
+import { buildStudentTotals, findTopStudents, rankStudents } from './teacherUtils/gradingMath.js';
 
 function StatCard({ title, value, icon: Icon, className = '' }) {
     return (
@@ -77,8 +77,10 @@ export default function ClassStudents() {
         fetchData();
     }, [fetchData]);
 
-    // The leading student(s) by current total, marked the same way the admin broadsheet does.
-    const leaders = useMemo(() => findTopStudents(students), [students]);
+    // Rank the roster by current total, then mark the leading student(s) the
+    // same way the admin broadsheet does.
+    const rankedStudents = useMemo(() => rankStudents(students), [students]);
+    const leaders = useMemo(() => findTopStudents(rankedStudents), [rankedStudents]);
     const leadingIds = useMemo(() => new Set(leaders.map((s) => s.id)), [leaders]);
     const topStudent = leaders[0];
 
@@ -145,7 +147,7 @@ export default function ClassStudents() {
                                     </h3>
                                     {topStudent && (
                                         <span
-                                            className="inline-flex items-center gap-1.5 text-[11px] bg-amber-50 border border-amber-200 text-amber-700 rounded-full px-2.5 py-1 font-semibold"
+                                            className="inline-flex items-center gap-1.5 text-[11px] bg-amber-50/70 border border-amber-200 text-amber-700 rounded-full px-2.5 py-1 font-semibold dark:bg-amber-400/10 dark:border-amber-400/30"
                                             title={leaders.map((s) => s.fullName).join(', ')}
                                         >
                                             <Trophy size={12} />
@@ -166,6 +168,7 @@ export default function ClassStudents() {
                                 <table className="w-full text-sm whitespace-nowrap">
                                     <thead>
                                         <tr className="bg-gray-50/50 border-b border-gray-200">
+                                            <th className="px-4 py-3 text-center text-[10px] font-bold text-gray-500 uppercase tracking-wider">Position</th>
                                             <th className="px-5 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Student Details</th>
                                             <th className="px-5 py-3 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Most Recent Assessment</th>
                                             {policy?.caComponents?.map(ca => (
@@ -181,7 +184,7 @@ export default function ClassStudents() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
-                                        {students.map((student, idx) => {
+                                        {rankedStudents.map((student, idx) => {
                                             const rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30';
                                             const mra = student.mostRecentAssessment;
                                             const isPending = student.displayGrade === 'Pending';
@@ -190,14 +193,24 @@ export default function ClassStudents() {
                                             return (
                                                 <tr
                                                     key={student.id}
-                                                    className={`transition-colors ${isLeading ? 'bg-amber-50/60 hover:bg-amber-50/80' : `${rowBg} hover:bg-gray-50`}`}
+                                                    className={`transition-colors ${isLeading ? 'bg-amber-50/40 hover:bg-amber-50/60 dark:bg-amber-400/10 dark:hover:bg-amber-400/15' : `${rowBg} hover:bg-gray-50`}`}
                                                 >
+                                                    <td className="px-4 py-3 text-center">
+                                                        <span
+                                                            className={`inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 font-mono text-xs font-bold ${
+                                                                student.hasScore && student.position <= 3 ? 'text-amber-600' : 'text-gray-400'
+                                                            }`}
+                                                            title="Class position"
+                                                        >
+                                                            {student.hasScore ? student.position : '—'}
+                                                        </span>
+                                                    </td>
                                                     <td className="px-5 py-3">
                                                         <div className="flex items-center gap-2">
                                                             <p className="font-semibold text-gray-900">{student.fullName}</p>
                                                             {isLeading && (
                                                                 <span
-                                                                    className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide"
+                                                                    className="inline-flex items-center gap-1 rounded-full border border-amber-200/70 bg-amber-100 text-amber-700 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide dark:bg-amber-400/15 dark:border-amber-400/30"
                                                                     title="Leading student"
                                                                 >
                                                                     <Trophy size={10} /> 1st
@@ -238,7 +251,7 @@ export default function ClassStudents() {
                                                 </tr>
                                             );
                                         })}
-                                        {students.length === 0 && (
+                                        {rankedStudents.length === 0 && (
                                             <tr>
                                                 <td colSpan={100} className="p-8 text-center text-sm text-gray-500 italic">
                                                     No students enrolled in this subject.
