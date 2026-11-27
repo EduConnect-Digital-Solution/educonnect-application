@@ -293,6 +293,12 @@
     .hover\:bg-blue-700:hover     { background-color: var(--brand-700) !important; }
     .bg-blue-50                   { background-color: var(--brand-50)  !important; }
     .bg-blue-100                  { background-color: var(--brand-100) !important; }
+    /* Fractional blue tints (highlighted columns/rows) must be dark too, or
+       they stay a light wash on the dark surface. */
+    .bg-blue-50\/30               { background-color: oklch(0.210 0.060 263 / 0.30) !important; }
+    .bg-blue-50\/40               { background-color: oklch(0.210 0.060 263 / 0.40) !important; }
+    .bg-blue-50\/50               { background-color: oklch(0.210 0.060 263 / 0.50) !important; }
+    .bg-blue-50\/60               { background-color: oklch(0.210 0.060 263 / 0.60) !important; }
     .border-blue-200              { border-color: oklch(0.320 0.090 263) !important; }
     .border-blue-600              { border-color: var(--brand-600)       !important; }
     .focus\:ring-blue-500:focus   { --tw-ring-color: var(--border-focus) !important; }
