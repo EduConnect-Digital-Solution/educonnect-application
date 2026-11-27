@@ -69,6 +69,17 @@ export function findStudentScore(entry, student, nameCounts) {
 }
 
 /**
+ * The student(s) with the highest current total. Returns [] when nobody has a
+ * score yet, and every student on a tie so no leader is picked arbitrarily.
+ */
+export function findTopStudents(students) {
+    const rows = (students || []).filter((s) => Number.isFinite(Number(s.total)));
+    const top = rows.reduce((max, s) => Math.max(max, Number(s.total) || 0), 0);
+    if (top <= 0) return [];
+    return rows.filter((s) => Number(s.total) === top);
+}
+
+/**
  * Per-student weighted totals for a roster.
  * Returns [{ ...student, scores: { [componentId]: points, exam: points }, total, mostRecentAssessment }].
  */

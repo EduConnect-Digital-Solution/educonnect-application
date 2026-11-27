@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
     roundPoints, sumPoints, calcContribution, entryContribution,
-    findStudentScore, countRosterNames, buildStudentTotals,
+    findStudentScore, countRosterNames, buildStudentTotals, findTopStudents,
 } from '../src/pages/application/TeacherDashboard/teacherUtils/gradingMath.js';
 
 test('roundPoints removes binary float drift', () => {
@@ -70,4 +70,22 @@ test('buildStudentTotals weights every score before adding it up', () => {
     assert.equal(tunde.total, 10);
     // A total can never exceed the points on offer
     assert.ok(ada.total <= 100 && tunde.total <= 100);
+});
+
+test('findTopStudents marks the highest total and every tie', () => {
+    assert.deepEqual(findTopStudents([]), []);
+    assert.deepEqual(findTopStudents([{ id: 's1', total: 0 }, { id: 's2', total: 0 }]), []);
+
+    const leaders = findTopStudents([
+        { id: 's1', fullName: 'Ada Obi', total: 54.5 },
+        { id: 's2', fullName: 'Tunde Bello', total: 10 },
+        { id: 's3', fullName: 'Bola Eze', total: 54.5 },
+    ]);
+    assert.deepEqual(leaders.map((s) => s.id), ['s1', 's3']);
+
+    assert.deepEqual(
+        findTopStudents([{ id: 's1', total: '12.5' }, { id: 's2', total: 11 }]).map((s) => s.id),
+        ['s1'],
+    );
+    assert.deepEqual(findTopStudents([{ id: 's1' }, { id: 's2', total: null }]), []);
 });

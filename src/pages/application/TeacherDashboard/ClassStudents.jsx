@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft, Users, TrendingUp, AlertTriangle, BookOpen, ExternalLink, Calendar, CheckCircle2 } from 'lucide-react';
+import { ChevronLeft, Users, TrendingUp, AlertTriangle, BookOpen, ExternalLink, Calendar, CheckCircle2, Trophy } from 'lucide-react';
 import { default as Loader2 } from '@/components/brand/LoaderIcon.jsx';
 import TeacherLayout from "./components/layout/TeacherLayout.jsx";
 import { getStudentsByClassandSubject } from "../../auth/authAPIs.js";
 import { getEffectivePolicy } from './services/scoreEntryAPIs.js';
 import { listAssessmentEntries } from './services/assessmentEntryAPIs.js';
 import { useAcademic } from '../../../contexts/AcademicContext.jsx';
-import { buildStudentTotals } from './teacherUtils/gradingMath.js';
+import { buildStudentTotals, findTopStudents } from './teacherUtils/gradingMath.js';
 
 function StatCard({ title, value, icon: Icon, className = '' }) {
     return (
@@ -77,6 +77,11 @@ export default function ClassStudents() {
         fetchData();
     }, [fetchData]);
 
+    // The leading student(s) by current total, marked the same way the admin broadsheet does.
+    const leaders = useMemo(() => findTopStudents(students), [students]);
+    const leadingIds = useMemo(() => new Set(leaders.map((s) => s.id)), [leaders]);
+    const topStudent = leaders[0];
+
     return (
         <TeacherLayout>
             <div className="flex flex-col gap-6 max-w-7xl mx-auto pb-10">
@@ -132,11 +137,22 @@ export default function ClassStudents() {
 
                         {/* Table */}
                         <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-                            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                                <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                                    <Calendar size={16} className="text-gray-400" />
-                                    Academic Details of Students
-                                </h3>
+                            <div className="px-5 py-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-3">
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                                        <Calendar size={16} className="text-gray-400" />
+                                        Academic Details of Students
+                                    </h3>
+                                    {topStudent && (
+                                        <span
+                                            className="inline-flex items-center gap-1.5 text-[11px] bg-amber-50 border border-amber-200 text-amber-700 rounded-full px-2.5 py-1 font-semibold"
+                                            title={leaders.map((s) => s.fullName).join(', ')}
+                                        >
+                                            <Trophy size={12} />
+                                            1st: {topStudent.fullName}{leaders.length > 1 ? ` +${leaders.length - 1}` : ''}
+                                        </span>
+                                    )}
+                                </div>
                                 {policy && (
                                     <div className="flex items-center gap-2">
                                         <span className="text-[10px] uppercase tracking-wider font-bold text-gray-400">Active Policy:</span>
@@ -169,11 +185,25 @@ export default function ClassStudents() {
                                             const rowBg = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30';
                                             const mra = student.mostRecentAssessment;
                                             const isPending = student.displayGrade === 'Pending';
+                                            const isLeading = leadingIds.has(student.id);
                                             
                                             return (
-                                                <tr key={student.id} className={`hover:bg-gray-50 transition-colors ${rowBg}`}>
+                                                <tr
+                                                    key={student.id}
+                                                    className={`transition-colors ${isLeading ? 'bg-amber-50/60 hover:bg-amber-50/80' : `${rowBg} hover:bg-gray-50`}`}
+                                                >
                                                     <td className="px-5 py-3">
-                                                        <p className="font-semibold text-gray-900">{student.fullName}</p>
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="font-semibold text-gray-900">{student.fullName}</p>
+                                                            {isLeading && (
+                                                                <span
+                                                                    className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-700 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide"
+                                                                    title="Leading student"
+                                                                >
+                                                                    <Trophy size={10} /> 1st
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                         <p className="text-[10px] text-gray-500 mt-0.5 font-mono">{student.admissionNo || student.id.split('-')[0]}</p>
                                                     </td>
                                                     <td className="px-5 py-3">
