@@ -453,7 +453,8 @@ function AssessmentDrawer({
     const maxScoreNum      = Number(maxScore);
     // A worked example for the hint, always within what the assessment is marked out of
     const exampleScore     = maxScoreNum > 0 ? Math.max(1, Math.round(maxScoreNum * 0.75)) : 0;
-    const contribValid     = contribNum > 0 && contribNum <= maxContribution;
+    // Without a component there is no cap to check yet; the component pick is required to save anyway
+    const contribValid     = contribNum > 0 && (!selectedComponent || contribNum <= maxContribution);
     const detailsComplete  = componentId && title.trim() && effectiveType && maxScoreNum > 0 && contribValid;
     const gradedCount      = Object.values(scoreMap).filter(v => v !== '').length;
 
@@ -645,7 +646,11 @@ function AssessmentDrawer({
                     />
                     {contribution && !contribValid && !readOnly && (
                         <p className="mt-1 text-[10px] text-red-500">
-                            Must be between 1 and {maxContribution} pts
+                            {!selectedComponent
+                                ? 'Must be greater than 0 pts'
+                                : maxContribution > 0
+                                    ? `Must be between 1 and ${maxContribution} pts`
+                                    : 'This component has no points left'}
                         </p>
                     )}
                     {contribValid && selectedComponent && (
